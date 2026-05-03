@@ -258,4 +258,6 @@ wspr_logger/
 
 ## License
 
-MIT — free to use, modify, and distribute.
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+Free to use, modify, and distribute. Attribution appreciated but not required.
