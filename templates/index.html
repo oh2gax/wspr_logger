@@ -894,7 +894,7 @@ async function fetchLatest() {
             setStatus(null, false);
         }
         fetchTodayStats();
-        fetchReporters();
+        if (showCountries) updateCountryOverlay(data.countries || []);
     } catch(e) {
         setStatus(null, false, 'Connection error');
     }
@@ -1010,30 +1010,29 @@ function toggleCountries() {
     showCountries = !showCountries;
     document.getElementById('swCountries').className = 'sw' + (showCountries ? ' on' : '');
     document.getElementById('countryOverlay').style.display = showCountries ? 'block' : 'none';
-    if (showCountries) fetchReporters();
+    if (showCountries) {
+        fetch('/api/reporters')
+            .then(r => r.json())
+            .then(data => updateCountryOverlay(data.countries || []))
+            .catch(() => {});
+    }
 }
 
-async function fetchReporters() {
-    if (!showCountries) return;
-    try {
-        const r    = await fetch(`/api/reporters?band=${currentBand}`);
-        const data = await r.json();
-        const list = data.countries || [];
-        const el   = document.getElementById('countryList');
-        if (!list.length) {
-            el.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">No data</div>';
-            return;
-        }
-        const maxCount = list[0].count;
-        el.innerHTML = list.map(c => `
-            <div class="country-row">
-                <span class="country-name">${c.country}</span>
-                <div class="country-bar-wrap">
-                    <div class="country-bar" style="width:${Math.round(c.count / maxCount * 100)}%"></div>
-                </div>
-                <span class="country-count">${c.count}</span>
-            </div>`).join('');
-    } catch(e) { /* silent */ }
+function updateCountryOverlay(list) {
+    const el = document.getElementById('countryList');
+    if (!list.length) {
+        el.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">No data</div>';
+        return;
+    }
+    const maxCount = list[0].count;
+    el.innerHTML = list.map(c => `
+        <div class="country-row">
+            <span class="country-name">${c.country}</span>
+            <div class="country-bar-wrap">
+                <div class="country-bar" style="width:${Math.round(c.count / maxCount * 100)}%"></div>
+            </div>
+            <span class="country-count">${c.count}</span>
+        </div>`).join('');
 }
 
 // ── Sidebar collapse ───────────────────────────────────────────────────────
