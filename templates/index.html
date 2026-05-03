@@ -385,6 +385,47 @@ select:focus, input:focus { border-color: var(--accent); }
     color: var(--text-muted);
 }
 
+/* Country list overlay */
+.country-list {
+    margin-top: 4px;
+}
+.country-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+    font-size: 12px;
+}
+.country-name {
+    flex: 1;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.country-bar-wrap {
+    width: 46px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.country-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width .4s ease;
+}
+.country-count {
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 600;
+    min-width: 16px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
 /* ── VIEW HEADER (shared) ── */
 .view-header {
     padding: 10px 16px;
@@ -624,6 +665,10 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
                 <span>Position Trail</span>
                 <div class="sw on" id="swTrail" onclick="toggleTrail()"></div>
             </div>
+            <div class="toggle-row">
+                <span>Reporter Countries</span>
+                <div class="sw" id="swCountries" onclick="toggleCountries()"></div>
+            </div>
         </div>
 
         <!-- Today's mini-stats -->
@@ -690,6 +735,12 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
                     <div class="prop-bar-fill" id="propBarFill"></div>
                 </div>
                 <div class="prop-reporters" id="propReporters">— reporters</div>
+            </div>
+            <div class="map-overlay" id="countryOverlay" style="display:none;">
+                <div class="ov-lbl">Reporter Countries</div>
+                <div class="country-list" id="countryList">
+                    <div style="color:var(--text-muted);font-size:11px;">No data</div>
+                </div>
             </div>
         </div>
     </div>
@@ -865,6 +916,7 @@ let currentBand  = {{ default_band }};
 let showTrail    = true;
 let isDark       = true;
 let statsWindow  = '1h';      // 'today' | '1h'
+let showCountries = false;
 
 // Live map objects
 let liveMap       = null;
@@ -955,6 +1007,7 @@ async function fetchLatest() {
             setStatus(null, false);
         }
         fetchTodayStats();
+        fetchReporters();
     } catch(e) {
         setStatus(null, false, 'Connection error');
     }
@@ -1070,6 +1123,37 @@ function changeBand(val) {
     document.getElementById('ovBand').textContent    = BAND_NAMES[currentBand] || val+'MHz';
     document.getElementById('todayBand').textContent = BAND_NAMES[currentBand] || val+'MHz';
     fetchLatest();
+}
+
+// ── Reporter countries ─────────────────────────────────────────────────────
+function toggleCountries() {
+    showCountries = !showCountries;
+    document.getElementById('swCountries').className = 'sw' + (showCountries ? ' on' : '');
+    document.getElementById('countryOverlay').style.display = showCountries ? 'block' : 'none';
+    if (showCountries) fetchReporters();
+}
+
+async function fetchReporters() {
+    if (!showCountries) return;
+    try {
+        const r    = await fetch(`/api/reporters?band=${currentBand}`);
+        const data = await r.json();
+        const list = data.countries || [];
+        const el   = document.getElementById('countryList');
+        if (!list.length) {
+            el.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">No data</div>';
+            return;
+        }
+        const maxCount = list[0].count;
+        el.innerHTML = list.map(c => `
+            <div class="country-row">
+                <span class="country-name">${c.country}</span>
+                <div class="country-bar-wrap">
+                    <div class="country-bar" style="width:${Math.round(c.count / maxCount * 100)}%"></div>
+                </div>
+                <span class="country-count">${c.count}</span>
+            </div>`).join('');
+    } catch(e) { /* silent */ }
 }
 
 // ── Sidebar collapse ───────────────────────────────────────────────────────
