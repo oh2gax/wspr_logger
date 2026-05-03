@@ -24,7 +24,8 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 
 ## Screenshots
 
-> *Live map (dark mode) with position overlay, propagation card, and reporter countries panel on the right; collapsible info sidebar on the left.*
+![WSPR Logger — live map view](https://raw.githubusercontent.com/oh2gax/wspr_logger/main/Main_screen_1_wspr_logger.png)
+*Live map (dark mode) with position overlay, propagation card, and reporter countries panel on the right; collapsible info sidebar on the left.*
 
 ---
 
