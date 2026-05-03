@@ -50,9 +50,10 @@ if not os.path.isabs(DB_PATH):
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), "templates"))
 
 # Thread-safe state
-_state_lock = threading.Lock()
+_state_lock      = threading.Lock()
 _last_update_utc = None      # ISO string of last successful fetch
 _update_error    = None      # Last error message, if any
+_cached_countries = []       # Reporter countries from last poll
 
 
 # ---------------------------------------------------------------------------
@@ -224,8 +225,29 @@ def fetch_latest_spot(callsign: str, band: int):
 # ---------------------------------------------------------------------------
 
 def update_thread():
-    global _last_update_utc, _update_error
+    global _last_update_utc, _update_error, _cached_countries
     print(f"[INFO] Update thread started — tracking {CALLSIGN} on {DEFAULT_BAND} MHz")
+
+    # Populate caches immediately on startup so the UI has data before the
+    # first scheduled poll cycle (minutes ending in :08).
+    print(f"[INFO] Initial fetch on startup...")
+    initial_spot = fetch_latest_spot(CALLSIGN, DEFAULT_BAND)
+    if initial_spot:
+        ts = initial_spot.get("time", "")
+        try:
+            ts_dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+            if ts_dt.minute % 10 == 2:
+                lat, lon = maidenhead_to_latlon(initial_spot["tx_loc"])
+                if lat is not None:
+                    db.insert_spot(ts, initial_spot["tx_loc"], lat, lon,
+                                   DEFAULT_BAND,
+                                   int(initial_spot.get("reporter_count") or 0),
+                                   int(initial_spot.get("max_distance")   or 0))
+        except ValueError:
+            pass
+    with _state_lock:
+        _cached_countries = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
+    print(f"[INFO] Initial fetch complete — {len(_cached_countries)} countries cached")
 
     while True:
         now = datetime.utcnow()
@@ -235,7 +257,10 @@ def update_thread():
         if now.minute % 10 == 8:
             print(f"[INFO] Polling WSPR.live at {now.strftime('%H:%M:%S')} UTC")
 
-            row = fetch_latest_spot(CALLSIGN, DEFAULT_BAND)
+            row      = fetch_latest_spot(CALLSIGN, DEFAULT_BAND)
+            countries = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
+            with _state_lock:
+                _cached_countries = countries
 
             if row:
                 tx_loc         = row["tx_loc"]
@@ -310,13 +335,15 @@ def api_latest():
     band = request.args.get("band", type=int)
     spot = db.get_latest_spot(band)
     with _state_lock:
-        lu = _last_update_utc
-        err = _update_error
+        lu        = _last_update_utc
+        err       = _update_error
+        countries = _cached_countries
     return jsonify({
         "spot":        spot,
         "last_update": lu,
         "error":       err,
         "callsign":    CALLSIGN,
+        "countries":   countries,
     })
 
 
@@ -354,8 +381,8 @@ def api_stats():
 
 @app.route("/api/reporters")
 def api_reporters():
-    band = request.args.get("band", type=int, default=DEFAULT_BAND)
-    countries = fetch_reporter_countries(CALLSIGN, band)
+    with _state_lock:
+        countries = _cached_countries
     return jsonify({"countries": countries})
 
 

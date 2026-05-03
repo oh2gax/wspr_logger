@@ -34,7 +34,8 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 2. The query groups all received spots for the latest transmission by `(tx_loc, time)` and returns the Maidenhead locator, UTC timestamp, reporter count, and maximum reported distance.
 3. Valid new spots are inserted into the local SQLite database; duplicates are silently ignored.
 4. The browser polls `/api/latest` every 60 seconds and updates the map, overlays, and sidebar without a page reload.
-5. When the Reporter Countries overlay is enabled, a separate call to `/api/reporters` fetches all unique reporter callsigns from the past 60 minutes and maps them to countries using ITU callsign prefix tables.
+5. On startup the background thread performs an immediate fetch of the latest spot and reporter countries so the UI has data ready the moment the page is opened, without waiting for the first scheduled poll cycle.
+6. Reporter country data is cached in memory by the backend and bundled into every `/api/latest` response. When the Reporter Countries overlay is toggled on, the frontend fetches the cached list from `/api/reporters` instantly — no extra wspr.live query is triggered from the browser at any point.
 
 ---
 
@@ -217,7 +218,7 @@ Up to three **overlay cards** appear in the top-right corner:
 | ≤ 60      | Very good |
 | > 60      | Extremely good |
 
-**Reporter Countries** *(optional, enable via sidebar toggle)* — lists every country from which at least one station reported the beacon during the **past 60 minutes**, with a proportional bar and unique station count. Countries are sorted by station count, highest first. The list updates every 60 seconds alongside the main poll.
+**Reporter Countries** *(optional, enable via sidebar toggle)* — lists every country from which at least one station reported the beacon during the **past 60 minutes**, with a proportional bar and unique station count per country. Countries are sorted by station count, highest first. When the toggle is switched on, the cached list loads instantly from the backend. The list refreshes automatically every 10 minutes in sync with the backend polling cycle — no direct wspr.live queries are made from the browser.
 
 Zoom level is remembered in the browser between sessions.
 
@@ -276,7 +277,7 @@ wspr_logger/
 | `/api/latest` | GET | `band` | Most recent spot and server status |
 | `/api/positions` | GET | `date`, or `from`+`to`, `band` | List of spots for a date or time range |
 | `/api/stats` | GET | `date`, `band` | Aggregated stats for a date plus all-time records |
-| `/api/reporters` | GET | `band` | Unique reporter countries from the past 60 minutes |
+| `/api/reporters` | GET | — | Cached reporter countries from the past 60 minutes |
 
 ---
 
