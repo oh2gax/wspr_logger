@@ -91,6 +91,110 @@ def wsprlive_query(sql: str):
         return None
 
 
+# ---------------------------------------------------------------------------
+# Callsign prefix → Country mapping (ITU allocations)
+# ---------------------------------------------------------------------------
+
+_COUNTRY_MAP = {
+    # UK & Ireland
+    'GM':'Scotland',  'GW':'Wales',     'GI':'N. Ireland', 'GD':'Isle of Man',
+    'GJ':'Jersey',    'GU':'Guernsey',  'G':'UK',          'M':'UK',
+    'EI':'Ireland',
+    # Scandinavia
+    'OH':'Finland',   'OF':'Finland',   'OG':'Finland',
+    'SM':'Sweden',    'SA':'Sweden',    'SK':'Sweden',      'SL':'Sweden',
+    'LA':'Norway',    'LB':'Norway',
+    'OZ':'Denmark',   'OU':'Denmark',   'OV':'Denmark',
+    'OY':'Faroe Is.', 'OX':'Greenland', 'TF':'Iceland',
+    # Western Europe
+    'DL':'Germany',   'DA':'Germany',   'DC':'Germany',     'DD':'Germany',
+    'DF':'Germany',   'DG':'Germany',   'DH':'Germany',     'DJ':'Germany',
+    'DK':'Germany',   'DM':'Germany',   'DO':'Germany',
+    'F':'France',
+    'PA':'Netherlands','PB':'Netherlands','PC':'Netherlands','PD':'Netherlands',
+    'PE':'Netherlands','PH':'Netherlands','PI':'Netherlands',
+    'ON':'Belgium',   'OO':'Belgium',   'OP':'Belgium',
+    'HB':'Switzerland','OE':'Austria',
+    'IK':'Italy',     'IW':'Italy',     'IZ':'Italy',       'I':'Italy',
+    'EA':'Spain',     'EB':'Spain',     'EC':'Spain',
+    'CT':'Portugal',  'CS':'Portugal',
+    # Central & Eastern Europe
+    'SP':'Poland',    'SQ':'Poland',    'SR':'Poland',      'SO':'Poland',
+    'OK':'Czechia',   'OL':'Czechia',   'OM':'Slovakia',
+    'HA':'Hungary',   'HG':'Hungary',
+    'YO':'Romania',   'YP':'Romania',
+    'LZ':'Bulgaria',
+    'SV':'Greece',    'SW':'Greece',    'SX':'Greece',
+    'TA':'Turkey',
+    # Baltic & Belarus
+    'ES':'Estonia',   'YL':'Latvia',    'LY':'Lithuania',   'EW':'Belarus',
+    # Ukraine
+    'UR':'Ukraine',   'US':'Ukraine',   'UT':'Ukraine',     'UX':'Ukraine',
+    'UY':'Ukraine',   'UZ':'Ukraine',   'EM':'Ukraine',     'EN':'Ukraine',
+    # Russia
+    'UA':'Russia',    'RA':'Russia',    'RK':'Russia',      'RL':'Russia',
+    'RN':'Russia',    'RT':'Russia',    'RU':'Russia',      'RV':'Russia',
+    'RW':'Russia',    'RX':'Russia',    'RZ':'Russia',      'R':'Russia',
+    # Americas
+    'AA':'USA',  'AB':'USA',  'AC':'USA',  'AD':'USA',  'AE':'USA',
+    'AF':'USA',  'AG':'USA',  'AI':'USA',  'AK':'USA',  'AL':'USA',
+    'K':'USA',   'W':'USA',   'N':'USA',
+    'VE':'Canada',    'VA':'Canada',
+    'PY':'Brazil',    'PP':'Brazil',    'PT':'Brazil',      'PU':'Brazil',
+    'LU':'Argentina', 'CE':'Chile',     'XE':'Mexico',      'HK':'Colombia',
+    # Asia / Pacific
+    'JA':'Japan',     'JE':'Japan',     'JF':'Japan',       'JG':'Japan',
+    'JH':'Japan',     'JI':'Japan',     'JJ':'Japan',       'JL':'Japan',
+    'JR':'Japan',     'JS':'Japan',
+    'VK':'Australia', 'ZL':'New Zealand',
+    'HL':'S. Korea',  'DS':'S. Korea',
+    'BY':'China',     'BG':'China',     'BA':'China',
+    'VU':'India',     'HS':'Thailand',
+    # Africa & Middle East
+    'ZS':'S. Africa', '4X':'Israel',    '4Z':'Israel',
+    '5B':'Cyprus',    'A4':'Oman',      'A6':'UAE',
+    'EA8':'Canary Is.',
+}
+
+
+def callsign_to_country(sign: str) -> str:
+    """Return a country name for a given amateur callsign."""
+    base = sign.upper().strip().split('/')[0]   # strip /P /M suffixes
+    for length in (3, 2, 1):
+        if len(base) >= length:
+            country = _COUNTRY_MAP.get(base[:length])
+            if country:
+                return country
+    return base[:2] if len(base) >= 2 else base  # fallback: show prefix
+
+
+def fetch_reporter_countries(callsign: str, band: int) -> list:
+    """
+    Return [{country, count}, …] for the most recent transmission,
+    sorted by count descending.
+    """
+    sql = f"""
+        SELECT DISTINCT rx_sign
+        FROM wspr.rx
+        WHERE tx_sign = '{callsign}'
+          AND band    = {band}
+          AND time > subtractMinutes(now(), 60)
+    """
+    rows = wsprlive_query(sql)
+    if not rows:
+        return []
+
+    counts: dict = {}
+    for row in rows:
+        country = callsign_to_country(row.get("rx_sign", "??"))
+        counts[country] = counts.get(country, 0) + 1
+
+    return sorted(
+        [{"country": c, "count": n} for c, n in counts.items()],
+        key=lambda x: -x["count"]
+    )
+
+
 def fetch_latest_spot(callsign: str, band: int):
     """
     Fetch the most recent WSPR transmission for callsign/band.
@@ -239,6 +343,13 @@ def api_stats():
         "available_dates": dates,
         "all_time":        alltime,
     })
+
+
+@app.route("/api/reporters")
+def api_reporters():
+    band = request.args.get("band", type=int, default=DEFAULT_BAND)
+    countries = fetch_reporter_countries(CALLSIGN, band)
+    return jsonify({"countries": countries})
 
 
 @app.route("/api/config", methods=["GET"])

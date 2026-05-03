@@ -1,6 +1,6 @@
 # WSPR Logger
 
-A lightweight web-based dashboard for tracking and logging WSPR beacon transmissions in real time. Built with Python/Flask on the backend and a single-page Leaflet.js frontend, it queries [wspr.live](https://wspr.live) every 10 minutes, stores spots in a local SQLite database, and presents live position, history, statistics, and propagation conditions in the browser.
+A lightweight web-based dashboard for tracking and logging WSPR beacon transmissions in real time. Built with Python/Flask on the backend and a single-page Leaflet.js frontend, it queries [wspr.live](https://wspr.live) every 10 minutes, stores spots in a local SQLite database, and presents live position, history, statistics, propagation conditions, and reporter country breakdowns in the browser.
 
 Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operating on the 20 m band from a car, but fully configurable for any callsign and band.
 
@@ -8,12 +8,14 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 
 ## Features
 
-- **Live map** — shows the current beacon position as a circle marker with a dashed trail of today's path
-- **Propagation indicator** — estimates band conditions from reporter count (Very poor → Extremely good)
+- **Live map** — shows the current beacon position as a circle marker; auto-centres on the beacon when the first spot arrives; zoom level is remembered between sessions
+- **Position trail** — dashed polyline connecting today's logged positions on the live map
+- **Propagation indicator** — estimates band conditions from the latest reporter count (Very poor → Extremely good) with a colour-coded bar
+- **Reporter countries** — optional overlay listing every country that heard the beacon in the past hour, with a proportional bar and station count per country; toggle on/off from the sidebar
 - **History view** — map and table of all logged spots for any selected date
 - **Statistics view** — daily and all-time records (spot count, longest DX, max reporters)
 - **Band selector** — switch between 80 m / 40 m / 30 m / 20 m / 17 m / 15 m / 12 m / 10 m
-- **1 h / Today stats** — toggle the sidebar mini-stats between the current hour and the full day
+- **1 h / Today stats** — toggle the sidebar mini-stats between the last 60 minutes (default) and the full day
 - **Light / Dark theme** — toggle in the sidebar; preference is remembered in the browser
 - **Collapsible sidebar** — fold the panel away for a full-screen map view, handy on mobile
 - **Settings page** — change callsign, band, map defaults, server address and database path; saved to `config.ini`
@@ -23,7 +25,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 
 ## Screenshots
 
-> *Live map (dark mode) with position overlay and propagation card on the right, collapsible info sidebar on the left.*
+> *Live map (dark mode) with position overlay, propagation card, and reporter countries panel on the right; collapsible info sidebar on the left.*
 
 ---
 
@@ -33,6 +35,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 2. The query groups all received spots for the latest transmission by `(tx_loc, time)` and returns the Maidenhead locator, UTC timestamp, reporter count, and maximum reported distance.
 3. Valid new spots are inserted into the local SQLite database; duplicates are silently ignored.
 4. The browser polls `/api/latest` every 60 seconds and updates the map, overlays, and sidebar without a page reload.
+5. When the Reporter Countries overlay is enabled, a separate call to `/api/reporters` fetches all unique reporter callsigns from the past 60 minutes and maps them to countries using ITU callsign prefix tables.
 
 ---
 
@@ -192,26 +195,30 @@ sudo ufw allow 5008/tcp
 | **Last Spot (UTC)** | Timestamp of the most recent logged transmission |
 | **Band selector** | Switch the active band; all views update instantly |
 | **Position Trail** | Toggle the dashed trail connecting today's positions on the live map |
-| **Today / 1h tabs** | Switch the mini-stats cards between the full day and the last 60 minutes |
+| **Reporter Countries** | Toggle the country breakdown overlay on the live map |
+| **1h / Today tabs** | Switch the mini-stats cards between the last 60 minutes (default) and the full day |
 | **🌙 / ☀️ Dark / Light Mode** | Toggle the colour theme; saved across sessions |
 
 ### Live Map
 
-The main view opens by default. The **blue circle** is the current beacon position. A **dashed polyline** shows the path for today. Click the circle to see a popup with full spot details.
+The main view opens by default. The **blue circle** is the current beacon position; the map auto-pans to it when the first spot arrives. A **dashed polyline** shows the path for today. Click the circle to see a popup with full spot details.
 
-The **two overlay cards** in the top-right corner show:
+Up to three **overlay cards** appear in the top-right corner:
 
-- **Current Position** — locator, timestamp, reporter count, max DX, and band
-- **Propagation** — estimated band condition with a colour-coded bar:
+**Current Position** — locator, timestamp, reporter count, max DX, and band.
 
-  | Reporters | Condition |
-  |-----------|-----------|
-  | ≤ 5       | Very poor |
-  | ≤ 10      | Poor |
-  | ≤ 20      | Normal |
-  | ≤ 40      | Good |
-  | ≤ 60      | Very good |
-  | > 60      | Extremely good |
+**Propagation** — estimated band condition based on the number of reporters for the most recent transmission, shown with a colour-coded label and fill bar:
+
+| Reporters | Condition |
+|-----------|-----------|
+| ≤ 5       | Very poor |
+| ≤ 10      | Poor |
+| ≤ 20      | Normal |
+| ≤ 40      | Good |
+| ≤ 60      | Very good |
+| > 60      | Extremely good |
+
+**Reporter Countries** *(optional, enable via sidebar toggle)* — lists every country from which at least one station reported the beacon during the **past 60 minutes**, with a proportional bar and unique station count. Countries are sorted by station count, highest first. The list updates every 60 seconds alongside the main poll.
 
 Zoom level is remembered in the browser between sessions.
 
@@ -251,6 +258,7 @@ wspr_logger/
 | `/api/latest` | GET | `band` | Most recent spot and server status |
 | `/api/positions` | GET | `date`, or `from`+`to`, `band` | List of spots for a date or time range |
 | `/api/stats` | GET | `date`, `band` | Aggregated stats for a date plus all-time records |
+| `/api/reporters` | GET | `band` | Unique reporter countries from the past 60 minutes |
 | `/api/config` | GET | — | Current configuration |
 | `/api/config` | POST | JSON body | Save new configuration to `config.ini` |
 
