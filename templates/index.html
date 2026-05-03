@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WSPR Logger &mdash; {{ callsign }}</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+<style>
+/* ── CSS Variables — Dark (default) ── */
+:root {
+    --bg-base:       #111827;
+    --bg-surface:    #1f2937;
+    --bg-deep:       #0d1117;
+    --border:        #374151;
+    --text-primary:  #d1d5db;
+    --text-secondary:#9ca3af;
+    --text-muted:    #4b5563;
+    --accent:        #38bdf8;
+    --accent-dim:    #0369a1;
+    --accent-bg:     #1e3a5f;
+    --accent-btn:    #0369a1;
+    --accent-btn-hover: #0284c7;
+    --green:         #4ade80;
+    --dot-live:      #22c55e;
+    --dot-stale:     #f59e0b;
+    --dot-dead:      #ef4444;
+    --overlay-bg:    rgba(17,24,39,.93);
+    --input-bg:      #111827;
+    --mini-card-bg:  #111827;
+    --scrollbar-thumb: #374151;
+    --toast-bg:      #1e3a5f;
+    --toast-ok-bg:   #14532d;
+    --toast-ok-text: #bbf7d0;
+    --toast-err-bg:  #7f1d1d;
+    --toast-err-text:#fecaca;
+    --popup-bg:      #1f2937;
+    --popup-border:  #374151;
+    --popup-text:    #d1d5db;
+    --popup-strong:  #38bdf8;
+    --popup-tip:     #1f2937;
+}
+/* ── CSS Variables — Light ── */
+html.light {
+    --bg-base:       #f1f5f9;
+    --bg-surface:    #ffffff;
+    --bg-deep:       #e2e8f0;
+    --border:        #cbd5e1;
+    --text-primary:  #1e293b;
+    --text-secondary:#475569;
+    --text-muted:    #94a3b8;
+    --accent:        #0284c7;
+    --accent-dim:    #7dd3fc;
+    --accent-bg:     #e0f2fe;
+    --accent-btn:    #0284c7;
+    --accent-btn-hover: #0369a1;
+    --green:         #16a34a;
+    --dot-live:      #16a34a;
+    --dot-stale:     #d97706;
+    --dot-dead:      #dc2626;
+    --overlay-bg:    rgba(241,245,249,.93);
+    --input-bg:      #f8fafc;
+    --mini-card-bg:  #f1f5f9;
+    --scrollbar-thumb: #94a3b8;
+    --toast-bg:      #0284c7;
+    --toast-ok-bg:   #166534;
+    --toast-ok-text: #dcfce7;
+    --toast-err-bg:  #991b1b;
+    --toast-err-text:#fee2e2;
+    --popup-bg:      #ffffff;
+    --popup-border:  #cbd5e1;
+    --popup-text:    #1e293b;
+    --popup-strong:  #0284c7;
+    --popup-tip:     #ffffff;
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    display: flex;
+    height: 100vh;
+    transition: background .2s, color .2s;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 10;
+    transition: width .25s ease, min-width .25s ease;
+}
+#sidebar.collapsed {
+    width: 36px;
+    min-width: 36px;
+}
+#sidebar.collapsed #sbToggleBtn { transform: rotate(180deg); }
+.sb-header {
+    padding: 14px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    position: relative;
+}
+#sbToggleBtn {
+    position: absolute;
+    top: 8px; right: 8px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    width: 22px; height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 9px;
+    line-height: 20px;
+    text-align: center;
+    transition: transform .25s, background .15s;
+    flex-shrink: 0;
+    user-select: none;
+    padding: 0;
+}
+#sbToggleBtn:hover { background: var(--border); color: var(--text-primary); }
+.sb-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: .5px;
+}
+.sb-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+.sb-sub strong { color: var(--text-secondary); }
+
+/* Status bar */
+.status-bar {
+    padding: 6px 14px;
+    background: var(--bg-deep);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--dot-live);
+    flex-shrink: 0;
+    transition: background .3s;
+}
+.dot.stale { background: var(--dot-stale); }
+.dot.dead  { background: var(--dot-dead); }
+
+/* Navigation */
+nav {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary);
+    border-left: 3px solid transparent;
+    transition: background .15s, color .15s;
+    user-select: none;
+}
+.nav-item:hover { background: var(--border); color: var(--text-primary); }
+.nav-item.active { background: var(--accent-bg); color: var(--accent); border-left-color: var(--accent); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; }
+
+/* Sidebar scrollable body */
+.sb-body {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+.sb-body::-webkit-scrollbar { width: 4px; }
+.sb-body::-webkit-scrollbar-track { background: var(--bg-surface); }
+.sb-body::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
+
+/* Info panel */
+.info-panel {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+}
+.lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text-muted);
+    margin-top: 9px;
+}
+.lbl:first-child { margin-top: 0; }
+.val { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.val.mono { font-family: 'Courier New', monospace; font-size: 22px; color: var(--accent); letter-spacing: 3px; }
+.val.green { color: var(--green); }
+.val.sm  { font-size: 13px; }
+.row2 { display: flex; gap: 16px; }
+.row2 > div { flex: 1; }
+
+/* Sidebar sections */
+.sb-section {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+}
+.sb-section-lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+/* Form controls */
+select, input[type=text], input[type=number], input[type=date] {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 6px 9px;
+    border-radius: 5px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .15s;
+}
+select:focus, input:focus { border-color: var(--accent); }
+
+/* Toggle switch */
+.toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 7px;
+}
+.toggle-row:last-child { margin-bottom: 0; }
+.sw {
+    width: 34px; height: 18px;
+    background: var(--border);
+    border-radius: 9px;
+    cursor: pointer;
+    position: relative;
+    transition: background .2s;
+    flex-shrink: 0;
+}
+.sw.on { background: var(--accent-dim); }
+.sw::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    background: var(--text-secondary);
+    border-radius: 50%;
+    top: 3px; left: 3px;
+    transition: left .2s, background .2s;
+}
+.sw.on::after { left: 19px; background: var(--accent); }
+
+/* Today mini-stats */
+.mini-stats {
+    padding: 10px 14px;
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+}
+.mini-stats-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.mini-stats-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text-muted);
+}
+.ms-tabs { display: flex; gap: 2px; }
+.ms-tab {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--text-muted);
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    user-select: none;
+    transition: background .15s, color .15s;
+}
+.ms-tab:hover { color: var(--text-primary); }
+.ms-tab.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-dim); }
+.mini-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+.mini-card {
+    background: var(--mini-card-bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 7px 9px;
+}
+.mini-card-lbl { font-size: 10px; color: var(--text-muted); }
+.mini-card-val { font-size: 18px; font-weight: 700; color: var(--accent); }
+.mini-card-val.g { color: var(--green); }
+
+/* ── Main content ── */
+#main {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Views */
+.view { position: absolute; inset: 0; display: none; flex-direction: column; }
+.view.active { display: flex; }
+
+/* ── MAP VIEW ── */
+#map { flex: 1; }
+.map-overlays {
+    position: absolute;
+    top: 12px; right: 12px;
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+.map-overlay {
+    background: var(--overlay-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    min-width: 210px;
+    backdrop-filter: blur(6px);
+}
+.ov-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: var(--text-muted); margin-bottom: 4px; }
+.ov-locator { font-size: 28px; font-weight: 700; color: var(--accent); font-family: monospace; letter-spacing: 4px; }
+.ov-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.ov-stats { display: flex; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.ov-stat { flex: 1; }
+.ov-stat-lbl { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+.ov-stat-val { font-size: 14px; font-weight: 600; color: var(--green); }
+
+/* Propagation overlay */
+.prop-condition {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 3px 0 6px;
+    transition: color .4s;
+}
+.prop-bar-wrap {
+    height: 5px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+.prop-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width .5s ease, background .5s ease;
+    width: 0%;
+}
+.prop-reporters {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* ── VIEW HEADER (shared) ── */
+.view-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-surface);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+.view-title { font-size: 15px; font-weight: 600; color: var(--accent); margin-right: 4px; }
+.quick-btn {
+    padding: 4px 9px;
+    font-size: 11px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s, color .15s;
+}
+.quick-btn:hover { background: var(--border); color: var(--text-primary); }
+.quick-btn.active-qb { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-dim); }
+
+/* ── HISTORY VIEW ── */
+.history-body { flex: 1; display: flex; overflow: hidden; }
+#history-map { flex: 1; }
+.hist-table-pane {
+    width: 330px;
+    min-width: 330px;
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+.hist-table-pane::-webkit-scrollbar { width: 4px; }
+.hist-table-pane::-webkit-scrollbar-track { background: var(--bg-surface); }
+.hist-table-pane::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); }
+.htbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.htbl th {
+    padding: 8px 10px;
+    background: var(--bg-deep);
+    color: var(--text-muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    text-align: left;
+    position: sticky; top: 0;
+    border-bottom: 1px solid var(--border);
+}
+.htbl td { padding: 7px 10px; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+.htbl tr:hover td { background: var(--accent-bg); }
+.htbl td.mono { font-family: monospace; color: var(--accent); font-size: 13px; }
+.no-data { text-align: center; padding: 32px; color: var(--border); font-size: 13px; }
+
+/* ── STATISTICS VIEW ── */
+#stats-view { overflow-y: auto; }
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+    padding: 18px;
+}
+.stat-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+}
+.stat-card-lbl { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.stat-card-val { font-size: 30px; font-weight: 700; color: var(--accent); margin: 4px 0 2px; }
+.stat-card-val.g { color: var(--green); }
+.stat-card-val.sm2 { font-size: 18px; }
+.stat-card-unit { font-size: 12px; color: var(--text-muted); }
+.dates-section { padding: 0 18px 18px; }
+.dates-title { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+.dates-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.alltime-section {
+    margin: 0 18px 18px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+}
+.alltime-title { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+.alltime-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.at-item-lbl { font-size: 10px; color: var(--text-muted); }
+.at-item-val { font-size: 16px; font-weight: 700; color: var(--accent); }
+
+/* ── SETTINGS VIEW ── */
+#settings-view { overflow-y: auto; }
+.sett-wrap { max-width: 480px; margin: 0 auto; padding: 22px; }
+.sett-title { font-size: 17px; font-weight: 700; color: var(--accent); margin-bottom: 18px; }
+.sett-section {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+}
+.sett-section-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+}
+.form-field { margin-bottom: 10px; }
+.form-field:last-child { margin-bottom: 0; }
+.form-field label { font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px; }
+.btn-save {
+    width: 100%;
+    padding: 10px;
+    background: var(--accent-btn);
+    color: #e0f2fe;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s;
+}
+.btn-save:hover { background: var(--accent-btn-hover); }
+.sett-note { font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 6px; }
+
+/* ── Toast ── */
+#toast {
+    position: fixed;
+    bottom: 20px; right: 20px;
+    background: var(--toast-bg);
+    color: #e0f2fe;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    z-index: 9999;
+    display: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,.3);
+    max-width: 320px;
+}
+#toast.ok  { background: var(--toast-ok-bg);  color: var(--toast-ok-text); }
+#toast.err { background: var(--toast-err-bg); color: var(--toast-err-text); }
+
+/* ── Leaflet popup theming ── */
+.leaflet-popup-content-wrapper {
+    background: var(--popup-bg) !important;
+    color: var(--popup-text) !important;
+    border: 1px solid var(--popup-border) !important;
+    border-radius: 6px !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,.2) !important;
+}
+.leaflet-popup-tip { background: var(--popup-tip) !important; }
+.leaflet-popup-content { font-size: 12px; line-height: 1.7; color: var(--popup-text); }
+.leaflet-popup-content strong { color: var(--popup-strong); }
+.leaflet-popup-content .popup-divider {
+    border: none;
+    border-top: 1px solid var(--popup-border);
+    margin: 5px 0;
+}
+
+/* Leaflet controls in light mode */
+html.light .leaflet-control-zoom a {
+    background: var(--bg-surface) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+}
+html.light .leaflet-bar { border-color: var(--border) !important; }
+
+.leaflet-div-icon { background: none !important; border: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ SIDEBAR ═══════════════════════ -->
+<div id="sidebar">
+    <div class="sb-header">
+        <div class="sb-title">📡 WSPR Logger</div>
+        <div class="sb-sub">Tracking: <strong>{{ callsign }}</strong></div>
+        <button id="sbToggleBtn" onclick="toggleSidebar()" title="Collapse sidebar">◀</button>
+    </div>
+
+    <div class="status-bar">
+        <div class="dot" id="statusDot"></div>
+        <span id="statusText">Connecting…</span>
+    </div>
+
+    <nav>
+        <div class="nav-item active" id="nav-map"      onclick="showView('map')">      <span class="nav-icon">🗺️</span> Live Map</div>
+        <div class="nav-item"        id="nav-history"  onclick="showView('history')">  <span class="nav-icon">📅</span> History</div>
+        <div class="nav-item"        id="nav-stats"    onclick="showView('stats')">    <span class="nav-icon">📊</span> Statistics</div>
+        <div class="nav-item"        id="nav-settings" onclick="showView('settings')"> <span class="nav-icon">⚙️</span> Settings</div>
+        <div class="nav-item"        id="nav-theme"    onclick="toggleTheme()">        <span class="nav-icon" id="themeIcon">🌙</span> <span id="themeLabel">Dark Mode</span></div>
+    </nav>
+
+    <div class="sb-body">
+        <!-- Current position info -->
+        <div class="info-panel">
+            <div class="lbl">Locator</div>
+            <div class="val mono" id="infoLocator">——</div>
+
+            <div class="row2">
+                <div><div class="lbl">Latitude</div><div class="val sm" id="infoLat">—</div></div>
+                <div><div class="lbl">Longitude</div><div class="val sm" id="infoLon">—</div></div>
+            </div>
+
+            <div class="row2">
+                <div><div class="lbl">Reporters</div><div class="val green" id="infoReporters">—</div></div>
+                <div><div class="lbl">Max DX</div><div class="val green" id="infoMaxDist">—</div></div>
+            </div>
+
+            <div class="lbl">Last Spot (UTC)</div>
+            <div class="val sm" id="infoTime">—</div>
+        </div>
+
+        <!-- Band selector -->
+        <div class="sb-section">
+            <div class="sb-section-lbl">Band</div>
+            <select id="bandSelect" onchange="changeBand(this.value)">
+                <option value="14" {% if default_band==14 %}selected{% endif %}>20m — 14 MHz</option>
+                <option value="7"  {% if default_band==7  %}selected{% endif %}>40m — 7 MHz</option>
+                <option value="10" {% if default_band==10 %}selected{% endif %}>30m — 10 MHz</option>
+                <option value="18" {% if default_band==18 %}selected{% endif %}>17m — 18 MHz</option>
+                <option value="21" {% if default_band==21 %}selected{% endif %}>15m — 21 MHz</option>
+                <option value="24" {% if default_band==24 %}selected{% endif %}>12m — 24 MHz</option>
+                <option value="28" {% if default_band==28 %}selected{% endif %}>10m — 28 MHz</option>
+                <option value="3"  {% if default_band==3  %}selected{% endif %}>80m — 3.5 MHz</option>
+            </select>
+        </div>
+
+        <!-- Map layer toggles -->
+        <div class="sb-section">
+            <div class="sb-section-lbl">Map Layers</div>
+            <div class="toggle-row">
+                <span>Position Trail</span>
+                <div class="sw on" id="swTrail" onclick="toggleTrail()"></div>
+            </div>
+        </div>
+
+        <!-- Today's mini-stats -->
+        <div class="mini-stats">
+            <div class="mini-stats-hdr">
+                <div class="mini-stats-title" id="miniStatsTitle">Last 1h</div>
+                <div class="ms-tabs">
+                    <span class="ms-tab"        id="tabToday" onclick="setStatsWindow('today')">Today</span>
+                    <span class="ms-tab active" id="tab1h"    onclick="setStatsWindow('1h')">1h</span>
+                </div>
+            </div>
+            <div class="mini-grid">
+                <div class="mini-card">
+                    <div class="mini-card-lbl">Spots</div>
+                    <div class="mini-card-val" id="todaySpots">—</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-card-lbl">Best DX</div>
+                    <div class="mini-card-val g" id="todayDX">—</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-card-lbl">Reporters</div>
+                    <div class="mini-card-val" id="todayReporters">—</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-card-lbl">Band</div>
+                    <div class="mini-card-val" id="todayBand">20m</div>
+                </div>
+            </div>
+        </div>
+    </div><!-- /sb-body -->
+</div><!-- /sidebar -->
+
+<!-- ═══════════════════════ MAIN CONTENT ═══════════════════════ -->
+<div id="main">
+
+    <!-- ── MAP VIEW ── -->
+    <div class="view active" id="map-view">
+        <div id="map"></div>
+        <div class="map-overlays">
+            <div class="map-overlay" id="mapOverlay">
+                <div class="ov-lbl">Current Position</div>
+                <div class="ov-locator" id="ovLocator">——</div>
+                <div class="ov-time"    id="ovTime">No data yet</div>
+                <div class="ov-stats">
+                    <div class="ov-stat">
+                        <div class="ov-stat-lbl">Reporters</div>
+                        <div class="ov-stat-val" id="ovReporters">—</div>
+                    </div>
+                    <div class="ov-stat">
+                        <div class="ov-stat-lbl">Max DX</div>
+                        <div class="ov-stat-val" id="ovDX">—</div>
+                    </div>
+                    <div class="ov-stat">
+                        <div class="ov-stat-lbl">Band</div>
+                        <div class="ov-stat-val" id="ovBand">20m</div>
+                    </div>
+                </div>
+            </div>
+            <div class="map-overlay" id="propOverlay">
+                <div class="ov-lbl">Propagation</div>
+                <div class="prop-condition" id="propCondition">No data</div>
+                <div class="prop-bar-wrap">
+                    <div class="prop-bar-fill" id="propBarFill"></div>
+                </div>
+                <div class="prop-reporters" id="propReporters">— reporters</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── HISTORY VIEW ── -->
+    <div class="view" id="history-view">
+        <div class="view-header">
+            <span class="view-title">📅 History</span>
+            <input type="date" id="histDate" onchange="loadHistory()" style="width:140px;">
+            <span class="quick-btn" onclick="setHistDate(0);  loadHistory()">Today</span>
+            <span class="quick-btn" onclick="setHistDate(-1); loadHistory()">Yesterday</span>
+            <span class="quick-btn" onclick="setHistDate(-7); loadHistory()">−7 days</span>
+        </div>
+        <div class="history-body">
+            <div id="history-map"></div>
+            <div class="hist-table-pane">
+                <table class="htbl">
+                    <thead>
+                        <tr>
+                            <th>Time UTC</th>
+                            <th>Locator</th>
+                            <th>Rprtrs</th>
+                            <th>DX km</th>
+                        </tr>
+                    </thead>
+                    <tbody id="histTbody">
+                        <tr><td colspan="4" class="no-data">Pick a date above</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── STATISTICS VIEW ── -->
+    <div class="view" id="stats-view">
+        <div class="view-header">
+            <span class="view-title">📊 Statistics</span>
+            <input type="date" id="statsDate" onchange="loadStats()" style="width:140px;">
+            <span class="quick-btn" onclick="setStatsDate(0); loadStats()">Today</span>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-card-lbl">Total Spots</div>
+                <div class="stat-card-val" id="stSpots">—</div>
+                <div class="stat-card-unit">transmissions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-lbl">Max Reporters</div>
+                <div class="stat-card-val g" id="stMaxRprt">—</div>
+                <div class="stat-card-unit">stations heard you</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-lbl">Longest DX</div>
+                <div class="stat-card-val g" id="stMaxDX">—</div>
+                <div class="stat-card-unit">km</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-lbl">First Spot</div>
+                <div class="stat-card-val sm2" id="stFirst">—</div>
+                <div class="stat-card-unit">UTC</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-lbl">Last Spot</div>
+                <div class="stat-card-val sm2" id="stLast">—</div>
+                <div class="stat-card-unit">UTC</div>
+            </div>
+        </div>
+
+        <div class="alltime-section">
+            <div class="alltime-title">All-Time Records</div>
+            <div class="alltime-grid">
+                <div><div class="at-item-lbl">Total Spots</div><div class="at-item-val" id="atSpots">—</div></div>
+                <div><div class="at-item-lbl">Best DX</div><div class="at-item-val" id="atDX">—</div></div>
+                <div><div class="at-item-lbl">Best Reporters</div><div class="at-item-val" id="atRprt">—</div></div>
+                <div><div class="at-item-lbl">Active Days</div><div class="at-item-val" id="atDays">—</div></div>
+                <div><div class="at-item-lbl">First Ever</div><div class="at-item-val" id="atFirst" style="font-size:12px;">—</div></div>
+                <div><div class="at-item-lbl">Last Ever</div><div class="at-item-val" id="atLast" style="font-size:12px;">—</div></div>
+            </div>
+        </div>
+
+        <div class="dates-section">
+            <div class="dates-title">Logged Dates</div>
+            <div class="dates-chips" id="dateChips"></div>
+        </div>
+    </div>
+
+    <!-- ── SETTINGS VIEW ── -->
+    <div class="view" id="settings-view">
+        <div class="sett-wrap">
+            <div class="sett-title">⚙️ Settings</div>
+
+            <div class="sett-section">
+                <div class="sett-section-title">Station</div>
+                <div class="form-field">
+                    <label>Callsign</label>
+                    <input type="text" id="sCallsign" placeholder="e.g. OH2GAX">
+                </div>
+                <div class="form-field">
+                    <label>Default Band</label>
+                    <select id="sDefaultBand">
+                        <option value="14">20m — 14 MHz</option>
+                        <option value="7">40m — 7 MHz</option>
+                        <option value="10">30m — 10 MHz</option>
+                        <option value="18">17m — 18 MHz</option>
+                        <option value="21">15m — 21 MHz</option>
+                        <option value="24">12m — 24 MHz</option>
+                        <option value="28">10m — 28 MHz</option>
+                        <option value="3">80m — 3.5 MHz</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="sett-section">
+                <div class="sett-section-title">Map Default View</div>
+                <div class="form-field">
+                    <label>Default Latitude</label>
+                    <input type="text" id="sMapLat" placeholder="e.g. 60.0">
+                </div>
+                <div class="form-field">
+                    <label>Default Longitude</label>
+                    <input type="text" id="sMapLon" placeholder="e.g. 24.0">
+                </div>
+                <div class="form-field">
+                    <label>Default Zoom Level (1–18)</label>
+                    <input type="number" id="sMapZoom" placeholder="6" min="1" max="18">
+                </div>
+            </div>
+
+            <div class="sett-section">
+                <div class="sett-section-title">Server</div>
+                <div class="form-field">
+                    <label>Host / IP Address</label>
+                    <input type="text" id="sHost" placeholder="0.0.0.0">
+                </div>
+                <div class="form-field">
+                    <label>Port</label>
+                    <input type="number" id="sPort" placeholder="5008">
+                </div>
+            </div>
+
+            <div class="sett-section">
+                <div class="sett-section-title">Database</div>
+                <div class="form-field">
+                    <label>SQLite file path</label>
+                    <input type="text" id="sDbPath" placeholder="wspr_data.db">
+                </div>
+            </div>
+
+            <button class="btn-save" onclick="saveSettings()">💾 Save Settings</button>
+            <div class="sett-note">Restart the server to apply changes</div>
+        </div>
+    </div>
+
+</div><!-- /main -->
+
+<div id="toast"></div>
+
+<!-- ═══════════════════════ JAVASCRIPT ═══════════════════════ -->
+<script>
+'use strict';
+
+// ── Constants (injected by Flask) ──────────────────────────────────────────
+const CALLSIGN    = "{{ callsign }}";
+const MAP_LAT     = {{ map_lat }};
+const MAP_LON     = {{ map_lon }};
+const MAP_ZOOM    = {{ map_zoom }};
+
+const BAND_NAMES = {3:'80m',7:'40m',10:'30m',14:'20m',18:'17m',21:'15m',24:'12m',28:'10m'};
+
+// ── State ──────────────────────────────────────────────────────────────────
+let currentBand  = {{ default_band }};
+let showTrail    = true;
+let isDark       = true;
+let statsWindow  = '1h';      // 'today' | '1h'
+
+// Live map objects
+let liveMap       = null;
+let liveTileLayer = null;
+let liveMarker    = null;
+let liveTrail     = null;
+
+// Latest spot cache
+let latestSpot    = null;
+
+// History map objects
+let histMap       = null;
+let histTileLayer = null;
+let histTrail     = null;
+let histMarkers   = [];
+
+// ── Tile layers ────────────────────────────────────────────────────────────
+function makeTiles(dark) {
+    return dark
+        ? L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+            { attribution: '© OpenStreetMap © CARTO', maxZoom: 19 })
+        : L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+            { attribution: '© OpenStreetMap © CARTO', maxZoom: 19 });
+}
+
+function swapTiles(map, oldLayer) {
+    if (oldLayer) map.removeLayer(oldLayer);
+    const newLayer = makeTiles(isDark);
+    newLayer.addTo(map);
+    return newLayer;
+}
+
+// ── Init live map ──────────────────────────────────────────────────────────
+function initLiveMap() {
+    const savedZoom = parseInt(localStorage.getItem('wspr_zoom')) || MAP_ZOOM;
+    liveMap = L.map('map', { center:[MAP_LAT, MAP_LON], zoom:savedZoom });
+    liveTileLayer = makeTiles(isDark);
+    liveTileLayer.addTo(liveMap);
+    liveMap.on('zoomend', () => {
+        localStorage.setItem('wspr_zoom', liveMap.getZoom());
+    });
+}
+
+// ── Init history map ───────────────────────────────────────────────────────
+function initHistMap() {
+    histMap = L.map('history-map', { center:[MAP_LAT, MAP_LON], zoom:MAP_ZOOM - 1 });
+    histTileLayer = makeTiles(isDark);
+    histTileLayer.addTo(histMap);
+}
+
+// ── Theme toggle ───────────────────────────────────────────────────────────
+function toggleTheme() {
+    isDark = !isDark;
+    document.documentElement.classList.toggle('light', !isDark);
+    document.getElementById('themeIcon').textContent  = isDark ? '🌙' : '☀️';
+    document.getElementById('themeLabel').textContent = isDark ? 'Dark Mode' : 'Light Mode';
+    localStorage.setItem('wspr_theme', isDark ? 'dark' : 'light');
+
+    if (liveMap && liveTileLayer) {
+        liveTileLayer = swapTiles(liveMap, liveTileLayer);
+    }
+    if (histMap && histTileLayer) {
+        histTileLayer = swapTiles(histMap, histTileLayer);
+    }
+}
+
+function initTheme() {
+    const saved = localStorage.getItem('wspr_theme');
+    if (saved === 'light') {
+        isDark = false;
+        document.documentElement.classList.add('light');
+        document.getElementById('themeIcon').textContent  = '☀️';
+        document.getElementById('themeLabel').textContent = 'Light Mode';
+    }
+}
+
+// ── Fetch latest spot and update live map ──────────────────────────────────
+async function fetchLatest() {
+    try {
+        const r    = await fetch(`/api/latest?band=${currentBand}`);
+        const data = await r.json();
+
+        if (data.spot) {
+            latestSpot = data.spot;
+            updateLiveDisplay(data.spot);
+            setStatus(data.spot.timestamp, true);
+        } else {
+            setStatus(null, false);
+        }
+        fetchTodayStats();
+    } catch(e) {
+        setStatus(null, false, 'Connection error');
+    }
+}
+
+function updateLiveDisplay(spot) {
+    const { lat, lon, tx_loc, timestamp, reporter_count, max_distance } = spot;
+
+    // Sidebar info panel
+    document.getElementById('infoLocator').textContent   = tx_loc;
+    document.getElementById('infoLat').textContent       = lat.toFixed(4) + '°';
+    document.getElementById('infoLon').textContent       = lon.toFixed(4) + '°';
+    document.getElementById('infoReporters').textContent = reporter_count;
+    document.getElementById('infoMaxDist').textContent   = max_distance ? max_distance + ' km' : '—';
+    document.getElementById('infoTime').textContent      = timestamp;
+
+    // Map overlay
+    document.getElementById('ovLocator').textContent   = tx_loc;
+    document.getElementById('ovTime').textContent      = timestamp + ' UTC';
+    document.getElementById('ovReporters').textContent = reporter_count;
+    document.getElementById('ovDX').textContent        = max_distance ? max_distance + ' km' : '—';
+    document.getElementById('ovBand').textContent      = BAND_NAMES[currentBand] || currentBand+'MHz';
+
+    // Beacon marker
+    const popup = `<strong>${CALLSIGN}</strong><br>
+        Locator: ${tx_loc}<br>
+        Time: ${timestamp} UTC<br>
+        Reporters: ${reporter_count}<br>
+        Max DX: ${max_distance} km`;
+
+    if (liveMarker) {
+        liveMarker.setLatLng([lat, lon]).setPopupContent(popup);
+    } else {
+        liveMarker = L.circleMarker([lat, lon], {
+            radius: 8,
+            color: '#ffffff',
+            fillColor: '#38bdf8',
+            fillOpacity: 0.9,
+            weight: 2
+        }).addTo(liveMap).bindPopup(popup);
+        liveMap.panTo([lat, lon]);
+    }
+
+    // Propagation
+    updatePropagation(reporter_count);
+
+    // Trail
+    if (showTrail) refreshTrail();
+}
+
+async function refreshTrail() {
+    try {
+        const today = todayStr();
+        const r     = await fetch(`/api/positions?date=${today}&band=${currentBand}`);
+        const spots = await r.json();
+
+        if (liveTrail) { liveMap.removeLayer(liveTrail); liveTrail = null; }
+
+        if (spots.length > 1) {
+            liveTrail = L.polyline(spots.map(s => [s.lat, s.lon]), {
+                color:'#38bdf8', weight:2, opacity:.55, dashArray:'6 4'
+            }).addTo(liveMap);
+        }
+    } catch(e) { /* silent */ }
+}
+
+// ── Propagation condition ──────────────────────────────────────────────────
+function getPropCondition(n) {
+    if (n <= 5)  return { text: 'Very poor',      color: '#ef4444', pct:  8 };
+    if (n <= 10) return { text: 'Poor',           color: '#f97316', pct: 20 };
+    if (n <= 20) return { text: 'Normal',         color: '#eab308', pct: 40 };
+    if (n <= 40) return { text: 'Good',           color: '#84cc16', pct: 60 };
+    if (n <= 60) return { text: 'Very good',      color: '#22c55e', pct: 80 };
+    return             { text: 'Extremely good',  color: '#4ade80', pct: 100 };
+}
+
+function updatePropagation(reporter_count) {
+    const c = getPropCondition(reporter_count || 0);
+    const el = document.getElementById('propCondition');
+    el.textContent  = c.text;
+    el.style.color  = c.color;
+    document.getElementById('propBarFill').style.width      = c.pct + '%';
+    document.getElementById('propBarFill').style.background = c.color;
+    document.getElementById('propReporters').textContent    =
+        (reporter_count || 0) + ' reporter' + (reporter_count === 1 ? '' : 's') + ' heard';
+}
+
+// ── Status bar ─────────────────────────────────────────────────────────────
+function setStatus(timestamp, ok, msg) {
+    const dot  = document.getElementById('statusDot');
+    const text = document.getElementById('statusText');
+    if (!ok) {
+        dot.className    = 'dot dead';
+        text.textContent = msg || 'No data';
+        return;
+    }
+    const diffMin = (Date.now() - new Date(timestamp.replace(' ','T')+'Z')) / 60000;
+    if (diffMin < 20) {
+        dot.className    = 'dot';
+        text.textContent = `Live · ${Math.round(diffMin)} min ago`;
+    } else if (diffMin < 120) {
+        dot.className    = 'dot stale';
+        text.textContent = `Stale · ${Math.round(diffMin)} min ago`;
+    } else {
+        dot.className    = 'dot dead';
+        text.textContent = `Last: ${timestamp.split(' ')[1]} UTC`;
+    }
+}
+
+// ── Band change ────────────────────────────────────────────────────────────
+function changeBand(val) {
+    currentBand = parseInt(val);
+    document.getElementById('ovBand').textContent    = BAND_NAMES[currentBand] || val+'MHz';
+    document.getElementById('todayBand').textContent = BAND_NAMES[currentBand] || val+'MHz';
+    fetchLatest();
+}
+
+// ── Sidebar collapse ───────────────────────────────────────────────────────
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('collapsed');
+    // Let the CSS transition finish before telling Leaflet to resize
+    setTimeout(() => { liveMap && liveMap.invalidateSize(); }, 270);
+    setTimeout(() => { histMap && histMap.invalidateSize(); }, 270);
+}
+
+// ── Trail / Home toggles ───────────────────────────────────────────────────
+function toggleTrail() {
+    showTrail = !showTrail;
+    document.getElementById('swTrail').className = 'sw' + (showTrail ? ' on' : '');
+    if (showTrail) { refreshTrail(); }
+    else if (liveTrail) { liveMap.removeLayer(liveTrail); liveTrail = null; }
+}
+
+// ── View switching ─────────────────────────────────────────────────────────
+function showView(name) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(name+'-view').classList.add('active');
+    document.getElementById('nav-'+name).classList.add('active');
+
+    if (name === 'map') {
+        setTimeout(() => liveMap && liveMap.invalidateSize(), 60);
+    } else if (name === 'history') {
+        if (!histMap) initHistMap();
+        setTimeout(() => histMap && histMap.invalidateSize(), 60);
+        setHistDate(0); loadHistory();
+    } else if (name === 'stats') {
+        setStatsDate(0); loadStats();
+    } else if (name === 'settings') {
+        loadSettings();
+    }
+}
+
+// ── Stats window toggle ────────────────────────────────────────────────────
+function setStatsWindow(w) {
+    statsWindow = w;
+    document.getElementById('tabToday').classList.toggle('active', w === 'today');
+    document.getElementById('tab1h').classList.toggle('active',    w === '1h');
+    document.getElementById('miniStatsTitle').textContent = w === '1h' ? 'Last 1h' : 'Today';
+    fetchTodayStats();
+}
+
+// ── Today / 1h stats sidebar ───────────────────────────────────────────────
+async function fetchTodayStats() {
+    try {
+        let spotCount, maxDX, maxReporters;
+
+        if (statsWindow === '1h') {
+            // Fetch positions from the last hour and aggregate client-side
+            const now = new Date();
+            const ago = new Date(now - 3600 * 1000);
+            const fmt = d => d.toISOString().replace('T', ' ').slice(0, 19);
+            const r     = await fetch(
+                `/api/positions?from=${encodeURIComponent(fmt(ago))}&to=${encodeURIComponent(fmt(now))}&band=${currentBand}`
+            );
+            const spots = await r.json();
+            spotCount   = spots.length;
+            maxDX       = spots.reduce((m, s) => Math.max(m, s.max_distance   || 0), 0);
+            maxReporters= spots.reduce((m, s) => Math.max(m, s.reporter_count || 0), 0);
+        } else {
+            const r  = await fetch(`/api/stats?date=${todayStr()}&band=${currentBand}`);
+            const data = await r.json();
+            const s  = data.stats || {};
+            spotCount    = s.spot_count    || 0;
+            maxDX        = s.max_distance  || 0;
+            maxReporters = s.max_reporters || 0;
+        }
+
+        document.getElementById('todaySpots').textContent     = spotCount;
+        document.getElementById('todayDX').textContent        = maxDX       ? maxDX + ' km' : '—';
+        document.getElementById('todayReporters').textContent = maxReporters || '—';
+        document.getElementById('todayBand').textContent      = BAND_NAMES[currentBand] || currentBand+'MHz';
+    } catch(e) { /* silent */ }
+}
+
+// ── History ────────────────────────────────────────────────────────────────
+function setHistDate(offset) {
+    const d = new Date(); d.setDate(d.getDate() + offset);
+    document.getElementById('histDate').value = d.toISOString().split('T')[0];
+}
+
+async function loadHistory() {
+    const date = document.getElementById('histDate').value;
+    if (!date) return;
+    try {
+        const r     = await fetch(`/api/positions?date=${date}&band=${currentBand}`);
+        const spots = await r.json();
+        renderHistTable(spots);
+        renderHistMap(spots);
+    } catch(e) { showToast('Failed to load history', 'err'); }
+}
+
+function renderHistTable(spots) {
+    const tbody = document.getElementById('histTbody');
+    if (!spots.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="no-data">No data for this date</td></tr>';
+        return;
+    }
+    tbody.innerHTML = [...spots].reverse().map(s =>
+        `<tr>
+            <td>${s.timestamp.split(' ')[1]}</td>
+            <td class="mono">${s.tx_loc}</td>
+            <td>${s.reporter_count}</td>
+            <td>${s.max_distance || '—'}</td>
+        </tr>`
+    ).join('');
+}
+
+function renderHistMap(spots) {
+    if (!histMap) return;
+    if (histTrail) { histMap.removeLayer(histTrail); histTrail = null; }
+    histMarkers.forEach(m => histMap.removeLayer(m));
+    histMarkers = [];
+    if (!spots.length) return;
+
+    const pts = spots.map(s => [s.lat, s.lon]);
+
+    if (pts.length > 1) {
+        histTrail = L.polyline(pts, {
+            color:'#38bdf8', weight:2.5, opacity:.7
+        }).addTo(histMap);
+    }
+
+    spots.forEach((s, i) => {
+        const last   = i === spots.length - 1;
+        const first  = i === 0;
+        const color  = last ? '#38bdf8' : first ? '#4ade80' : '#94a3b8';
+        const radius = last ? 8 : 5;
+        const m = L.circleMarker([s.lat, s.lon], {
+            radius, color, fillColor:color, fillOpacity:.85, weight:2
+        }).addTo(histMap).bindPopup(
+            `<strong>${s.tx_loc}</strong><br>
+             ${s.timestamp}<br>
+             Reporters: ${s.reporter_count}<br>
+             Max DX: ${s.max_distance} km`
+        );
+        histMarkers.push(m);
+    });
+
+    histMap.fitBounds(L.latLngBounds(pts), { padding:[40,40] });
+}
+
+// ── Statistics ─────────────────────────────────────────────────────────────
+function setStatsDate(offset) {
+    const d = new Date(); d.setDate(d.getDate() + offset);
+    document.getElementById('statsDate').value = d.toISOString().split('T')[0];
+}
+
+async function loadStats() {
+    const date = document.getElementById('statsDate').value;
+    if (!date) return;
+    try {
+        const r    = await fetch(`/api/stats?date=${date}&band=${currentBand}`);
+        const data = await r.json();
+        const s    = data.stats || {};
+        const at   = data.all_time || {};
+
+        document.getElementById('stSpots').textContent   = s.spot_count    || 0;
+        document.getElementById('stMaxRprt').textContent = s.max_reporters || '—';
+        document.getElementById('stMaxDX').textContent   = s.max_distance  || '—';
+        document.getElementById('stFirst').textContent   = s.first_spot ? s.first_spot.split(' ')[1] : '—';
+        document.getElementById('stLast').textContent    = s.last_spot  ? s.last_spot.split(' ')[1]  : '—';
+
+        document.getElementById('atSpots').textContent = at.total_spots    || '—';
+        document.getElementById('atDX').textContent    = at.best_dx ? at.best_dx + ' km' : '—';
+        document.getElementById('atRprt').textContent  = at.best_reporters || '—';
+        document.getElementById('atDays').textContent  = at.active_days    || '—';
+        document.getElementById('atFirst').textContent = at.first_ever     || '—';
+        document.getElementById('atLast').textContent  = at.last_ever      || '—';
+
+        const chips = document.getElementById('dateChips');
+        chips.innerHTML = (data.available_dates || []).map(d =>
+            `<span class="quick-btn${d===date?' active-qb':''}"
+                   onclick="document.getElementById('statsDate').value='${d}';loadStats()">${d}</span>`
+        ).join('');
+    } catch(e) { showToast('Failed to load stats', 'err'); }
+}
+
+// ── Settings ───────────────────────────────────────────────────────────────
+async function loadSettings() {
+    try {
+        const r   = await fetch('/api/config');
+        const cfg = await r.json();
+        document.getElementById('sCallsign').value    = cfg.callsign     || '';
+        document.getElementById('sDefaultBand').value = cfg.default_band || 14;
+        document.getElementById('sHost').value        = cfg.host         || '';
+        document.getElementById('sPort').value        = cfg.port         || 5008;
+        document.getElementById('sMapLat').value      = cfg.map_lat      || '';
+        document.getElementById('sMapLon').value      = cfg.map_lon      || '';
+        document.getElementById('sMapZoom').value     = cfg.map_zoom     || 6;
+        document.getElementById('sDbPath').value      = cfg.db_path      || '';
+    } catch(e) { showToast('Failed to load settings', 'err'); }
+}
+
+async function saveSettings() {
+    const payload = {
+        callsign:     document.getElementById('sCallsign').value.trim().toUpperCase(),
+        default_band: parseInt(document.getElementById('sDefaultBand').value),
+        host:         document.getElementById('sHost').value.trim(),
+        port:         parseInt(document.getElementById('sPort').value),
+        map_lat:      parseFloat(document.getElementById('sMapLat').value),
+        map_lon:      parseFloat(document.getElementById('sMapLon').value),
+        map_zoom:     parseInt(document.getElementById('sMapZoom').value),
+        db_path:      document.getElementById('sDbPath').value.trim(),
+    };
+    try {
+        const r    = await fetch('/api/config', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await r.json();
+        showToast(data.message, data.success ? 'ok' : 'err');
+    } catch(e) { showToast('Failed to save settings', 'err'); }
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+let _toastTimer = null;
+function showToast(msg, type='') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = type;
+    t.style.display = 'block';
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => t.style.display = 'none', 3800);
+}
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+function todayStr() {
+    return new Date().toISOString().split('T')[0];
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
+    setHistDate(0);
+    setStatsDate(0);
+    initLiveMap();
+    fetchLatest();
+    setInterval(fetchLatest, 60_000);
+});
+</script>
+</body>
+</html>
