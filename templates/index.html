@@ -517,43 +517,6 @@ select:focus, input:focus { border-color: var(--accent); }
 .at-item-lbl { font-size: 10px; color: var(--text-muted); }
 .at-item-val { font-size: 16px; font-weight: 700; color: var(--accent); }
 
-/* ── SETTINGS VIEW ── */
-#settings-view { overflow-y: auto; }
-.sett-wrap { max-width: 480px; margin: 0 auto; padding: 22px; }
-.sett-title { font-size: 17px; font-weight: 700; color: var(--accent); margin-bottom: 18px; }
-.sett-section {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px 16px;
-    margin-bottom: 14px;
-}
-.sett-section-title {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: .8px;
-    color: var(--text-muted);
-    margin-bottom: 12px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--border);
-}
-.form-field { margin-bottom: 10px; }
-.form-field:last-child { margin-bottom: 0; }
-.form-field label { font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px; }
-.btn-save {
-    width: 100%;
-    padding: 10px;
-    background: var(--accent-btn);
-    color: #e0f2fe;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background .2s;
-}
-.btn-save:hover { background: var(--accent-btn-hover); }
-.sett-note { font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 6px; }
 
 /* ── Toast ── */
 #toast {
@@ -616,11 +579,10 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
     </div>
 
     <nav>
-        <div class="nav-item active" id="nav-map"      onclick="showView('map')">      <span class="nav-icon">🗺️</span> Live Map</div>
-        <div class="nav-item"        id="nav-history"  onclick="showView('history')">  <span class="nav-icon">📅</span> History</div>
-        <div class="nav-item"        id="nav-stats"    onclick="showView('stats')">    <span class="nav-icon">📊</span> Statistics</div>
-        <div class="nav-item"        id="nav-settings" onclick="showView('settings')"> <span class="nav-icon">⚙️</span> Settings</div>
-        <div class="nav-item"        id="nav-theme"    onclick="toggleTheme()">        <span class="nav-icon" id="themeIcon">🌙</span> <span id="themeLabel">Dark Mode</span></div>
+        <div class="nav-item active" id="nav-map"     onclick="showView('map')">     <span class="nav-icon">🗺️</span> Live Map</div>
+        <div class="nav-item"        id="nav-history" onclick="showView('history')"> <span class="nav-icon">📅</span> History</div>
+        <div class="nav-item"        id="nav-stats"   onclick="showView('stats')">   <span class="nav-icon">📊</span> Statistics</div>
+        <div class="nav-item"        id="nav-theme"   onclick="toggleTheme()">       <span class="nav-icon" id="themeIcon">🌙</span> <span id="themeLabel">Dark Mode</span></div>
     </nav>
 
     <div class="sb-body">
@@ -643,19 +605,10 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
             <div class="val sm" id="infoTime">—</div>
         </div>
 
-        <!-- Band selector -->
+        <!-- Band display -->
         <div class="sb-section">
             <div class="sb-section-lbl">Band</div>
-            <select id="bandSelect" onchange="changeBand(this.value)">
-                <option value="14" {% if default_band==14 %}selected{% endif %}>20m — 14 MHz</option>
-                <option value="7"  {% if default_band==7  %}selected{% endif %}>40m — 7 MHz</option>
-                <option value="10" {% if default_band==10 %}selected{% endif %}>30m — 10 MHz</option>
-                <option value="18" {% if default_band==18 %}selected{% endif %}>17m — 18 MHz</option>
-                <option value="21" {% if default_band==21 %}selected{% endif %}>15m — 21 MHz</option>
-                <option value="24" {% if default_band==24 %}selected{% endif %}>12m — 24 MHz</option>
-                <option value="28" {% if default_band==28 %}selected{% endif %}>10m — 28 MHz</option>
-                <option value="3"  {% if default_band==3  %}selected{% endif %}>80m — 3.5 MHz</option>
-            </select>
+            <div class="val sm" id="bandDisplay">{{ band_label }}</div>
         </div>
 
         <!-- Map layer toggles -->
@@ -828,72 +781,6 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
         </div>
     </div>
 
-    <!-- ── SETTINGS VIEW ── -->
-    <div class="view" id="settings-view">
-        <div class="sett-wrap">
-            <div class="sett-title">⚙️ Settings</div>
-
-            <div class="sett-section">
-                <div class="sett-section-title">Station</div>
-                <div class="form-field">
-                    <label>Callsign</label>
-                    <input type="text" id="sCallsign" placeholder="e.g. OH2GAX">
-                </div>
-                <div class="form-field">
-                    <label>Default Band</label>
-                    <select id="sDefaultBand">
-                        <option value="14">20m — 14 MHz</option>
-                        <option value="7">40m — 7 MHz</option>
-                        <option value="10">30m — 10 MHz</option>
-                        <option value="18">17m — 18 MHz</option>
-                        <option value="21">15m — 21 MHz</option>
-                        <option value="24">12m — 24 MHz</option>
-                        <option value="28">10m — 28 MHz</option>
-                        <option value="3">80m — 3.5 MHz</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="sett-section">
-                <div class="sett-section-title">Map Default View</div>
-                <div class="form-field">
-                    <label>Default Latitude</label>
-                    <input type="text" id="sMapLat" placeholder="e.g. 60.0">
-                </div>
-                <div class="form-field">
-                    <label>Default Longitude</label>
-                    <input type="text" id="sMapLon" placeholder="e.g. 24.0">
-                </div>
-                <div class="form-field">
-                    <label>Default Zoom Level (1–18)</label>
-                    <input type="number" id="sMapZoom" placeholder="6" min="1" max="18">
-                </div>
-            </div>
-
-            <div class="sett-section">
-                <div class="sett-section-title">Server</div>
-                <div class="form-field">
-                    <label>Host / IP Address</label>
-                    <input type="text" id="sHost" placeholder="0.0.0.0">
-                </div>
-                <div class="form-field">
-                    <label>Port</label>
-                    <input type="number" id="sPort" placeholder="5008">
-                </div>
-            </div>
-
-            <div class="sett-section">
-                <div class="sett-section-title">Database</div>
-                <div class="form-field">
-                    <label>SQLite file path</label>
-                    <input type="text" id="sDbPath" placeholder="wspr_data.db">
-                </div>
-            </div>
-
-            <button class="btn-save" onclick="saveSettings()">💾 Save Settings</button>
-            <div class="sett-note">Restart the server to apply changes</div>
-        </div>
-    </div>
 
 </div><!-- /main -->
 
@@ -1117,13 +1004,6 @@ function setStatus(timestamp, ok, msg) {
     }
 }
 
-// ── Band change ────────────────────────────────────────────────────────────
-function changeBand(val) {
-    currentBand = parseInt(val);
-    document.getElementById('ovBand').textContent    = BAND_NAMES[currentBand] || val+'MHz';
-    document.getElementById('todayBand').textContent = BAND_NAMES[currentBand] || val+'MHz';
-    fetchLatest();
-}
 
 // ── Reporter countries ─────────────────────────────────────────────────────
 function toggleCountries() {
@@ -1187,8 +1067,6 @@ function showView(name) {
         setHistDate(0); loadHistory();
     } else if (name === 'stats') {
         setStatsDate(0); loadStats();
-    } else if (name === 'settings') {
-        loadSettings();
     }
 }
 
@@ -1337,43 +1215,6 @@ async function loadStats() {
     } catch(e) { showToast('Failed to load stats', 'err'); }
 }
 
-// ── Settings ───────────────────────────────────────────────────────────────
-async function loadSettings() {
-    try {
-        const r   = await fetch('/api/config');
-        const cfg = await r.json();
-        document.getElementById('sCallsign').value    = cfg.callsign     || '';
-        document.getElementById('sDefaultBand').value = cfg.default_band || 14;
-        document.getElementById('sHost').value        = cfg.host         || '';
-        document.getElementById('sPort').value        = cfg.port         || 5008;
-        document.getElementById('sMapLat').value      = cfg.map_lat      || '';
-        document.getElementById('sMapLon').value      = cfg.map_lon      || '';
-        document.getElementById('sMapZoom').value     = cfg.map_zoom     || 6;
-        document.getElementById('sDbPath').value      = cfg.db_path      || '';
-    } catch(e) { showToast('Failed to load settings', 'err'); }
-}
-
-async function saveSettings() {
-    const payload = {
-        callsign:     document.getElementById('sCallsign').value.trim().toUpperCase(),
-        default_band: parseInt(document.getElementById('sDefaultBand').value),
-        host:         document.getElementById('sHost').value.trim(),
-        port:         parseInt(document.getElementById('sPort').value),
-        map_lat:      parseFloat(document.getElementById('sMapLat').value),
-        map_lon:      parseFloat(document.getElementById('sMapLon').value),
-        map_zoom:     parseInt(document.getElementById('sMapZoom').value),
-        db_path:      document.getElementById('sDbPath').value.trim(),
-    };
-    try {
-        const r    = await fetch('/api/config', {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify(payload)
-        });
-        const data = await r.json();
-        showToast(data.message, data.success ? 'ok' : 'err');
-    } catch(e) { showToast('Failed to save settings', 'err'); }
-}
 
 // ── Toast ──────────────────────────────────────────────────────────────────
 let _toastTimer = null;
