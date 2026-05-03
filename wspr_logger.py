@@ -282,12 +282,19 @@ def update_thread():
 # Flask routes — pages
 # ---------------------------------------------------------------------------
 
+_BAND_LABELS = {
+    3:'80m — 3.5 MHz', 7:'40m — 7 MHz', 10:'30m — 10 MHz',
+    14:'20m — 14 MHz', 18:'17m — 18 MHz', 21:'15m — 21 MHz',
+    24:'12m — 24 MHz', 28:'10m — 28 MHz',
+}
+
 @app.route("/")
 def index():
     return render_template(
         "index.html",
         callsign=CALLSIGN,
         default_band=DEFAULT_BAND,
+        band_label=_BAND_LABELS.get(DEFAULT_BAND, f"{DEFAULT_BAND} MHz"),
         map_lat=MAP_DEFAULT_LAT,
         map_lon=MAP_DEFAULT_LON,
         map_zoom=MAP_DEFAULT_ZOOM,
@@ -352,53 +359,6 @@ def api_reporters():
     return jsonify({"countries": countries})
 
 
-@app.route("/api/config", methods=["GET"])
-def api_config_get():
-    return jsonify({
-        "callsign":     CALLSIGN,
-        "default_band": DEFAULT_BAND,
-        "host":         HOST,
-        "port":         PORT,
-        "map_lat":      MAP_DEFAULT_LAT,
-        "map_lon":      MAP_DEFAULT_LON,
-        "map_zoom":     MAP_DEFAULT_ZOOM,
-        "db_path":      DB_PATH,
-    })
-
-
-@app.route("/api/config", methods=["POST"])
-def api_config_set():
-    data = request.get_json(silent=True) or {}
-    try:
-        new_cfg = configparser.ConfigParser()
-        new_cfg.read(CONFIG_FILE)
-
-        # Ensure all sections exist
-        for section in ("station", "server", "database", "map"):
-            if not new_cfg.has_section(section):
-                new_cfg.add_section(section)
-
-        mapping = {
-            "callsign":     ("station",  "callsign"),
-            "default_band": ("station",  "default_band"),
-            "host":         ("server",   "host"),
-            "port":         ("server",   "port"),
-            "db_path":      ("database", "path"),
-            "map_lat":      ("map",      "default_lat"),
-            "map_lon":      ("map",      "default_lon"),
-            "map_zoom":     ("map",      "default_zoom"),
-        }
-        for key, (section, option) in mapping.items():
-            if key in data:
-                new_cfg.set(section, option, str(data[key]))
-
-        with open(CONFIG_FILE, "w") as f:
-            new_cfg.write(f)
-
-        return jsonify({"success": True,
-                        "message": "Settings saved. Restart the server to apply all changes."})
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
 
 
 # ---------------------------------------------------------------------------

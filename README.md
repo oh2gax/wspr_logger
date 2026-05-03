@@ -14,11 +14,10 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **Reporter countries** — optional overlay listing every country that heard the beacon in the past hour, with a proportional bar and station count per country; toggle on/off from the sidebar
 - **History view** — map and table of all logged spots for any selected date
 - **Statistics view** — daily and all-time records (spot count, longest DX, max reporters)
-- **Band selector** — switch between 80 m / 40 m / 30 m / 20 m / 17 m / 15 m / 12 m / 10 m
 - **1 h / Today stats** — toggle the sidebar mini-stats between the last 60 minutes (default) and the full day
 - **Light / Dark theme** — toggle in the sidebar; preference is remembered in the browser
 - **Collapsible sidebar** — fold the panel away for a full-screen map view, handy on mobile
-- **Settings page** — change callsign, band, map defaults, server address and database path; saved to `config.ini`
+- **Config-file driven** — all settings (callsign, band, map defaults, server address, database path) are managed in `config.ini`; no settings UI is exposed to the browser
 - **SQLite storage** — one database file, WAL mode, indexed for fast date-range queries
 
 ---
@@ -193,7 +192,7 @@ sudo ufw allow 5008/tcp
 | **Latitude / Longitude** | Decimal coordinates derived from the locator |
 | **Reporters / Max DX** | How many stations received the last transmission and the farthest one |
 | **Last Spot (UTC)** | Timestamp of the most recent logged transmission |
-| **Band selector** | Switch the active band; all views update instantly |
+| **Band** | Static display of the active band as configured in `config.ini` |
 | **Position Trail** | Toggle the dashed trail connecting today's positions on the live map |
 | **Reporter Countries** | Toggle the country breakdown overlay on the live map |
 | **1h / Today tabs** | Switch the mini-stats cards between the last 60 minutes (default) and the full day |
@@ -230,9 +229,28 @@ Select a date using the date picker or the **Today / Yesterday / −7 days** qui
 
 Shows aggregated data for the selected date (total spots, max reporters, longest DX, first/last spot time) alongside **all-time records**. A list of all dates with logged data appears at the bottom as clickable chips.
 
-### Settings View
+### Configuration
 
-All fields correspond directly to `config.ini`. Click **Save Settings** to write the file. The server must be restarted for callsign, band, host, port, and database path changes to take effect. Map defaults (latitude, longitude, zoom) are read fresh on each page load.
+All settings are managed directly in `config.ini` on the server — there is no settings UI in the browser. This keeps the public-facing interface read-only. Edit the file and restart the service to apply any changes:
+
+```ini
+[station]
+callsign = OH2GAX
+default_band = 14        ; MHz — 3/7/10/14/18/21/24/28
+
+[server]
+host = 0.0.0.0
+port = 5008
+debug = false
+
+[database]
+path = wspr_data.db
+
+[map]
+default_lat = 60.0
+default_lon = 24.0
+default_zoom = 6
+```
 
 ---
 
@@ -259,8 +277,6 @@ wspr_logger/
 | `/api/positions` | GET | `date`, or `from`+`to`, `band` | List of spots for a date or time range |
 | `/api/stats` | GET | `date`, `band` | Aggregated stats for a date plus all-time records |
 | `/api/reporters` | GET | `band` | Unique reporter countries from the past 60 minutes |
-| `/api/config` | GET | — | Current configuration |
-| `/api/config` | POST | JSON body | Save new configuration to `config.ini` |
 
 ---
 
