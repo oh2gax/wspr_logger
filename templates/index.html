@@ -611,6 +611,66 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
 .solar-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); }
 .solar-val { font-size: 15px; font-weight: 700; color: var(--accent); line-height: 1.3; }
 .solar-updated { font-size: 10px; color: var(--text-muted); margin-top: 6px; }
+
+/* ── Reporter list panel (bottom-left) ── */
+.reporter-list-panel {
+    position: absolute;
+    top: 12px;
+    left: 46px;
+    z-index: 500;
+    background: var(--overlay-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px 10px;
+    min-width: 320px;
+    max-width: 420px;
+    backdrop-filter: blur(6px);
+    pointer-events: auto;
+    transition: top .25s ease;
+}
+.rl-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+.rl-table-wrap {
+    max-height: 320px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+.rl-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+}
+.rl-table th {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--text-muted);
+    padding: 2px 6px 4px;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+}
+.rl-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+.rl-table th.sortable:hover { color: var(--accent); }
+.rl-table th.sort-active    { color: var(--accent); }
+.rl-table td {
+    padding: 3px 6px;
+    color: var(--text);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+}
+.rl-table tr:last-child td { border-bottom: none; }
+.rl-table td.rl-snr  { color: var(--accent); font-weight: 600; }
+.rl-table td.rl-dist { color: #4ade80; font-weight: 600; }
+.rl-empty { font-size: 11px; color: var(--text-muted); padding: 6px 0; }
 </style>
 </head>
 <body>
@@ -679,6 +739,10 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
             <div class="toggle-row">
                 <span>Solar Conditions</span>
                 <div class="sw" id="swSolar" onclick="toggleSolar()"></div>
+            </div>
+            <div class="toggle-row">
+                <span>Reporter List</span>
+                <div class="sw" id="swReporterList" onclick="toggleReporterList()"></div>
             </div>
         </div>
 
@@ -774,6 +838,27 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
                 <div class="country-list" id="countryList">
                     <div style="color:var(--text-muted);font-size:11px;">No data</div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Reporter list panel — left side, below solar/MUF -->
+        <div class="reporter-list-panel" id="reporterListPanel" style="display:none;">
+            <div class="rl-title">Reporters — Last 1 h</div>
+            <div class="rl-table-wrap">
+                <table class="rl-table">
+                    <thead>
+                        <tr>
+                            <th>Band</th>
+                            <th>Call</th>
+                            <th>Grid</th>
+                            <th class="sortable" id="thSnr"  onclick="sortReporterList('snr')">SNR ▾</th>
+                            <th class="sortable" id="thDist" onclick="sortReporterList('dist')">Dist ▾</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reporterListBody">
+                        <tr><td colspan="5" class="rl-empty">No data</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -883,9 +968,12 @@ let currentBand  = {{ default_band }};
 let showTrail    = true;
 let isDark       = true;
 let statsWindow  = '1h';      // 'today' | '1h'
-let showCountries = false;
-let showMuf       = false;
-let showSolar     = false;
+let showCountries    = false;
+let showMuf          = false;
+let showSolar        = false;
+let showReporterList = false;
+let _reporterListData = [];
+let _rlSortKey        = 'snr';   // 'snr' | 'dist'
 let _solarTimer   = null;
 let mufChart      = null;
 
@@ -978,8 +1066,9 @@ async function fetchLatest() {
             setStatus(null, false);
         }
         fetchTodayStats();
-        if (showCountries) updateCountryOverlay(data.countries || []);
-        if (showMuf)       fetchMufData();
+        if (showCountries)    updateCountryOverlay(data.countries || []);
+        if (showMuf)          fetchMufData();
+        if (showReporterList) fetchReporterList();
     } catch(e) {
         setStatus(null, false, 'Connection error');
     }
@@ -1142,12 +1231,31 @@ function updateCountryOverlay(list) {
 // ── Solar panel positioning ────────────────────────────────────────────────
 function updateSolarPosition() {
     const solar = document.getElementById('solarPanel');
-    if (!solar || solar.style.display === 'none') return;
+    if (!solar || solar.style.display === 'none') {
+        updateReporterListPosition();
+        return;
+    }
     if (showMuf) {
         const muf = document.getElementById('mufPanel');
         solar.style.top = (muf.offsetTop + muf.offsetHeight + 8) + 'px';
     } else {
         solar.style.top = '12px';
+    }
+    // Chain: reporter list goes below solar
+    updateReporterListPosition();
+}
+
+function updateReporterListPosition() {
+    const panel = document.getElementById('reporterListPanel');
+    if (!panel || panel.style.display === 'none') return;
+    if (showSolar) {
+        const solar = document.getElementById('solarPanel');
+        panel.style.top = (solar.offsetTop + solar.offsetHeight + 8) + 'px';
+    } else if (showMuf) {
+        const muf = document.getElementById('mufPanel');
+        panel.style.top = (muf.offsetTop + muf.offsetHeight + 8) + 'px';
+    } else {
+        panel.style.top = '12px';
     }
 }
 
@@ -1157,7 +1265,7 @@ function toggleMuf() {
     document.getElementById('swMuf').className        = 'sw' + (showMuf ? ' on' : '');
     document.getElementById('mufPanel').style.display = showMuf ? 'block' : 'none';
     if (showMuf) fetchMufData();
-    updateSolarPosition();
+    updateSolarPosition();          // also chains → updateReporterListPosition
 }
 
 async function fetchMufData() {
@@ -1170,16 +1278,24 @@ async function fetchMufData() {
 }
 
 function renderMufChart(mufRows, spotRows) {
-    // Build time-keyed spot map (reporter_count by HH:MM)
+    // Key maps by full timestamp to preserve chronological uniqueness
+    const mufMap  = {};
+    mufRows.forEach(r  => { mufMap[r.timestamp]  = r.muf; });
     const spotMap = {};
     spotRows.forEach(s => {
-        const key = s.timestamp.slice(11, 16);   // HH:MM
+        const key = s.timestamp;
         spotMap[key] = Math.max(spotMap[key] || 0, s.reporter_count);
     });
 
-    const labels    = mufRows.map(r => r.timestamp.slice(11, 16));
-    const mufVals   = mufRows.map(r => r.muf);
-    const spotVals  = mufRows.map(r => spotMap[r.timestamp.slice(11, 16)] || 0);
+    // Merge full timestamps and sort chronologically (handles midnight crossings)
+    const allTimes = [...new Set([
+        ...mufRows.map(r  => r.timestamp),
+        ...spotRows.map(s => s.timestamp)
+    ])].sort();
+
+    const labels   = allTimes.map(t => t.slice(11, 16));   // display HH:MM only
+    const mufVals  = allTimes.map(t => mufMap[t]  ?? null);
+    const spotVals = allTimes.map(t => spotMap[t] || 0);
 
     const darkMode  = isDark;
     const gridColor = darkMode ? '#374151' : '#cbd5e1';
@@ -1214,6 +1330,7 @@ function renderMufChart(mufRows, spotRows) {
                     pointHoverRadius: 4,
                     yAxisID: 'yM',
                     tension: 0.3,
+                    spanGaps: true,
                     order: 1,
                 },
                 {
@@ -1269,12 +1386,13 @@ function toggleSolar() {
     document.getElementById('swSolar').className        = 'sw' + (showSolar ? ' on' : '');
     document.getElementById('solarPanel').style.display = showSolar ? 'block' : 'none';
     if (showSolar) {
-        updateSolarPosition();
+        updateSolarPosition();      // also chains → updateReporterListPosition
         fetchSolarData();
         _solarTimer = setInterval(fetchSolarData, 60000);
     } else {
         clearInterval(_solarTimer);
         _solarTimer = null;
+        updateReporterListPosition();   // re-stack without solar
     }
 }
 
@@ -1283,14 +1401,75 @@ async function fetchSolarData() {
     try {
         const r    = await fetch('/api/solar');
         const data = await r.json();
-        document.getElementById('solSFI').textContent  = data.sfi    ?? '—';
-        document.getElementById('solK').textContent    = data.kindex ?? '—';
+        document.getElementById('solSFI').textContent  = data.sfi  ?? '—';
         document.getElementById('solA').textContent    = data.aindex ?? '—';
-        document.getElementById('solX').textContent    = data.xray   ?? '—';
-        document.getElementById('solBz').textContent   = data.bz     ?? '—';
-        document.getElementById('solMUF').textContent  = data.muf    ? data.muf.toFixed(1) : '—';
+        document.getElementById('solBz').textContent   = data.bz   ?? '—';
+        document.getElementById('solMUF').textContent  = data.muf  ? data.muf.toFixed(1) : '—';
         document.getElementById('solarUpdated').textContent = data.updated ? 'Updated: ' + data.updated : '';
+
+        // K-index: orange 4–5, red 6+
+        const kEl = document.getElementById('solK');
+        const kVal = parseInt(data.kindex) || 0;
+        kEl.textContent  = data.kindex ?? '—';
+        kEl.style.color  = kVal >= 6 ? '#ef4444' : kVal >= 4 ? '#f97316' : '';
+
+        // X-ray: orange for M-class, red for X-class
+        const xEl  = document.getElementById('solX');
+        const xray = (data.xray || '').toUpperCase();
+        xEl.textContent = data.xray ?? '—';
+        xEl.style.color = xray.startsWith('X') ? '#ef4444'
+                        : xray.startsWith('M') ? '#f97316' : '';
     } catch(e) { /* silent */ }
+}
+
+// ── Reporter list ──────────────────────────────────────────────────────────
+function toggleReporterList() {
+    showReporterList = !showReporterList;
+    document.getElementById('swReporterList').className          = 'sw' + (showReporterList ? ' on' : '');
+    document.getElementById('reporterListPanel').style.display   = showReporterList ? 'block' : 'none';
+    if (showReporterList) {
+        updateReporterListPosition();
+        fetchReporterList();
+    }
+}
+
+async function fetchReporterList() {
+    if (!showReporterList) return;
+    try {
+        const r    = await fetch('/api/reporter_list');
+        const data = await r.json();
+        _reporterListData = data.reporters || [];
+        renderReporterList();
+    } catch(e) { /* silent */ }
+}
+
+function sortReporterList(key) {
+    _rlSortKey = key;
+    // Update header indicators
+    document.getElementById('thSnr').classList.toggle('sort-active',  key === 'snr');
+    document.getElementById('thDist').classList.toggle('sort-active', key === 'dist');
+    document.getElementById('thSnr').textContent  = 'SNR'  + (key === 'snr'  ? ' ▾' : '');
+    document.getElementById('thDist').textContent = 'Dist' + (key === 'dist' ? ' ▾' : '');
+    renderReporterList();
+}
+
+function renderReporterList() {
+    const tbody = document.getElementById('reporterListBody');
+    if (!_reporterListData.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="rl-empty">No data</td></tr>';
+        return;
+    }
+    const sorted = [..._reporterListData].sort((a, b) =>
+        _rlSortKey === 'dist' ? b.distance - a.distance : b.snr - a.snr
+    );
+    tbody.innerHTML = sorted.map(r => `
+        <tr>
+            <td>${r.band}</td>
+            <td>${r.callsign}</td>
+            <td>${r.grid}</td>
+            <td class="rl-snr">${r.snr > 0 ? '+' : ''}${r.snr}</td>
+            <td class="rl-dist">${r.distance.toLocaleString()}</td>
+        </tr>`).join('');
 }
 
 // ── Sidebar collapse ───────────────────────────────────────────────────────
