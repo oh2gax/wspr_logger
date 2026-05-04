@@ -589,8 +589,8 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
 /* ── Solar data panel ── */
 .solar-panel {
     position: absolute;
-    bottom: 12px;
-    left: 12px;
+    top: 12px;
+    left: 46px;
     z-index: 500;
     background: var(--overlay-bg);
     border: 1px solid var(--border);
@@ -599,6 +599,7 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
     min-width: 230px;
     backdrop-filter: blur(6px);
     pointer-events: none;
+    transition: top .25s ease;
 }
 .solar-grid {
     display: grid;
@@ -1138,12 +1139,25 @@ function updateCountryOverlay(list) {
         </div>`).join('');
 }
 
+// ── Solar panel positioning ────────────────────────────────────────────────
+function updateSolarPosition() {
+    const solar = document.getElementById('solarPanel');
+    if (!solar || solar.style.display === 'none') return;
+    if (showMuf) {
+        const muf = document.getElementById('mufPanel');
+        solar.style.top = (muf.offsetTop + muf.offsetHeight + 8) + 'px';
+    } else {
+        solar.style.top = '12px';
+    }
+}
+
 // ── MUF graph ──────────────────────────────────────────────────────────────
 function toggleMuf() {
     showMuf = !showMuf;
-    document.getElementById('swMuf').className    = 'sw' + (showMuf ? ' on' : '');
+    document.getElementById('swMuf').className        = 'sw' + (showMuf ? ' on' : '');
     document.getElementById('mufPanel').style.display = showMuf ? 'block' : 'none';
     if (showMuf) fetchMufData();
+    updateSolarPosition();
 }
 
 async function fetchMufData() {
@@ -1252,9 +1266,10 @@ function renderMufChart(mufRows, spotRows) {
 // ── Solar conditions ────────────────────────────────────────────────────────
 function toggleSolar() {
     showSolar = !showSolar;
-    document.getElementById('swSolar').className       = 'sw' + (showSolar ? ' on' : '');
+    document.getElementById('swSolar').className        = 'sw' + (showSolar ? ' on' : '');
     document.getElementById('solarPanel').style.display = showSolar ? 'block' : 'none';
     if (showSolar) {
+        updateSolarPosition();
         fetchSolarData();
         _solarTimer = setInterval(fetchSolarData, 60000);
     } else {
