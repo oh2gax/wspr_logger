@@ -54,10 +54,11 @@ if not os.path.isabs(DB_PATH):
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), "templates"))
 
 # Thread-safe state
-_state_lock       = threading.Lock()
-_last_update_utc  = None   # ISO string of last successful fetch
-_update_error     = None   # Last error message, if any
-_cached_countries = []     # Reporter countries from last poll
+_state_lock           = threading.Lock()
+_last_update_utc      = None   # ISO string of last successful fetch
+_update_error         = None   # Last error message, if any
+_cached_countries     = []     # Reporter countries from last poll
+_cached_reporter_list = []     # Individual reporter details from last poll
 
 # Solar data cache (refreshed on demand, TTL = 60 s)
 _solar_cache      = {}
@@ -205,6 +206,52 @@ def fetch_reporter_countries(callsign: str, band: int) -> list:
     )
 
 
+_BAND_LABELS_SHORT = {
+    3:'80m', 7:'40m', 10:'30m', 14:'20m',
+    18:'17m', 21:'15m', 24:'12m', 28:'10m',
+}
+
+
+def fetch_reporter_list(callsign: str, band: int) -> list:
+    """
+    Return [{band, callsign, grid, snr, distance}, …] for individual reporters
+    heard in the past 60 minutes.  One row per unique (rx_sign, rx_loc) pair,
+    keeping the best (highest) SNR and the corresponding distance.
+    """
+    sql = f"""
+        SELECT
+            rx_sign,
+            rx_loc,
+            max(snr)      AS snr,
+            max(distance) AS distance
+        FROM wspr.rx
+        WHERE tx_sign = '{callsign}'
+          AND band    = {band}
+          AND time > subtractMinutes(now(), 60)
+        GROUP BY rx_sign, rx_loc
+        ORDER BY snr DESC
+    """
+    rows = wsprlive_query(sql)
+    if not rows:
+        return []
+    band_label = _BAND_LABELS_SHORT.get(band, f"{band}MHz")
+    result = []
+    for r in rows:
+        try:
+            snr  = int(r.get("snr", 0))
+            dist = int(r.get("distance", 0))
+        except (TypeError, ValueError):
+            snr, dist = 0, 0
+        result.append({
+            "band":     band_label,
+            "callsign": r.get("rx_sign", "?"),
+            "grid":     (r.get("rx_loc") or "?")[:6],
+            "snr":      snr,
+            "distance": dist,
+        })
+    return result
+
+
 def fetch_muf_value() -> float | None:
     """
     Scrape the current MUF D=3000 km value from the Juliusruh ionosonde page.
@@ -295,7 +342,7 @@ def fetch_latest_spot(callsign: str, band: int):
 # ---------------------------------------------------------------------------
 
 def update_thread():
-    global _last_update_utc, _update_error, _cached_countries
+    global _last_update_utc, _update_error, _cached_countries, _cached_reporter_list
     print(f"[INFO] Update thread started — tracking {CALLSIGN} on {DEFAULT_BAND} MHz")
 
     # Populate caches immediately on startup so the UI has data before the
@@ -316,12 +363,13 @@ def update_thread():
         except ValueError:
             pass
     with _state_lock:
-        _cached_countries = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
+        _cached_countries     = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
+        _cached_reporter_list = fetch_reporter_list(CALLSIGN, DEFAULT_BAND)
     muf_init = fetch_muf_value()
     if muf_init:
         db.insert_muf(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), muf_init)
     print(f"[INFO] Initial fetch complete — {len(_cached_countries)} countries cached, "
-          f"MUF={muf_init} MHz")
+          f"{len(_cached_reporter_list)} reporters, MUF={muf_init} MHz")
 
     while True:
         now = datetime.utcnow()
@@ -331,10 +379,12 @@ def update_thread():
         if now.minute % 10 == 8:
             print(f"[INFO] Polling WSPR.live at {now.strftime('%H:%M:%S')} UTC")
 
-            row       = fetch_latest_spot(CALLSIGN, DEFAULT_BAND)
-            countries = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
+            row           = fetch_latest_spot(CALLSIGN, DEFAULT_BAND)
+            countries     = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
+            reporter_list = fetch_reporter_list(CALLSIGN, DEFAULT_BAND)
             with _state_lock:
-                _cached_countries = countries
+                _cached_countries     = countries
+                _cached_reporter_list = reporter_list
 
             # Fetch and store MUF D=3000 km
             muf = fetch_muf_value()
@@ -483,6 +533,13 @@ def api_reporters():
     with _state_lock:
         countries = _cached_countries
     return jsonify({"countries": countries})
+
+
+@app.route("/api/reporter_list")
+def api_reporter_list():
+    with _state_lock:
+        reporters = _cached_reporter_list
+    return jsonify({"reporters": reporters})
 
 
 
