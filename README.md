@@ -325,6 +325,6 @@ wspr_logger/
 
 ## License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+This project is released under the MIT License — you're free to use, copy, modify, distribute, and reuse the code, including in commercial projects, as long as the original copyright notice and the license text are included with substantial portions of the code. The full license text is in the `LICENSE` file at the repository root.
 
-Free to use, modify, and distribute. Attribution appreciated but not required.
+If you build something interesting on top of it, a quick note (or a star on the repo) is appreciated but not required. 73 — Otso, OH2GAX.
