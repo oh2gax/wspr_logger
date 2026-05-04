@@ -6,6 +6,7 @@
 <title>WSPR Logger &mdash; {{ callsign }}</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
 /* ── CSS Variables — Dark (default) ── */
 :root {
@@ -561,6 +562,54 @@ html.light .leaflet-control-zoom a {
 html.light .leaflet-bar { border-color: var(--border) !important; }
 
 .leaflet-div-icon { background: none !important; border: none !important; }
+
+/* ── MUF graph panel ── */
+.muf-panel {
+    position: absolute;
+    top: 12px;
+    left: 50px;
+    right: 250px;
+    z-index: 500;
+    background: var(--overlay-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px 12px;
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+}
+.muf-panel-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+.muf-chart-wrap { height: 150px; }
+
+/* ── Solar data panel ── */
+.solar-panel {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    z-index: 500;
+    background: var(--overlay-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-width: 230px;
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+}
+.solar-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px 10px;
+    margin-top: 6px;
+}
+.solar-item { display: flex; flex-direction: column; }
+.solar-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); }
+.solar-val { font-size: 15px; font-weight: 700; color: var(--accent); line-height: 1.3; }
+.solar-updated { font-size: 10px; color: var(--text-muted); margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -622,6 +671,14 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
                 <span>Reporter Countries</span>
                 <div class="sw" id="swCountries" onclick="toggleCountries()"></div>
             </div>
+            <div class="toggle-row">
+                <span>MUF / Reports Graph</span>
+                <div class="sw" id="swMuf" onclick="toggleMuf()"></div>
+            </div>
+            <div class="toggle-row">
+                <span>Solar Conditions</span>
+                <div class="sw" id="swSolar" onclick="toggleSolar()"></div>
+            </div>
         </div>
 
         <!-- Today's mini-stats -->
@@ -661,6 +718,28 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
     <!-- ── MAP VIEW ── -->
     <div class="view active" id="map-view">
         <div id="map"></div>
+        <!-- MUF / Reporter count graph -->
+        <div class="muf-panel" id="mufPanel" style="display:none;">
+            <div class="muf-panel-title">MUF D=3000 km (MHz) &amp; Reporter Count — Last 24 h</div>
+            <div class="muf-chart-wrap">
+                <canvas id="mufCanvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Solar conditions panel -->
+        <div class="solar-panel" id="solarPanel" style="display:none;">
+            <div class="ov-lbl">Solar Conditions</div>
+            <div class="solar-grid">
+                <div class="solar-item"><span class="solar-lbl">SFI</span><span class="solar-val" id="solSFI">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">K</span><span class="solar-val" id="solK">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">A</span><span class="solar-val" id="solA">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">X-ray</span><span class="solar-val" id="solX">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">Bz</span><span class="solar-val" id="solBz">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">J-MUF</span><span class="solar-val" id="solMUF">—</span></div>
+            </div>
+            <div class="solar-updated" id="solarUpdated">—</div>
+        </div>
+
         <div class="map-overlays">
             <div class="map-overlay" id="mapOverlay">
                 <div class="ov-lbl">Current Position</div>
@@ -804,6 +883,10 @@ let showTrail    = true;
 let isDark       = true;
 let statsWindow  = '1h';      // 'today' | '1h'
 let showCountries = false;
+let showMuf       = false;
+let showSolar     = false;
+let _solarTimer   = null;
+let mufChart      = null;
 
 // Live map objects
 let liveMap       = null;
@@ -895,6 +978,7 @@ async function fetchLatest() {
         }
         fetchTodayStats();
         if (showCountries) updateCountryOverlay(data.countries || []);
+        if (showMuf)       fetchMufData();
     } catch(e) {
         setStatus(null, false, 'Connection error');
     }
@@ -903,20 +987,29 @@ async function fetchLatest() {
 function updateLiveDisplay(spot) {
     const { lat, lon, tx_loc, timestamp, reporter_count, max_distance } = spot;
 
+    // Age-based state
+    const ageMs   = Date.now() - new Date(timestamp.replace(' ', 'T') + 'Z');
+    const stale   = ageMs > 3600000;                      // > 1 hour
+    const dotColor = stale ? '#ef4444' : '#4ade80';       // red or green
+
     // Sidebar info panel
-    document.getElementById('infoLocator').textContent   = tx_loc;
+    const locEl = document.getElementById('infoLocator');
+    locEl.textContent  = tx_loc;
+    locEl.style.color  = stale ? '#ef4444' : '';          // red when stale, default accent otherwise
     document.getElementById('infoLat').textContent       = lat.toFixed(4) + '°';
     document.getElementById('infoLon').textContent       = lon.toFixed(4) + '°';
-    document.getElementById('infoReporters').textContent = reporter_count;
-    document.getElementById('infoMaxDist').textContent   = max_distance ? max_distance + ' km' : '—';
+    document.getElementById('infoReporters').textContent = stale ? '—' : reporter_count;
+    document.getElementById('infoMaxDist').textContent   = (!stale && max_distance) ? max_distance + ' km' : '—';
     document.getElementById('infoTime').textContent      = timestamp;
 
     // Map overlay
-    document.getElementById('ovLocator').textContent   = tx_loc;
+    const ovLoc = document.getElementById('ovLocator');
+    ovLoc.textContent = tx_loc;
+    ovLoc.style.color = stale ? '#ef4444' : '';
     document.getElementById('ovTime').textContent      = timestamp + ' UTC';
-    document.getElementById('ovReporters').textContent = reporter_count;
-    document.getElementById('ovDX').textContent        = max_distance ? max_distance + ' km' : '—';
-    document.getElementById('ovBand').textContent      = BAND_NAMES[currentBand] || currentBand+'MHz';
+    document.getElementById('ovReporters').textContent = stale ? '—' : reporter_count;
+    document.getElementById('ovDX').textContent        = (!stale && max_distance) ? max_distance + ' km' : '—';
+    document.getElementById('ovBand').textContent      = BAND_NAMES[currentBand] || currentBand + 'MHz';
 
     // Beacon marker
     const popup = `<strong>${CALLSIGN}</strong><br>
@@ -926,20 +1019,22 @@ function updateLiveDisplay(spot) {
         Max DX: ${max_distance} km`;
 
     if (liveMarker) {
-        liveMarker.setLatLng([lat, lon]).setPopupContent(popup);
+        liveMarker.setLatLng([lat, lon])
+                  .setStyle({ fillColor: dotColor, color: dotColor })
+                  .setPopupContent(popup);
     } else {
         liveMarker = L.circleMarker([lat, lon], {
             radius: 8,
-            color: '#ffffff',
-            fillColor: '#38bdf8',
-            fillOpacity: 0.9,
-            weight: 2
+            color: dotColor,
+            fillColor: dotColor,
+            fillOpacity: 1,
+            weight: 0
         }).addTo(liveMap).bindPopup(popup);
         liveMap.panTo([lat, lon]);
     }
 
     // Propagation
-    updatePropagation(reporter_count);
+    updatePropagation(reporter_count, stale);
 
     // Trail
     if (showTrail) refreshTrail();
@@ -971,9 +1066,17 @@ function getPropCondition(n) {
     return             { text: 'Extremely good',  color: '#4ade80', pct: 100 };
 }
 
-function updatePropagation(reporter_count) {
-    const c = getPropCondition(reporter_count || 0);
+function updatePropagation(reporter_count, stale = false) {
     const el = document.getElementById('propCondition');
+    if (stale) {
+        el.textContent  = 'No propagation';
+        el.style.color  = '#ef4444';
+        document.getElementById('propBarFill').style.width      = '0%';
+        document.getElementById('propBarFill').style.background = '#ef4444';
+        document.getElementById('propReporters').textContent    = '0 reporters heard';
+        return;
+    }
+    const c = getPropCondition(reporter_count || 0);
     el.textContent  = c.text;
     el.style.color  = c.color;
     document.getElementById('propBarFill').style.width      = c.pct + '%';
@@ -1033,6 +1136,146 @@ function updateCountryOverlay(list) {
             </div>
             <span class="country-count">${c.count}</span>
         </div>`).join('');
+}
+
+// ── MUF graph ──────────────────────────────────────────────────────────────
+function toggleMuf() {
+    showMuf = !showMuf;
+    document.getElementById('swMuf').className    = 'sw' + (showMuf ? ' on' : '');
+    document.getElementById('mufPanel').style.display = showMuf ? 'block' : 'none';
+    if (showMuf) fetchMufData();
+}
+
+async function fetchMufData() {
+    if (!showMuf) return;
+    try {
+        const r    = await fetch(`/api/muf?band=${currentBand}`);
+        const data = await r.json();
+        renderMufChart(data.muf || [], data.spots || []);
+    } catch(e) { /* silent */ }
+}
+
+function renderMufChart(mufRows, spotRows) {
+    // Build time-keyed spot map (reporter_count by HH:MM)
+    const spotMap = {};
+    spotRows.forEach(s => {
+        const key = s.timestamp.slice(11, 16);   // HH:MM
+        spotMap[key] = Math.max(spotMap[key] || 0, s.reporter_count);
+    });
+
+    const labels    = mufRows.map(r => r.timestamp.slice(11, 16));
+    const mufVals   = mufRows.map(r => r.muf);
+    const spotVals  = mufRows.map(r => spotMap[r.timestamp.slice(11, 16)] || 0);
+
+    const darkMode  = isDark;
+    const gridColor = darkMode ? '#374151' : '#cbd5e1';
+    const textColor = darkMode ? '#9ca3af' : '#475569';
+
+    if (mufChart) {
+        mufChart.data.labels                    = labels;
+        mufChart.data.datasets[0].data          = mufVals;
+        mufChart.data.datasets[1].data          = spotVals;
+        mufChart.options.scales.x.ticks.color   = textColor;
+        mufChart.options.scales.x.grid.color    = gridColor;
+        mufChart.options.scales.yM.ticks.color  = '#38bdf8';
+        mufChart.options.scales.yM.grid.color   = gridColor;
+        mufChart.options.scales.yR.ticks.color  = '#4ade80';
+        mufChart.update('none');
+        return;
+    }
+
+    const ctx = document.getElementById('mufCanvas').getContext('2d');
+    mufChart = new Chart(ctx, {
+        data: {
+            labels,
+            datasets: [
+                {
+                    type: 'line',
+                    label: 'MUF D=3000 (MHz)',
+                    data: mufVals,
+                    borderColor: '#38bdf8',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 2,
+                    pointHoverRadius: 4,
+                    yAxisID: 'yM',
+                    tension: 0.3,
+                    order: 1,
+                },
+                {
+                    type: 'bar',
+                    label: 'Reporters',
+                    data: spotVals,
+                    backgroundColor: 'rgba(74,222,128,0.45)',
+                    borderColor: '#4ade80',
+                    borderWidth: 1,
+                    yAxisID: 'yR',
+                    order: 2,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    labels: { color: textColor, font: { size: 10 }, boxWidth: 12 }
+                },
+                tooltip: { titleFont: { size: 10 }, bodyFont: { size: 10 } }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        color: textColor, font: { size: 9 }, maxRotation: 45,
+                        maxTicksLimit: 24,
+                    },
+                    grid: { color: gridColor }
+                },
+                yM: {
+                    type: 'linear', position: 'left',
+                    title: { display: true, text: 'MUF (MHz)', color: '#38bdf8', font: { size: 9 } },
+                    ticks: { color: '#38bdf8', font: { size: 9 } },
+                    grid:  { color: gridColor }
+                },
+                yR: {
+                    type: 'linear', position: 'right',
+                    title: { display: true, text: 'Reporters', color: '#4ade80', font: { size: 9 } },
+                    ticks: { color: '#4ade80', font: { size: 9 } },
+                    grid:  { drawOnChartArea: false }
+                }
+            }
+        }
+    });
+}
+
+// ── Solar conditions ────────────────────────────────────────────────────────
+function toggleSolar() {
+    showSolar = !showSolar;
+    document.getElementById('swSolar').className       = 'sw' + (showSolar ? ' on' : '');
+    document.getElementById('solarPanel').style.display = showSolar ? 'block' : 'none';
+    if (showSolar) {
+        fetchSolarData();
+        _solarTimer = setInterval(fetchSolarData, 60000);
+    } else {
+        clearInterval(_solarTimer);
+        _solarTimer = null;
+    }
+}
+
+async function fetchSolarData() {
+    if (!showSolar) return;
+    try {
+        const r    = await fetch('/api/solar');
+        const data = await r.json();
+        document.getElementById('solSFI').textContent  = data.sfi    ?? '—';
+        document.getElementById('solK').textContent    = data.kindex ?? '—';
+        document.getElementById('solA').textContent    = data.aindex ?? '—';
+        document.getElementById('solX').textContent    = data.xray   ?? '—';
+        document.getElementById('solBz').textContent   = data.bz     ?? '—';
+        document.getElementById('solMUF').textContent  = data.muf    ? data.muf.toFixed(1) : '—';
+        document.getElementById('solarUpdated').textContent = data.updated ? 'Updated: ' + data.updated : '';
+    } catch(e) { /* silent */ }
 }
 
 // ── Sidebar collapse ───────────────────────────────────────────────────────
