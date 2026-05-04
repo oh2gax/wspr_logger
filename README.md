@@ -30,7 +30,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 ## Screenshots
 
 ![WSPR Logger — live map view](https://raw.githubusercontent.com/oh2gax/wspr_logger/main/Main_screen_1_wspr_logger.png)
-*Live map (dark mode) with position overlay, propagation card, and reporter countries panel on the right; collapsible info sidebar on the left.*
+*Live map (dark mode) with all panels enabled: MUF D=3000 km / Reporter Count graph spanning the top, Solar Conditions and Reporter List stacked on the left, Current Position / Propagation / Reporter Countries overlays on the right, and the collapsible info sidebar on the left.*
 
 ---
 
