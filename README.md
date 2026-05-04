@@ -14,7 +14,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **Position trail** — dashed polyline connecting today's logged positions on the live map
 - **Propagation indicator** — estimates band conditions from the latest reporter count (Very poor → Extremely good) with a colour-coded bar; resets to "No propagation" automatically when data is stale
 - **MUF / Reporter count graph** — optional 24-hour dual-axis chart (blue line = Juliusruh ionosonde MUF D=3000 km, green bars = reporter count); data logged every 10 minutes; toggle on/off from sidebar
-- **Solar conditions panel** — optional bottom-left overlay showing SFI, K-index, A-index, X-ray flux, Bz (IMF), and Juliusruh MUF; refreshes every 60 seconds from hamqsl.com; toggle on/off from sidebar
+- **Solar conditions panel** — optional top-left overlay showing SFI, K-index, A-index, X-ray flux, Bz (IMF), and Juliusruh MUF; moves down automatically when the MUF graph is also enabled; refreshes every 60 seconds from hamqsl.com; toggle on/off from sidebar
 - **Reporter countries** — optional overlay listing every country that heard the beacon in the past hour, with a proportional bar and station count; loads instantly from backend cache
 - **History view** — map and table of all logged spots for any selected date
 - **Statistics view** — daily and all-time records (spot count, longest DX, max reporters)
@@ -233,7 +233,7 @@ When the last spot is older than 1 hour the card shows **No propagation** with a
 
 **MUF / Reports Graph** (top of map, spanning full width) *(optional)* — 24-hour dual-axis Chart.js chart. The **blue line** shows the Juliusruh ionosonde MUF D=3000 km (left axis, MHz); the **green bars** show reporter count per transmission (right axis). Both datasets are logged every 10 minutes and stored in the database. Useful for correlating band openings with ionospheric conditions.
 
-**Solar Conditions** (bottom-left) *(optional)* — compact panel showing current solar and geomagnetic indices:
+**Solar Conditions** (top-left, below the MUF graph when that is also enabled) *(optional)* — compact panel showing current solar and geomagnetic indices:
 
 | Field | Description |
 |-------|-------------|
