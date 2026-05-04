@@ -671,6 +671,51 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
 .rl-table td.rl-snr  { color: var(--accent); font-weight: 600; }
 .rl-table td.rl-dist { color: #4ade80; font-weight: 600; }
 .rl-empty { font-size: 11px; color: var(--text-muted); padding: 6px 0; }
+
+/* ── Histogram panel (left side) ── */
+.hgram-panel {
+    position: absolute;
+    top: 12px;
+    left: 46px;
+    z-index: 500;
+    background: var(--overlay-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px 12px;
+    min-width: 280px;
+    max-width: 360px;
+    backdrop-filter: blur(6px);
+    pointer-events: auto;
+    transition: top .25s ease;
+}
+.hgram-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+.hgram-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text-muted);
+}
+.hgram-tabs { display: flex; gap: 4px; }
+.hgram-tab {
+    font-size: 9px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    background: transparent;
+}
+.hgram-tab.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+.hgram-chart-wrap { height: 130px; }
 </style>
 </head>
 <body>
@@ -744,6 +789,10 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
                 <span>Reporter List</span>
                 <div class="sw" id="swReporterList" onclick="toggleReporterList()"></div>
             </div>
+            <div class="toggle-row">
+                <span>SNR / Dist Histogram</span>
+                <div class="sw" id="swHgram" onclick="toggleHistogram()"></div>
+            </div>
         </div>
 
         <!-- Today's mini-stats -->
@@ -801,6 +850,9 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
                 <div class="solar-item"><span class="solar-lbl">X-ray</span><span class="solar-val" id="solX">—</span></div>
                 <div class="solar-item"><span class="solar-lbl">Bz</span><span class="solar-val" id="solBz">—</span></div>
                 <div class="solar-item"><span class="solar-lbl">J-MUF</span><span class="solar-val" id="solMUF">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">SW</span><span class="solar-val" id="solSW">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">AU</span><span class="solar-val" id="solAU">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">PF</span><span class="solar-val" id="solPF">—</span></div>
             </div>
             <div class="solar-updated" id="solarUpdated">—</div>
         </div>
@@ -838,6 +890,20 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
                 <div class="country-list" id="countryList">
                     <div style="color:var(--text-muted);font-size:11px;">No data</div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Histogram panel — left side, below reporter list -->
+        <div class="hgram-panel" id="hgramPanel" style="display:none;">
+            <div class="hgram-header">
+                <span class="hgram-title">Histogram — Last 1 h</span>
+                <div class="hgram-tabs">
+                    <span class="hgram-tab active" id="htSnr"  onclick="setHgramMode('snr')">SNR</span>
+                    <span class="hgram-tab"        id="htDist" onclick="setHgramMode('dist')">Dist</span>
+                </div>
+            </div>
+            <div class="hgram-chart-wrap">
+                <canvas id="hgramCanvas"></canvas>
             </div>
         </div>
 
@@ -972,8 +1038,11 @@ let showCountries    = false;
 let showMuf          = false;
 let showSolar        = false;
 let showReporterList = false;
+let showHistogram    = false;
 let _reporterListData = [];
 let _rlSortKey        = 'snr';   // 'snr' | 'dist'
+let _hgramMode        = 'snr';   // 'snr' | 'dist'
+let hgramChart        = null;
 let _solarTimer   = null;
 let mufChart      = null;
 
@@ -1247,8 +1316,29 @@ function updateSolarPosition() {
 
 function updateReporterListPosition() {
     const panel = document.getElementById('reporterListPanel');
-    if (!panel || panel.style.display === 'none') return;
+    if (!panel || panel.style.display === 'none') {
+        updateHistogramPosition();
+        return;
+    }
     if (showSolar) {
+        const solar = document.getElementById('solarPanel');
+        panel.style.top = (solar.offsetTop + solar.offsetHeight + 8) + 'px';
+    } else if (showMuf) {
+        const muf = document.getElementById('mufPanel');
+        panel.style.top = (muf.offsetTop + muf.offsetHeight + 8) + 'px';
+    } else {
+        panel.style.top = '12px';
+    }
+    updateHistogramPosition();
+}
+
+function updateHistogramPosition() {
+    const panel = document.getElementById('hgramPanel');
+    if (!panel || panel.style.display === 'none') return;
+    if (showReporterList) {
+        const rl = document.getElementById('reporterListPanel');
+        panel.style.top = (rl.offsetTop + rl.offsetHeight + 8) + 'px';
+    } else if (showSolar) {
         const solar = document.getElementById('solarPanel');
         panel.style.top = (solar.offsetTop + solar.offsetHeight + 8) + 'px';
     } else if (showMuf) {
@@ -1401,10 +1491,13 @@ async function fetchSolarData() {
     try {
         const r    = await fetch('/api/solar');
         const data = await r.json();
-        document.getElementById('solSFI').textContent  = data.sfi  ?? '—';
-        document.getElementById('solA').textContent    = data.aindex ?? '—';
-        document.getElementById('solBz').textContent   = data.bz   ?? '—';
+        document.getElementById('solSFI').textContent  = data.sfi      ?? '—';
+        document.getElementById('solA').textContent    = data.aindex   ?? '—';
+        document.getElementById('solBz').textContent   = data.bz       ?? '—';
         document.getElementById('solMUF').textContent  = data.muf  ? data.muf.toFixed(1) : '—';
+        document.getElementById('solSW').textContent   = data.solarwind  ?? '—';
+        document.getElementById('solAU').textContent   = data.aurora     ?? '—';
+        document.getElementById('solPF').textContent   = data.protonflux ?? '—';
         document.getElementById('solarUpdated').textContent = data.updated ? 'Updated: ' + data.updated : '';
 
         // K-index: orange 4–5, red 6+
@@ -1430,6 +1523,8 @@ function toggleReporterList() {
     if (showReporterList) {
         updateReporterListPosition();
         fetchReporterList();
+    } else {
+        updateHistogramPosition();
     }
 }
 
@@ -1440,6 +1535,7 @@ async function fetchReporterList() {
         const data = await r.json();
         _reporterListData = data.reporters || [];
         renderReporterList();
+        if (showHistogram) renderHistogram();
     } catch(e) { /* silent */ }
 }
 
@@ -1470,6 +1566,114 @@ function renderReporterList() {
             <td class="rl-snr">${r.snr > 0 ? '+' : ''}${r.snr}</td>
             <td class="rl-dist">${r.distance.toLocaleString()}</td>
         </tr>`).join('');
+}
+
+// ── Histogram ─────────────────────────────────────────────────────────────
+function toggleHistogram() {
+    showHistogram = !showHistogram;
+    document.getElementById('swHgram').className       = 'sw' + (showHistogram ? ' on' : '');
+    document.getElementById('hgramPanel').style.display = showHistogram ? 'block' : 'none';
+    if (showHistogram) {
+        updateHistogramPosition();
+        renderHistogram();
+    } else {
+        if (hgramChart) { hgramChart.destroy(); hgramChart = null; }
+    }
+}
+
+function setHgramMode(mode) {
+    _hgramMode = mode;
+    document.getElementById('htSnr').classList.toggle('active',  mode === 'snr');
+    document.getElementById('htDist').classList.toggle('active', mode === 'dist');
+    renderHistogram();
+}
+
+function renderHistogram() {
+    if (!showHistogram) return;
+    const darkMode  = isDark;
+    const gridColor = darkMode ? '#374151' : '#cbd5e1';
+    const textColor = darkMode ? '#9ca3af' : '#475569';
+
+    let labels, counts, lineColor, fillColor;
+
+    if (_hgramMode === 'snr') {
+        const MIN = -33, STEP = 3, BINS = 15;   // −33 … +9 dB
+        counts = new Array(BINS).fill(0);
+        _reporterListData.forEach(r => {
+            const idx = Math.floor((r.snr - MIN) / STEP);
+            if (idx >= 0 && idx < BINS) counts[idx]++;
+        });
+        labels    = counts.map((_, i) => { const v = MIN + i * STEP; return (v >= 0 ? '+' : '') + v; });
+        lineColor = '#38bdf8';
+        fillColor = 'rgba(56,189,248,0.18)';
+    } else {
+        const maxDist = Math.max(..._reporterListData.map(r => r.distance), 1000);
+        const STEP    = maxDist <= 5000 ? 500 : 1000;
+        const BINS    = Math.ceil(maxDist / STEP) + 1;
+        counts = new Array(BINS).fill(0);
+        _reporterListData.forEach(r => {
+            const idx = Math.floor(r.distance / STEP);
+            if (idx >= 0 && idx < BINS) counts[idx]++;
+        });
+        labels    = counts.map((_, i) => (i * STEP / 1000).toFixed(i * STEP < 1000 ? 1 : 0) + 'k');
+        lineColor = '#38bdf8';
+        fillColor = 'rgba(56,189,248,0.18)';
+    }
+
+    const ctx = document.getElementById('hgramCanvas').getContext('2d');
+
+    if (hgramChart) {
+        hgramChart.data.labels                      = labels;
+        hgramChart.data.datasets[0].data            = counts;
+        hgramChart.data.datasets[0].borderColor     = lineColor;
+        hgramChart.data.datasets[0].backgroundColor = fillColor;
+        hgramChart.options.scales.x.ticks.color = textColor;
+        hgramChart.options.scales.y.ticks.color = textColor;
+        hgramChart.update('none');
+        return;
+    }
+
+    hgramChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                data: counts,
+                borderColor: lineColor,
+                backgroundColor: fillColor,
+                borderWidth: 1.5,
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                tension: 0.4,
+                fill: true,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    titleFont: { size: 10 }, bodyFont: { size: 10 },
+                    callbacks: {
+                        title: items => (_hgramMode === 'snr' ? 'SNR ' : 'Dist ') + items[0].label,
+                        label: item  => 'Stations: ' + item.raw,
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: textColor, font: { size: 9 }, maxRotation: 0 },
+                    grid:  { display: false }
+                },
+                y: {
+                    ticks: { color: textColor, font: { size: 9 }, stepSize: 1, precision: 0 },
+                    grid:  { display: false },
+                    beginAtZero: true,
+                }
+            }
+        }
+    });
 }
 
 // ── Sidebar collapse ───────────────────────────────────────────────────────
