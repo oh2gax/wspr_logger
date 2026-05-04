@@ -14,9 +14,10 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **Position trail** — dashed polyline connecting today's logged positions on the live map
 - **Propagation indicator** — estimates band conditions from the latest reporter count (Very poor → Extremely good) with a colour-coded bar; resets to "No propagation" automatically when data is stale
 - **MUF / Reporter count graph** — optional 24-hour dual-axis chart (blue line = Juliusruh ionosonde MUF D=3000 km, green bars = reporter count); data logged every 10 minutes; toggle on/off from sidebar
-- **Solar conditions panel** — optional top-left overlay showing SFI, K-index, A-index, X-ray flux, Bz (IMF), and Juliusruh MUF; K-index shown in orange (4–5) or red (6+); X-ray shown in orange (M-class) or red (X-class); moves down automatically when the MUF graph is also enabled; refreshes every 60 seconds from hamqsl.com; toggle on/off from sidebar
+- **Solar conditions panel** — optional top-left overlay showing 9 indices: SFI, K-index, A-index, X-ray flux, Bz (IMF), Juliusruh MUF, Solar Wind speed, Aurora activity, and Proton Flux; K-index shown in orange (4–5) or red (6+); X-ray shown in orange (M-class) or red (X-class); moves down automatically when the MUF graph is also enabled; refreshes every 60 seconds from hamqsl.com; toggle on/off from sidebar
 - **Reporter countries** — optional overlay listing every country that heard the beacon in the past hour, with a proportional bar and station count; loads instantly from backend cache
 - **Reporter list** — optional left-side panel showing individual reporter stations from the past 60 minutes with band, callsign, grid locator, SNR, and distance; sortable by SNR or distance; scrollable list with room for ~20 entries
+- **SNR / Dist histogram** — optional left-side panel showing a smooth filled line graph of reporter distribution for the past 60 minutes; toggle between SNR (dB bins) and Distance (km bins) with a tab switch; stacks below the Reporter List when both are visible
 - **History view** — map and table of all logged spots for any selected date
 - **Statistics view** — daily and all-time records (spot count, longest DX, max reporters)
 - **1 h / Today stats** — toggle the sidebar mini-stats between the last 60 minutes (default) and the full day
@@ -208,6 +209,7 @@ sudo ufw allow 5008/tcp
 | **MUF / Reports Graph** | Toggle the 24-hour MUF and reporter count chart at the top of the map |
 | **Solar Conditions** | Toggle the solar indices panel on the left side of the map |
 | **Reporter List** | Toggle the individual reporter table on the left side of the map |
+| **SNR / Dist Histogram** | Toggle the reporter distribution line chart on the left side of the map |
 | **1h / Today tabs** | Switch the mini-stats cards between the last 60 minutes (default) and the full day |
 | **🌙 / ☀️ Dark / Light Mode** | Toggle the colour theme; saved across sessions |
 
@@ -215,7 +217,7 @@ sudo ufw allow 5008/tcp
 
 The main view opens by default. The beacon position is shown as a **solid circle** — **green** when the last spot is less than 1 hour old, **red** when older. The map auto-pans to the beacon on first load. A **dashed polyline** shows today's path. Click the circle to see a popup with full spot details.
 
-Up to **six overlay elements** can be shown simultaneously:
+Up to **seven overlay elements** can be shown simultaneously:
 
 **Current Position** (top-right) — locator (red when stale), timestamp, reporter count, max DX, and band.
 
@@ -246,6 +248,9 @@ When the last spot is older than 1 hour the card shows **No propagation** with a
 | X-ray | X-ray flux class (e.g. B9.3, C2.1); orange for M-class, red for X-class |
 | Bz    | Interplanetary magnetic field Z-component (nT) |
 | J-MUF | Juliusruh ionosonde MUF D=3000 km (MHz) |
+| SW    | Solar wind speed (km/s) |
+| AU    | Aurora activity level |
+| PF    | Proton flux |
 
 Data sourced from [hamqsl.com](https://www.hamqsl.com/solarxml.php), refreshed every 60 seconds while the panel is visible.
 
@@ -260,6 +265,8 @@ Data sourced from [hamqsl.com](https://www.hamqsl.com/solarxml.php), refreshed e
 | Dist   | Distance from beacon to reporter (km); highlighted in green |
 
 Click the **SNR** or **Dist** column header to re-sort the list. The panel stacks automatically below Solar Conditions (or below the MUF graph if Solar is hidden, or at the top-left if neither is active). Refreshes every 60 seconds alongside the main poll cycle.
+
+**SNR / Dist Histogram** (left side, below Reporter List when visible) *(optional)* — smooth filled line chart showing the distribution of reporters across SNR or distance bins for the past 60 minutes. Use the **SNR** / **Dist** tab buttons to switch modes. SNR mode bins reporters in 3 dB steps from −33 to +9 dB; Distance mode bins in 500 km or 1000 km steps depending on the furthest reporter. Data is derived from the cached reporter list — no extra server query needed. Stacks in the same left-side chain as Solar Conditions and Reporter List.
 
 ### History View
 

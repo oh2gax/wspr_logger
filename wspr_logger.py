@@ -296,12 +296,15 @@ def fetch_solar_data() -> dict:
         root = ET.fromstring(raw)
         sd   = root.find(".//solardata")
         result = {
-            "sfi":     sd.findtext("solarflux",    "—"),
-            "kindex":  sd.findtext("kindex",        "—"),
-            "aindex":  sd.findtext("aindex",        "—"),
-            "xray":    sd.findtext("xray",          "—"),
-            "bz":      sd.findtext("magneticfield", "—"),
-            "updated": sd.findtext("updated",       "—"),
+            "sfi":        sd.findtext("solarflux",    "—"),
+            "kindex":     sd.findtext("kindex",        "—"),
+            "aindex":     sd.findtext("aindex",        "—"),
+            "xray":       sd.findtext("xray",          "—"),
+            "bz":         sd.findtext("magneticfield", "—"),
+            "solarwind":  sd.findtext("solarwind",     "—"),
+            "aurora":     sd.findtext("aurora",        "—"),
+            "protonflux": sd.findtext("protonflux",    "—"),
+            "updated":    sd.findtext("updated",       "—"),
         }
         _solar_cache      = result
         _solar_cache_time = now
