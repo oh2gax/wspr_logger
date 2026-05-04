@@ -123,6 +123,39 @@ Press `Ctrl+C` to stop.
 
 ---
 
+## Running Manually in the Background
+
+If you prefer to run the logger without setting up a systemd service, you can launch it as a background process using `nohup`:
+
+### 1 — Start the server
+
+```bash
+cd wspr_logger
+python3 -m venv venv
+source venv/bin/activate
+sudo nohup python3 wspr_logger.py > /dev/null 2>&1 &
+```
+
+The process detaches from the terminal immediately. Output is discarded (`/dev/null`); if you want to keep a log file instead, replace `/dev/null` with a path such as `wspr_logger.log`.
+
+### 2 — Find the process ID
+
+```bash
+ps -ef | grep wspr_logger.py
+```
+
+Note the PID in the second column of the matching line.
+
+### 3 — Stop the server
+
+```bash
+sudo kill <process id>
+```
+
+> **Note:** This method does not survive reboots. For a permanent installation that starts automatically, use the systemd service described in the next section.
+
+---
+
 ## Running as a Background Service (systemd)
 
 The recommended way to keep the logger running permanently and have it restart automatically after reboots or crashes.
