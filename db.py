@@ -46,6 +46,18 @@ def _create_tables():
             CREATE INDEX IF NOT EXISTS idx_spots_date
             ON spots (date(timestamp))
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS muf_data (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp  TEXT    NOT NULL UNIQUE,
+                muf        REAL    NOT NULL,
+                created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_muf_timestamp
+            ON muf_data (timestamp)
+        """)
         conn.commit()
     print(f"[DB] Initialised at: {_db_path}")
 
@@ -174,6 +186,51 @@ def get_available_dates(band: int = None) -> list[str]:
                 FROM spots ORDER BY d DESC
             """).fetchall()
         return [r["d"] for r in rows]
+
+
+def insert_muf(timestamp: str, muf: float) -> bool:
+    """Insert a MUF reading. Returns True if inserted, False if duplicate/error."""
+    try:
+        with _connect() as conn:
+            conn.execute("""
+                INSERT OR IGNORE INTO muf_data (timestamp, muf)
+                VALUES (?, ?)
+            """, (timestamp, muf))
+            conn.commit()
+            return conn.execute("SELECT changes()").fetchone()[0] == 1
+    except Exception as e:
+        print(f"[DB Error] insert_muf: {e}")
+        return False
+
+
+def get_muf_last_24h() -> list[dict]:
+    """Return MUF readings from the last 24 hours, oldest first."""
+    with _connect() as conn:
+        rows = conn.execute("""
+            SELECT timestamp, muf FROM muf_data
+            WHERE timestamp >= datetime('now', '-24 hours')
+            ORDER BY timestamp ASC
+        """).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_spots_last_24h(band: int = None) -> list[dict]:
+    """Return spots from the last 24 hours for chart overlay."""
+    with _connect() as conn:
+        if band:
+            rows = conn.execute("""
+                SELECT timestamp, reporter_count FROM spots
+                WHERE timestamp >= datetime('now', '-24 hours')
+                  AND band = ?
+                ORDER BY timestamp ASC
+            """, (band,)).fetchall()
+        else:
+            rows = conn.execute("""
+                SELECT timestamp, reporter_count FROM spots
+                WHERE timestamp >= datetime('now', '-24 hours')
+                ORDER BY timestamp ASC
+            """).fetchall()
+        return [dict(r) for r in rows]
 
 
 def get_all_time_stats() -> dict:

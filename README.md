@@ -1,6 +1,6 @@
 # WSPR Logger
 
-A lightweight web-based dashboard for tracking and logging WSPR beacon transmissions in real time. Built with Python/Flask on the backend and a single-page Leaflet.js frontend, it queries [wspr.live](https://wspr.live) every 10 minutes, stores spots in a local SQLite database, and presents live position, history, statistics, propagation conditions, and reporter country breakdowns in the browser.
+A lightweight web-based dashboard for tracking and logging WSPR beacon transmissions in real time. Built with Python/Flask on the backend and a single-page Leaflet.js frontend, it queries [wspr.live](https://wspr.live) every 10 minutes, stores spots in a local SQLite database, and presents live position, history, statistics, propagation conditions, ionospheric MUF data, solar indices, and reporter country breakdowns in the browser.
 
 Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operating on the 20 m band from a car, but fully configurable for any callsign and band.
 
@@ -8,17 +8,21 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 
 ## Features
 
-- **Live map** — shows the current beacon position as a circle marker; auto-centres on the beacon when the first spot arrives; zoom level is remembered between sessions
+- **Live map** — beacon position shown as a solid colour circle; auto-centres on first spot; zoom level remembered between sessions
+- **Age-aware beacon marker** — circle is **green** when the last spot is less than 1 hour old, **red** when older, giving an instant visual indication of whether the beacon is active or the band is closed
+- **Stale data indicators** — when the last spot is older than 1 hour the locator text turns red in both the sidebar and map overlay, the Propagation card switches to "No propagation / 0 reporters", helping users quickly assess band conditions
 - **Position trail** — dashed polyline connecting today's logged positions on the live map
-- **Propagation indicator** — estimates band conditions from the latest reporter count (Very poor → Extremely good) with a colour-coded bar
-- **Reporter countries** — optional overlay listing every country that heard the beacon in the past hour, with a proportional bar and station count per country; toggle on/off from the sidebar
+- **Propagation indicator** — estimates band conditions from the latest reporter count (Very poor → Extremely good) with a colour-coded bar; resets to "No propagation" automatically when data is stale
+- **MUF / Reporter count graph** — optional 24-hour dual-axis chart (blue line = Juliusruh ionosonde MUF D=3000 km, green bars = reporter count); data logged every 10 minutes; toggle on/off from sidebar
+- **Solar conditions panel** — optional bottom-left overlay showing SFI, K-index, A-index, X-ray flux, Bz (IMF), and Juliusruh MUF; refreshes every 60 seconds from hamqsl.com; toggle on/off from sidebar
+- **Reporter countries** — optional overlay listing every country that heard the beacon in the past hour, with a proportional bar and station count; loads instantly from backend cache
 - **History view** — map and table of all logged spots for any selected date
 - **Statistics view** — daily and all-time records (spot count, longest DX, max reporters)
 - **1 h / Today stats** — toggle the sidebar mini-stats between the last 60 minutes (default) and the full day
 - **Light / Dark theme** — toggle in the sidebar; preference is remembered in the browser
 - **Collapsible sidebar** — fold the panel away for a full-screen map view, handy on mobile
-- **Config-file driven** — all settings (callsign, band, map defaults, server address, database path) are managed in `config.ini`; no settings UI is exposed to the browser
-- **SQLite storage** — one database file, WAL mode, indexed for fast date-range queries
+- **Config-file driven** — all settings managed in `config.ini`; no settings UI exposed to the browser
+- **SQLite storage** — one database file, WAL mode, indexed for fast date-range queries; separate table for MUF history
 
 ---
 
@@ -34,9 +38,11 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 1. A background thread polls **wspr.live** (a public ClickHouse database) at minutes `:08`, `:18`, `:28`, `:38`, `:48`, `:58` — six minutes after each 10-minute WSPR transmission cycle, giving reporters time to upload their data.
 2. The query groups all received spots for the latest transmission by `(tx_loc, time)` and returns the Maidenhead locator, UTC timestamp, reporter count, and maximum reported distance.
 3. Valid new spots are inserted into the local SQLite database; duplicates are silently ignored.
-4. The browser polls `/api/latest` every 60 seconds and updates the map, overlays, and sidebar without a page reload.
-5. On startup the background thread performs an immediate fetch of the latest spot and reporter countries so the UI has data ready the moment the page is opened, without waiting for the first scheduled poll cycle.
-6. Reporter country data is cached in memory by the backend and bundled into every `/api/latest` response. When the Reporter Countries overlay is toggled on, the frontend fetches the cached list from `/api/reporters` instantly — no extra wspr.live query is triggered from the browser at any point.
+4. At each poll cycle the backend also fetches the **MUF D=3000 km** value from the [Juliusruh ionosonde](https://www.ionosonde.iap-kborn.de/actuellz.htm) and stores it in the `muf_data` table alongside the timestamp.
+5. Reporter country data is derived from individual reporter callsigns, cached in memory, and bundled into every `/api/latest` response — no extra wspr.live queries are ever triggered from the browser.
+6. On startup the background thread performs an immediate fetch of the latest spot, reporter countries, and MUF value so the UI has data ready the moment the page is opened.
+7. The browser polls `/api/latest` every 60 seconds and updates the map, overlays, and sidebar without a page reload.
+8. **Solar conditions** are fetched on demand from [hamqsl.com](https://www.hamqsl.com/solarxml.php) with a 60-second server-side cache; the frontend polls `/api/solar` every 60 seconds when the panel is visible.
 
 ---
 
@@ -48,7 +54,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 | Flask     | 3.0 or newer |
 | SQLite    | bundled with Python |
 
-No other Python packages are required. The frontend loads Leaflet.js from a CDN and needs no build step.
+No other Python packages are required. The frontend loads Leaflet.js and Chart.js from CDN and needs no build step.
 
 ---
 
@@ -190,25 +196,27 @@ sudo ufw allow 5008/tcp
 |---------|-------------|
 | **◀ / ▶ button** | Collapse or expand the sidebar to give the map more space |
 | **Status dot** | Green = live data (< 20 min old) · Amber = stale · Red = no recent data |
-| **Locator** | Current 6-character Maidenhead grid square |
+| **Locator** | Current 6-character Maidenhead grid square; turns red when last spot is older than 1 hour |
 | **Latitude / Longitude** | Decimal coordinates derived from the locator |
 | **Reporters / Max DX** | How many stations received the last transmission and the farthest one |
 | **Last Spot (UTC)** | Timestamp of the most recent logged transmission |
 | **Band** | Static display of the active band as configured in `config.ini` |
 | **Position Trail** | Toggle the dashed trail connecting today's positions on the live map |
 | **Reporter Countries** | Toggle the country breakdown overlay on the live map |
+| **MUF / Reports Graph** | Toggle the 24-hour MUF and reporter count chart at the top of the map |
+| **Solar Conditions** | Toggle the solar indices panel at the bottom-left of the map |
 | **1h / Today tabs** | Switch the mini-stats cards between the last 60 minutes (default) and the full day |
 | **🌙 / ☀️ Dark / Light Mode** | Toggle the colour theme; saved across sessions |
 
 ### Live Map
 
-The main view opens by default. The **blue circle** is the current beacon position; the map auto-pans to it when the first spot arrives. A **dashed polyline** shows the path for today. Click the circle to see a popup with full spot details.
+The main view opens by default. The beacon position is shown as a **solid circle** — **green** when the last spot is less than 1 hour old, **red** when older. The map auto-pans to the beacon on first load. A **dashed polyline** shows today's path. Click the circle to see a popup with full spot details.
 
-Up to three **overlay cards** appear in the top-right corner:
+Up to **five overlay elements** can be shown simultaneously:
 
-**Current Position** — locator, timestamp, reporter count, max DX, and band.
+**Current Position** (top-right) — locator (red when stale), timestamp, reporter count, max DX, and band.
 
-**Propagation** — estimated band condition based on the number of reporters for the most recent transmission, shown with a colour-coded label and fill bar:
+**Propagation** (top-right, below position) — estimated band condition with a colour-coded label and fill bar:
 
 | Reporters | Condition |
 |-----------|-----------|
@@ -219,9 +227,24 @@ Up to three **overlay cards** appear in the top-right corner:
 | ≤ 60      | Very good |
 | > 60      | Extremely good |
 
-**Reporter Countries** *(optional, enable via sidebar toggle)* — lists every country from which at least one station reported the beacon during the **past 60 minutes**, with a proportional bar and unique station count per country. Countries are sorted by station count, highest first. When the toggle is switched on, the cached list loads instantly from the backend. The list refreshes automatically every 10 minutes in sync with the backend polling cycle — no direct wspr.live queries are made from the browser.
+When the last spot is older than 1 hour the card shows **No propagation** with a red bar and 0 reporters, regardless of the last recorded value.
 
-Zoom level is remembered in the browser between sessions.
+**Reporter Countries** (top-right, below propagation) *(optional)* — unique countries from the past 60 minutes, sorted by station count, with proportional bars. Loads instantly from the backend cache; refreshes every 10 minutes with the poll cycle.
+
+**MUF / Reports Graph** (top of map, spanning full width) *(optional)* — 24-hour dual-axis Chart.js chart. The **blue line** shows the Juliusruh ionosonde MUF D=3000 km (left axis, MHz); the **green bars** show reporter count per transmission (right axis). Both datasets are logged every 10 minutes and stored in the database. Useful for correlating band openings with ionospheric conditions.
+
+**Solar Conditions** (bottom-left) *(optional)* — compact panel showing current solar and geomagnetic indices:
+
+| Field | Description |
+|-------|-------------|
+| SFI   | Solar Flux Index |
+| K     | K-index (geomagnetic activity, 0–9) |
+| A     | A-index (daily geomagnetic activity) |
+| X-ray | X-ray flux class (e.g. B9.3, C2.1) |
+| Bz    | Interplanetary magnetic field Z-component (nT) |
+| J-MUF | Juliusruh ionosonde MUF D=3000 km (MHz) |
+
+Data sourced from [hamqsl.com](https://www.hamqsl.com/solarxml.php), refreshed every 60 seconds while the panel is visible.
 
 ### History View
 
@@ -266,7 +289,7 @@ wspr_logger/
 ├── requirements.txt    — Python dependencies (flask)
 ├── wspr_data.db        — SQLite database (created automatically on first run)
 └── templates/
-    └── index.html      — single-page frontend (Leaflet.js, vanilla JS)
+    └── index.html      — single-page frontend (Leaflet.js, Chart.js, vanilla JS)
 ```
 
 ---
@@ -275,10 +298,12 @@ wspr_logger/
 
 | Endpoint | Method | Parameters | Description |
 |----------|--------|------------|-------------|
-| `/api/latest` | GET | `band` | Most recent spot and server status |
+| `/api/latest` | GET | `band` | Most recent spot, server status, and cached reporter countries |
 | `/api/positions` | GET | `date`, or `from`+`to`, `band` | List of spots for a date or time range |
 | `/api/stats` | GET | `date`, `band` | Aggregated stats for a date plus all-time records |
 | `/api/reporters` | GET | — | Cached reporter countries from the past 60 minutes |
+| `/api/muf` | GET | `band` | MUF D=3000 km readings and reporter counts for the last 24 hours |
+| `/api/solar` | GET | — | Current solar indices (SFI, K, A, X-ray, Bz, J-MUF); cached 60 s |
 
 ---
 

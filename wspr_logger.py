@@ -3,13 +3,17 @@ wspr_logger.py — WSPR Beacon Location Logger
 Refactored Flask app: client-side Leaflet map, SQLite storage, REST API.
 """
 
+from __future__ import annotations
+
 import json
 import os
+import re
 import threading
 import time
 import urllib.parse
 import urllib.request
 import configparser
+import xml.etree.ElementTree as ET
 from datetime import datetime
 
 from flask import Flask, jsonify, render_template, request
@@ -50,10 +54,15 @@ if not os.path.isabs(DB_PATH):
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), "templates"))
 
 # Thread-safe state
-_state_lock      = threading.Lock()
-_last_update_utc = None      # ISO string of last successful fetch
-_update_error    = None      # Last error message, if any
-_cached_countries = []       # Reporter countries from last poll
+_state_lock       = threading.Lock()
+_last_update_utc  = None   # ISO string of last successful fetch
+_update_error     = None   # Last error message, if any
+_cached_countries = []     # Reporter countries from last poll
+
+# Solar data cache (refreshed on demand, TTL = 60 s)
+_solar_cache      = {}
+_solar_cache_time = None
+_SOLAR_TTL        = 60     # seconds
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +205,67 @@ def fetch_reporter_countries(callsign: str, band: int) -> list:
     )
 
 
+def fetch_muf_value() -> float | None:
+    """
+    Scrape the current MUF D=3000 km value from the Juliusruh ionosonde page.
+    Returns the MUF in MHz, or None if unavailable.
+    """
+    url = "https://www.ionosonde.iap-kborn.de/actuellz.htm"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            html = resp.read().decode("utf-8", errors="replace")
+
+        # Table row format: <td>3000</td><td> 16.2</td>
+        m = re.search(
+            r'<td>\s*3000\s*</td>\s*<td>\s*(\d{1,2}\.?\d*)\s*</td>',
+            html, re.IGNORECASE
+        )
+        if m:
+            val = float(m.group(1))
+            if 1.0 < val < 50.0:   # sanity check: realistic MUF range
+                return val
+        print("[MUF] Could not parse MUF value from page")
+        return None
+    except Exception as e:
+        print(f"[MUF] Fetch failed: {e}")
+        return None
+
+
+def fetch_solar_data() -> dict:
+    """
+    Fetch solar indices from hamqsl.com.
+    Returns cached data if fresher than _SOLAR_TTL seconds.
+    """
+    global _solar_cache, _solar_cache_time
+    now = datetime.utcnow()
+    if _solar_cache_time and (now - _solar_cache_time).total_seconds() < _SOLAR_TTL:
+        return _solar_cache
+    try:
+        url = "https://www.hamqsl.com/solarxml.php"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            raw = resp.read()
+        root = ET.fromstring(raw)
+        sd   = root.find(".//solardata")
+        result = {
+            "sfi":     sd.findtext("solarflux",    "—"),
+            "kindex":  sd.findtext("kindex",        "—"),
+            "aindex":  sd.findtext("aindex",        "—"),
+            "xray":    sd.findtext("xray",          "—"),
+            "bz":      sd.findtext("magneticfield", "—"),
+            "updated": sd.findtext("updated",       "—"),
+        }
+        _solar_cache      = result
+        _solar_cache_time = now
+        print(f"[Solar] SFI={result['sfi']} K={result['kindex']} "
+              f"A={result['aindex']} X={result['xray']} Bz={result['bz']}")
+        return result
+    except Exception as e:
+        print(f"[Solar] Fetch failed: {e}")
+        return _solar_cache   # return stale cache on error
+
+
 def fetch_latest_spot(callsign: str, band: int):
     """
     Fetch the most recent WSPR transmission for callsign/band.
@@ -247,7 +317,11 @@ def update_thread():
             pass
     with _state_lock:
         _cached_countries = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
-    print(f"[INFO] Initial fetch complete — {len(_cached_countries)} countries cached")
+    muf_init = fetch_muf_value()
+    if muf_init:
+        db.insert_muf(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), muf_init)
+    print(f"[INFO] Initial fetch complete — {len(_cached_countries)} countries cached, "
+          f"MUF={muf_init} MHz")
 
     while True:
         now = datetime.utcnow()
@@ -257,10 +331,17 @@ def update_thread():
         if now.minute % 10 == 8:
             print(f"[INFO] Polling WSPR.live at {now.strftime('%H:%M:%S')} UTC")
 
-            row      = fetch_latest_spot(CALLSIGN, DEFAULT_BAND)
+            row       = fetch_latest_spot(CALLSIGN, DEFAULT_BAND)
             countries = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
             with _state_lock:
                 _cached_countries = countries
+
+            # Fetch and store MUF D=3000 km
+            muf = fetch_muf_value()
+            if muf:
+                ts_muf = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                db.insert_muf(ts_muf, muf)
+                print(f"[INFO] MUF D=3000: {muf} MHz")
 
             if row:
                 tx_loc         = row["tx_loc"]
@@ -377,6 +458,24 @@ def api_stats():
         "available_dates": dates,
         "all_time":        alltime,
     })
+
+
+@app.route("/api/muf")
+def api_muf():
+    band     = request.args.get("band", type=int, default=DEFAULT_BAND)
+    muf_rows  = db.get_muf_last_24h()
+    spot_rows = db.get_spots_last_24h(band)
+    return jsonify({"muf": muf_rows, "spots": spot_rows})
+
+
+@app.route("/api/solar")
+def api_solar():
+    data = fetch_solar_data()
+    # Attach latest MUF from DB
+    muf_rows = db.get_muf_last_24h()
+    data = dict(data)
+    data["muf"] = muf_rows[-1]["muf"] if muf_rows else None
+    return jsonify(data)
 
 
 @app.route("/api/reporters")
