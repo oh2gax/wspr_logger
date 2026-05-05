@@ -564,6 +564,27 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
 .leaflet-div-icon { background: none !important; border: none !important; }
 
 /* ── MUF graph panel ── */
+.muf-period-btns {
+    display: flex;
+    gap: 4px;
+    pointer-events: auto;
+    flex-shrink: 0;
+}
+.muf-period-btn {
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 1.6;
+}
+.muf-period-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
 .muf-panel {
     position: absolute;
     top: 12px;
@@ -834,7 +855,15 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
         <div id="map"></div>
         <!-- MUF / Reporter count graph -->
         <div class="muf-panel" id="mufPanel" style="display:none;">
-            <div class="muf-panel-title">MUF D=3000 km (MHz) &amp; Reporter Count — Last 24 h</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <div class="muf-panel-title" id="mufPanelTitle" style="margin-bottom:0;">MUF D=3000 km (MHz) &amp; Reporter Count — Last 24 h</div>
+                <div class="muf-period-btns">
+                    <button class="muf-period-btn active" id="mufBtn1d" onclick="setMufDays(1)">1d</button>
+                    <button class="muf-period-btn" id="mufBtn2d" onclick="setMufDays(2)">2d</button>
+                    <button class="muf-period-btn" id="mufBtn3d" onclick="setMufDays(3)">3d</button>
+                    <button class="muf-period-btn" id="mufBtn7d" onclick="setMufDays(7)">1wk</button>
+                </div>
+            </div>
             <div class="muf-chart-wrap">
                 <canvas id="mufCanvas"></canvas>
             </div>
@@ -1052,6 +1081,7 @@ let _hgramMode        = 'snr';   // 'snr' | 'dist'
 let hgramChart        = null;
 let _solarTimer   = null;
 let mufChart      = null;
+let mufDays       = 1;
 
 // Live map objects
 let liveMap       = null;
@@ -1387,10 +1417,26 @@ function toggleMuf() {
     updateSolarPosition();          // also chains → updateReporterListPosition
 }
 
+function setMufDays(d) {
+    mufDays = d;
+    // Update button states
+    [1,2,3,7].forEach(n => {
+        const id = n === 7 ? 'mufBtn7d' : `mufBtn${n}d`;
+        document.getElementById(id).classList.toggle('active', n === d);
+    });
+    // Update panel title
+    const labels = {1:'Last 24 h', 2:'Last 2 Days', 3:'Last 3 Days', 7:'Last 7 Days'};
+    document.getElementById('mufPanelTitle').textContent =
+        `MUF D=3000 km (MHz) & Reporter Count — ${labels[d]}`;
+    // Destroy chart so it's rebuilt with correct label format
+    if (mufChart) { mufChart.destroy(); mufChart = null; }
+    fetchMufData();
+}
+
 async function fetchMufData() {
     if (!showMuf) return;
     try {
-        const r    = await fetch(`/api/muf?band=${currentBand}`);
+        const r    = await fetch(`/api/muf?band=${currentBand}&days=${mufDays}`);
         const data = await r.json();
         renderMufChart(data.muf || [], data.spots || []);
     } catch(e) { /* silent */ }
@@ -1406,29 +1452,40 @@ function renderMufChart(mufRows, spotRows) {
         spotMap[key] = Math.max(spotMap[key] || 0, s.reporter_count);
     });
 
-    // Merge full timestamps and sort chronologically (handles midnight crossings)
+    // Merge full timestamps and sort chronologically
     const allTimes = [...new Set([
         ...mufRows.map(r  => r.timestamp),
         ...spotRows.map(s => s.timestamp)
     ])].sort();
 
-    const labels   = allTimes.map(t => t.slice(11, 16));   // display HH:MM only
-    const mufVals  = allTimes.map(t => mufMap[t]  ?? null);
-    const spotVals = allTimes.map(t => spotMap[t] || 0);
+    // For multi-day views label as "Mon 14:30", for single day just "14:30"
+    const fmtLabel = (ts) => {
+        if (mufDays <= 1) return ts.slice(11, 16);
+        const d = new Date(ts.replace(' ', 'T') + 'Z');
+        const day = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()];
+        return `${day} ${ts.slice(11, 16)}`;
+    };
+
+    const chartLabels = allTimes.map(fmtLabel);
+    const mufVals     = allTimes.map(t => mufMap[t]  ?? null);
+    const spotVals    = allTimes.map(t => spotMap[t] || 0);
 
     const darkMode  = isDark;
     const gridColor = darkMode ? '#374151' : '#cbd5e1';
     const textColor = darkMode ? '#9ca3af' : '#475569';
+    // Aim for ~24 visible ticks regardless of range
+    const maxTicks  = 24;
 
     if (mufChart) {
-        mufChart.data.labels                    = labels;
-        mufChart.data.datasets[0].data          = mufVals;
-        mufChart.data.datasets[1].data          = spotVals;
-        mufChart.options.scales.x.ticks.color   = textColor;
-        mufChart.options.scales.x.grid.color    = gridColor;
-        mufChart.options.scales.yM.ticks.color  = '#38bdf8';
-        mufChart.options.scales.yM.grid.color   = gridColor;
-        mufChart.options.scales.yR.ticks.color  = '#4ade80';
+        mufChart.data.labels                          = chartLabels;
+        mufChart.data.datasets[0].data                = mufVals;
+        mufChart.data.datasets[1].data                = spotVals;
+        mufChart.options.scales.x.ticks.color         = textColor;
+        mufChart.options.scales.x.ticks.maxTicksLimit = maxTicks;
+        mufChart.options.scales.x.grid.color          = gridColor;
+        mufChart.options.scales.yM.ticks.color        = '#38bdf8';
+        mufChart.options.scales.yM.grid.color         = gridColor;
+        mufChart.options.scales.yR.ticks.color        = '#4ade80';
         mufChart.update('none');
         return;
     }
@@ -1436,7 +1493,7 @@ function renderMufChart(mufRows, spotRows) {
     const ctx = document.getElementById('mufCanvas').getContext('2d');
     mufChart = new Chart(ctx, {
         data: {
-            labels,
+            labels: chartLabels,
             datasets: [
                 {
                     type: 'line',
@@ -1478,7 +1535,7 @@ function renderMufChart(mufRows, spotRows) {
                 x: {
                     ticks: {
                         color: textColor, font: { size: 9 }, maxRotation: 45,
-                        maxTicksLimit: 24,
+                        maxTicksLimit: maxTicks,
                     },
                     grid: { color: gridColor }
                 },
