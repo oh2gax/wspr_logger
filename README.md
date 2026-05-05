@@ -15,7 +15,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **Position trail** — dashed polyline connecting today's logged positions on the live map
 - **Propagation indicator** — estimates band conditions from the latest reporter count (Very poor → Extremely good) with a colour-coded bar; resets to "No propagation" automatically when data is stale
 - **MUF / Reporter count graph** — optional 24-hour dual-axis chart (blue line = Juliusruh ionosonde MUF D=3000 km, green bars = reporter count); data logged every 10 minutes; toggle on/off from sidebar
-- **Solar conditions panel** — optional top-left overlay showing 9 indices: SFI, K-index, A-index, X-ray flux, Bz (IMF), Juliusruh MUF, Solar Wind speed, Aurora activity, and Proton Flux; K-index shown in orange (4–5) or red (6+); X-ray shown in orange (M-class) or red (X-class); moves down automatically when the MUF graph is also enabled; refreshes every 60 seconds from hamqsl.com; toggle on/off from sidebar
+- **Solar conditions panel** — optional top-left overlay showing 9 colour-coded indices: SFI, K-index, A-index, X-ray flux, Bz (IMF), Juliusruh MUF, Solar Wind speed, Aurora activity, and Proton Flux; every field uses NOAA-standard colour thresholds (quiet = default accent, escalating through yellow-green → yellow → orange → red → purple); moves down automatically when the MUF graph is also enabled; refreshes every 60 seconds from hamqsl.com; toggle on/off from sidebar
 - **Reporter countries** — optional overlay listing every country that heard the beacon in the past hour, with a proportional bar and station count; loads instantly from backend cache
 - **Reporter list** — optional left-side panel showing individual reporter stations from the past 60 minutes with band, callsign, grid locator, SNR, and distance; sortable by SNR or distance; scrollable list with room for ~20 entries
 - **SNR / Dist histogram** — optional left-side panel showing a smooth filled line graph of reporter distribution for the past 60 minutes; toggle between SNR (dB bins) and Distance (km bins) with a tab switch; stacks below the Reporter List when both are visible
@@ -278,15 +278,15 @@ When the last spot is older than 1 hour the card shows **No propagation** with a
 |-------|-------------|
 | SFI   | Solar Flux Index |
 | K     | K-index (geomagnetic activity, 0–9); orange at 4–5, red at 6+ |
-| A     | A-index (daily geomagnetic activity) |
+| A     | A-index (daily geomagnetic activity, 0–400, NOAA scale); yellow-green 8–15, yellow 16–29, orange 30–49, red 50–99, purple 100+ |
 | X-ray | X-ray flux class (e.g. B9.3, C2.1); orange for M-class, red for X-class |
-| Bz    | Interplanetary magnetic field Z-component (nT) |
+| Bz    | Interplanetary magnetic field Z-component (nT); diverging scale: green to purple as value goes negative, default accent for northward (≥ 0) |
 | J-MUF | Juliusruh ionosonde MUF D=3000 km (MHz) |
-| SW    | Solar wind speed (km/s) |
-| AU    | Aurora activity level |
-| PF    | Proton flux |
+| SW    | Solar wind speed (km/s); default accent below 450, then yellow-green, yellow, orange, red, purple as speed increases |
+| AU    | Aurora activity (0–9 Kp-like scale); lime at 3, yellow at 4, orange at 5, red-orange at 6, red at 7–8, purple at 9 |
+| PF    | Proton flux (pfu, NOAA S-scale); lime S1, yellow S2, orange S3, red S4 dark-red, purple S5 |
 
-Data sourced from [hamqsl.com](https://www.hamqsl.com/solarxml.php), refreshed every 60 seconds while the panel is visible.
+All colour thresholds follow standard NOAA / space weather classifications. Default accent colour is used for quiet / background conditions in every field. Data sourced from [hamqsl.com](https://www.hamqsl.com/solarxml.php), refreshed every 60 seconds while the panel is visible.
 
 **Reporter List** (left side, below Solar Conditions when visible) *(optional)* — scrollable table of individual stations that received the beacon in the past 60 minutes, one row per unique reporter:
 
