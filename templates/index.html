@@ -596,15 +596,15 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 10px 14px;
-    min-width: 230px;
+    min-width: 310px;
     backdrop-filter: blur(6px);
     pointer-events: none;
     transition: top .25s ease;
 }
 .solar-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px 10px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px 8px;
     margin-top: 6px;
 }
 .solar-item { display: flex; flex-direction: column; }
@@ -844,12 +844,15 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
         <div class="solar-panel" id="solarPanel" style="display:none;">
             <div class="ov-lbl">Solar Conditions</div>
             <div class="solar-grid">
+                <!-- Row 1: solar / geomagnetic indices -->
                 <div class="solar-item"><span class="solar-lbl">SFI</span><span class="solar-val" id="solSFI">—</span></div>
                 <div class="solar-item"><span class="solar-lbl">K</span><span class="solar-val" id="solK">—</span></div>
                 <div class="solar-item"><span class="solar-lbl">A</span><span class="solar-val" id="solA">—</span></div>
                 <div class="solar-item"><span class="solar-lbl">X-ray</span><span class="solar-val" id="solX">—</span></div>
                 <div class="solar-item"><span class="solar-lbl">Bz</span><span class="solar-val" id="solBz">—</span></div>
+                <!-- Row 2: ionospheric + space weather -->
                 <div class="solar-item"><span class="solar-lbl">J-MUF</span><span class="solar-val" id="solMUF">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">foF2</span><span class="solar-val" id="solFoF2">—</span></div>
                 <div class="solar-item"><span class="solar-lbl">SW</span><span class="solar-val" id="solSW">—</span></div>
                 <div class="solar-item"><span class="solar-lbl">AU</span><span class="solar-val" id="solAU">—</span></div>
                 <div class="solar-item"><span class="solar-lbl">PF</span><span class="solar-val" id="solPF">—</span></div>
@@ -1539,6 +1542,8 @@ async function fetchSolarData() {
                          : bzVal < -2   ? '#a3e635'   // Mildly geoeff.  — lime
                          : bzVal < 0    ? '#4ade80'   // Slightly south  — green
                          : '';                         // Northward (≥ 0) — default accent
+        // foF2 — default accent colour only
+        document.getElementById('solFoF2').textContent = data.fof2 ? data.fof2.toFixed(2) : '—';
         // J-MUF colour coding (MHz, band-open scale)
         const mufEl  = document.getElementById('solMUF');
         const mufVal = parseFloat(data.muf) || 0;
