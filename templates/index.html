@@ -1139,9 +1139,25 @@ async function fetchLatest() {
             setStatus(null, false);
         }
         fetchTodayStats();
-        if (showCountries)    updateCountryOverlay(data.countries || []);
-        if (showMuf)          fetchMufData();
-        if (showReporterList) fetchReporterList();
+
+        // Determine staleness here so all panels react consistently
+        const isStale = !data.spot ||
+            (Date.now() - new Date(data.spot.timestamp.replace(' ', 'T') + 'Z')) > 3600000;
+
+        if (showCountries) updateCountryOverlay(isStale ? [] : (data.countries || []));
+        if (showMuf)       fetchMufData();
+        if (showReporterList) {
+            if (isStale) {
+                _reporterListData = [];
+                renderReporterList();
+                if (showHistogram) renderHistogram();
+            } else {
+                fetchReporterList();
+            }
+        } else if (showHistogram && isStale) {
+            _reporterListData = [];
+            renderHistogram();
+        }
     } catch(e) {
         setStatus(null, false, 'Connection error');
     }
