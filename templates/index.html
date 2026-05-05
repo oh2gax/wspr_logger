@@ -1502,12 +1502,60 @@ async function fetchSolarData() {
         const r    = await fetch('/api/solar');
         const data = await r.json();
         document.getElementById('solSFI').textContent  = data.sfi      ?? '—';
-        document.getElementById('solA').textContent    = data.aindex   ?? '—';
-        document.getElementById('solBz').textContent   = data.bz       ?? '—';
+        // A-index colour coding (NOAA scale)
+        const aEl  = document.getElementById('solA');
+        const aVal = parseInt(data.aindex) || 0;
+        aEl.textContent = data.aindex ?? '—';
+        aEl.style.color = aVal >= 100 ? '#9333ea'   // Severe storm — purple
+                        : aVal >= 50  ? '#ef4444'   // Major storm  — red
+                        : aVal >= 30  ? '#f97316'   // Minor storm  — orange
+                        : aVal >= 16  ? '#facc15'   // Active       — yellow
+                        : aVal >= 8   ? '#a3e635'   // Unsettled    — yellow-green
+                        : '';                        // Quiet        — default accent
+        // Bz colour coding (nT, diverging scale)
+        const bzEl  = document.getElementById('solBz');
+        const bzVal = parseFloat(data.bz) || 0;
+        bzEl.textContent = data.bz ?? '—';
+        bzEl.style.color = bzVal < -20  ? '#9333ea'   // Severe          — purple
+                         : bzVal < -15  ? '#ef4444'   // Strong storm    — red
+                         : bzVal < -10  ? '#f97316'   // Storm coupling  — orange
+                         : bzVal < -5   ? '#facc15'   // Geoeffective    — yellow
+                         : bzVal < -2   ? '#a3e635'   // Mildly geoeff.  — lime
+                         : bzVal < 0    ? '#4ade80'   // Slightly south  — green
+                         : '';                         // Northward (≥ 0) — default accent
         document.getElementById('solMUF').textContent  = data.muf  ? data.muf.toFixed(1) : '—';
-        document.getElementById('solSW').textContent   = data.solarwind  ?? '—';
-        document.getElementById('solAU').textContent   = data.aurora     ?? '—';
-        document.getElementById('solPF').textContent   = data.protonflux ?? '—';
+        // Solar wind colour coding (km/s)
+        const swEl  = document.getElementById('solSW');
+        const swVal = parseFloat(data.solarwind) || 0;
+        swEl.textContent = data.solarwind ?? '—';
+        swEl.style.color = swVal >= 1000 ? '#9333ea'   // Extreme        — purple
+                         : swVal >= 800  ? '#ef4444'   // Very fast/CME  — red
+                         : swVal >= 650  ? '#f97316'   // Fast stream    — orange
+                         : swVal >= 550  ? '#facc15'   // Elevated       — yellow
+                         : swVal >= 450  ? '#a3e635'   // Slightly elev. — yellow-green
+                         : '';                          // Slow / quiet   — default accent
+        // Aurora colour coding (0–9 Kp-like scale)
+        const auEl  = document.getElementById('solAU');
+        const auVal = parseInt(data.aurora) || 0;
+        auEl.textContent = data.aurora ?? '—';
+        auEl.style.color = auVal >= 9   ? '#9333ea'   // Extreme storm   — purple
+                         : auVal >= 7   ? '#ef4444'   // Strong/severe   — red
+                         : auVal >= 6   ? '#f43f5e'   // Moderate storm  — red-orange
+                         : auVal >= 5   ? '#f97316'   // Minor storm     — orange
+                         : auVal >= 4   ? '#facc15'   // Active          — yellow
+                         : auVal >= 3   ? '#a3e635'   // Background      — lime
+                         : '';                         // Very quiet 0–2  — default accent
+        // Proton flux colour coding (pfu, NOAA S-scale)
+        const pfEl  = document.getElementById('solPF');
+        const pfVal = parseFloat(data.protonflux) || 0;
+        pfEl.textContent = data.protonflux ?? '—';
+        pfEl.style.color = pfVal >= 100000 ? '#9333ea'   // S5 Extreme     — purple
+                         : pfVal >= 10000  ? '#b91c1c'   // S4 Severe      — dark red
+                         : pfVal >= 1000   ? '#ef4444'   // S3 Strong      — red
+                         : pfVal >= 100    ? '#f97316'   // S2 Moderate    — orange
+                         : pfVal >= 10     ? '#facc15'   // S1 Minor       — yellow
+                         : pfVal >= 1      ? '#a3e635'   // Elevated       — lime
+                         : '';                            // Background <1  — default accent
         document.getElementById('solarUpdated').textContent = data.updated ? 'Updated: ' + data.updated : '';
 
         // K-index: orange 4–5, red 6+
