@@ -14,7 +14,7 @@ import urllib.parse
 import urllib.request
 import configparser
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import Flask, jsonify, render_template, request
 
@@ -64,6 +64,7 @@ _cached_reporter_list = []     # Individual reporter details from last poll
 _solar_cache      = {}
 _solar_cache_time = None
 _SOLAR_TTL        = 60     # seconds
+_cached_fof2      = None   # Latest foF2 value from GIRO (MHz)
 
 
 # ---------------------------------------------------------------------------
@@ -254,7 +255,7 @@ def fetch_reporter_list(callsign: str, band: int) -> list:
 
 def fetch_muf_value() -> float | None:
     """
-    Scrape the current MUF D=3000 km value from the Juliusruh ionosonde page.
+    Scrape the current MUF(D=3000 km) from the Juliusruh ionosonde page.
     Returns the MUF in MHz, or None if unavailable.
     """
     url = "https://www.ionosonde.iap-kborn.de/actuellz.htm"
@@ -262,7 +263,6 @@ def fetch_muf_value() -> float | None:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=15) as resp:
             html = resp.read().decode("utf-8", errors="replace")
-
         # Table row format: <td>3000</td><td> 16.2</td>
         m = re.search(
             r'<td>\s*3000\s*</td>\s*<td>\s*(\d{1,2}\.?\d*)\s*</td>',
@@ -270,12 +270,73 @@ def fetch_muf_value() -> float | None:
         )
         if m:
             val = float(m.group(1))
-            if 1.0 < val < 50.0:   # sanity check: realistic MUF range
+            if 1.0 < val < 50.0:
                 return val
         print("[MUF] Could not parse MUF value from page")
         return None
     except Exception as e:
         print(f"[MUF] Fetch failed: {e}")
+        return None
+
+
+def _parse_giro_latest(text: str) -> float | None:
+    """
+    Return the most recent valid numeric value from a GIRO DIDBGetValues response.
+
+    Actual line format returned by the endpoint:
+      ISO-timestamp  quality(int)  value(float)  qualifier
+      e.g.: 2026-05-04T23:58:16.000Z  80  3.700 //
+
+    Quality scores are plain integers; actual measurements always have a
+    decimal point.  We therefore require '.' in the token to accept it as
+    a measurement value.  The last accepted value wins (chronological order).
+    """
+    latest = None
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        parts = line.split()
+        for token in parts:
+            if '.' not in token:
+                continue          # skip integers (quality flags, year fields, etc.)
+            try:
+                val = float(token)
+                if 0.1 < val < 100.0:   # plausible ionospheric range (MHz or M-factor)
+                    latest = val
+                    break               # one value per line; move to next line
+            except ValueError:
+                pass
+    return latest
+
+
+def fetch_giro_fof2() -> float | None:
+    """
+    Fetch the latest foF2 from Juliusruh (JR055) via GIRO DIDBase.
+    Uses a 24-hour rolling window to cope with station upload delays.
+    Returns foF2 in MHz, or None if unavailable.
+    """
+    now     = datetime.utcnow()
+    from_dt = (now - timedelta(hours=24)).strftime("%Y.%m.%d")
+    to_dt   = now.strftime("%Y.%m.%d")
+    url = (
+        "https://lgdc.uml.edu/common/DIDBGetValues"
+        f"?ursiCode=JR055"
+        f"&charName=foF2"
+        f"&fromDate={from_dt}&toDate={to_dt}"
+    )
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            text = resp.read().decode("utf-8", errors="replace")
+        val = _parse_giro_latest(text)
+        if val is not None:
+            print(f"[GIRO] foF2 = {val:.3f} MHz")
+        else:
+            print("[GIRO] foF2: no valid data in response")
+        return val
+    except Exception as e:
+        print(f"[GIRO] foF2 fetch failed: {e}")
         return None
 
 
@@ -345,7 +406,7 @@ def fetch_latest_spot(callsign: str, band: int):
 # ---------------------------------------------------------------------------
 
 def update_thread():
-    global _last_update_utc, _update_error, _cached_countries, _cached_reporter_list
+    global _last_update_utc, _update_error, _cached_countries, _cached_reporter_list, _cached_fof2
     print(f"[INFO] Update thread started — tracking {CALLSIGN} on {DEFAULT_BAND} MHz")
 
     # Populate caches immediately on startup so the UI has data before the
@@ -371,8 +432,12 @@ def update_thread():
     muf_init = fetch_muf_value()
     if muf_init:
         db.insert_muf(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), muf_init)
+    fof2_init = fetch_giro_fof2()
+    with _state_lock:
+        _cached_fof2 = fof2_init
     print(f"[INFO] Initial fetch complete — {len(_cached_countries)} countries cached, "
-          f"{len(_cached_reporter_list)} reporters, MUF={muf_init} MHz")
+          f"{len(_cached_reporter_list)} reporters, "
+          f"MUF={muf_init} MHz, foF2={fof2_init} MHz")
 
     while True:
         now = datetime.utcnow()
@@ -389,12 +454,14 @@ def update_thread():
                 _cached_countries     = countries
                 _cached_reporter_list = reporter_list
 
-            # Fetch and store MUF D=3000 km
+            # MUF from Juliusruh page; foF2 from GIRO DIDBase
             muf = fetch_muf_value()
             if muf:
-                ts_muf = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-                db.insert_muf(ts_muf, muf)
+                db.insert_muf(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), muf)
                 print(f"[INFO] MUF D=3000: {muf} MHz")
+            fof2 = fetch_giro_fof2()
+            with _state_lock:
+                _cached_fof2 = fof2
 
             if row:
                 tx_loc         = row["tx_loc"]
@@ -524,10 +591,11 @@ def api_muf():
 @app.route("/api/solar")
 def api_solar():
     data = fetch_solar_data()
-    # Attach latest MUF from DB
     muf_rows = db.get_muf_last_24h()
     data = dict(data)
     data["muf"] = muf_rows[-1]["muf"] if muf_rows else None
+    with _state_lock:
+        data["fof2"] = _cached_fof2
     return jsonify(data)
 
 

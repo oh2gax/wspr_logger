@@ -15,7 +15,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **Position trail** — dashed polyline connecting today's logged positions on the live map
 - **Propagation indicator** — estimates band conditions from the latest reporter count (Very poor → Extremely good) with a colour-coded bar; resets to "No propagation" automatically when data is stale
 - **MUF / Reporter count graph** — optional 24-hour dual-axis chart (blue line = Juliusruh ionosonde MUF D=3000 km, green bars = reporter count); data logged every 10 minutes; toggle on/off from sidebar
-- **Solar conditions panel** — optional top-left overlay showing 9 colour-coded indices: SFI, K-index, A-index, X-ray flux, Bz (IMF), Juliusruh MUF, Solar Wind speed, Aurora activity, and Proton Flux; every field uses NOAA-standard colour thresholds (quiet = default accent, escalating through yellow-green → yellow → orange → red → purple); moves down automatically when the MUF graph is also enabled; refreshes every 60 seconds from hamqsl.com; toggle on/off from sidebar
+- **Solar conditions panel** — optional top-left overlay showing 10 colour-coded indices: SFI, K-index, A-index, X-ray flux, Bz (IMF), Juliusruh MUF, foF2, Solar Wind speed, Aurora activity, and Proton Flux; every field uses NOAA-standard colour thresholds (quiet = default accent, escalating through yellow-green → yellow → orange → red → purple); moves down automatically when the MUF graph is also enabled; refreshes every 60 seconds from hamqsl.com and the GIRO DIDBase; toggle on/off from sidebar
 - **Reporter countries** — optional overlay listing every country that heard the beacon in the past hour, with a proportional bar and station count; loads instantly from backend cache
 - **Reporter list** — optional left-side panel showing individual reporter stations from the past 60 minutes with band, callsign, grid locator, SNR, and distance; sortable by SNR or distance; scrollable list with room for ~20 entries
 - **SNR / Dist histogram** — optional left-side panel showing a smooth filled line graph of reporter distribution for the past 60 minutes; toggle between SNR (dB bins) and Distance (km bins) with a tab switch; stacks below the Reporter List when both are visible
@@ -41,7 +41,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 1. A background thread polls **wspr.live** (a public ClickHouse database) at minutes `:08`, `:18`, `:28`, `:38`, `:48`, `:58` — six minutes after each 10-minute WSPR transmission cycle, giving reporters time to upload their data.
 2. The query groups all received spots for the latest transmission by `(tx_loc, time)` and returns the Maidenhead locator, UTC timestamp, reporter count, and maximum reported distance.
 3. Valid new spots are inserted into the local SQLite database; duplicates are silently ignored.
-4. At each poll cycle the backend also fetches the **MUF D=3000 km** value from the [Juliusruh ionosonde](https://www.ionosonde.iap-kborn.de/actuellz.htm) and stores it in the `muf_data` table alongside the timestamp.
+4. At each poll cycle the backend also fetches the **MUF D=3000 km** value from the [Juliusruh ionosonde page](https://www.ionosonde.iap-kborn.de/actuellz.htm) and stores it in the `muf_data` table alongside the timestamp. The **foF2** critical frequency is fetched separately from the [GIRO DIDBase](https://lgdc.uml.edu/) (station JR055, Juliusruh) using a 24-hour rolling window to account for data upload delays; it is cached in memory and served via `/api/solar`.
 5. Reporter country data is derived from individual reporter callsigns, cached in memory, and bundled into every `/api/latest` response — no extra wspr.live queries are ever triggered from the browser.
 6. Individual reporter details (callsign, grid, SNR, distance) are also fetched and cached at each poll cycle, available via `/api/reporter_list` for the Reporter List panel.
 7. On startup the background thread performs an immediate fetch of the latest spot, reporter countries, reporter list, and MUF value so the UI has data ready the moment the page is opened.
@@ -282,11 +282,12 @@ When the last spot is older than 1 hour the card shows **No propagation** with a
 | X-ray | X-ray flux class (e.g. B9.3, C2.1); orange for M-class, red for X-class |
 | Bz    | Interplanetary magnetic field Z-component (nT); diverging scale: green to purple as value goes negative, default accent for northward (≥ 0) |
 | J-MUF | Juliusruh ionosonde MUF D=3000 km (MHz); colour tied to band openings: gray < 8, default accent 8–12, green 12–15, lime 15–18, yellow-green 18–22, yellow 22–25, orange 25–30, red 30–35, purple > 35 |
+| foF2  | F2-layer critical frequency from Juliusruh (JR055) via [GIRO DIDBase](https://lgdc.uml.edu/) (MHz); displayed in the default accent colour |
 | SW    | Solar wind speed (km/s); default accent below 450, then yellow-green, yellow, orange, red, purple as speed increases |
 | AU    | Aurora activity (0–9 Kp-like scale); lime at 3, yellow at 4, orange at 5, red-orange at 6, red at 7–8, purple at 9 |
 | PF    | Proton flux (pfu, NOAA S-scale); lime S1, yellow S2, orange S3, red S4 dark-red, purple S5 |
 
-All colour thresholds follow standard NOAA / space weather classifications or practical amateur radio conventions. Default accent colour is used for quiet / background conditions in every field. Data sourced from [hamqsl.com](https://www.hamqsl.com/solarxml.php), refreshed every 60 seconds while the panel is visible.
+All colour thresholds follow standard NOAA / space weather classifications or practical amateur radio conventions. Default accent colour is used for quiet / background conditions in every field. Solar and geomagnetic data sourced from [hamqsl.com](https://www.hamqsl.com/solarxml.php); foF2 sourced from the [GIRO DIDBase](https://lgdc.uml.edu/); both refreshed every 60 seconds while the panel is visible.
 
 **Reporter List** (left side, below Solar Conditions when visible) *(optional)* — scrollable table of individual stations that received the beacon in the past 60 minutes, one row per unique reporter:
 
@@ -360,7 +361,7 @@ wspr_logger/
 | `/api/reporters` | GET | — | Cached reporter countries from the past 60 minutes |
 | `/api/reporter_list` | GET | — | Cached individual reporter details (callsign, grid, SNR, distance) from the past 60 minutes |
 | `/api/muf` | GET | `band` | MUF D=3000 km readings and reporter counts for the last 24 hours |
-| `/api/solar` | GET | — | Current solar indices (SFI, K, A, X-ray, Bz, J-MUF); cached 60 s |
+| `/api/solar` | GET | — | Current solar indices (SFI, K, A, X-ray, Bz, J-MUF, foF2, SW, AU, PF); cached 60 s |
 
 ---
 
