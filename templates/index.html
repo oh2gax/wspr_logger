@@ -1539,7 +1539,19 @@ async function fetchSolarData() {
                          : bzVal < -2   ? '#a3e635'   // Mildly geoeff.  — lime
                          : bzVal < 0    ? '#4ade80'   // Slightly south  — green
                          : '';                         // Northward (≥ 0) — default accent
-        document.getElementById('solMUF').textContent  = data.muf  ? data.muf.toFixed(1) : '—';
+        // J-MUF colour coding (MHz, band-open scale)
+        const mufEl  = document.getElementById('solMUF');
+        const mufVal = parseFloat(data.muf) || 0;
+        mufEl.textContent = data.muf ? data.muf.toFixed(1) : '—';
+        mufEl.style.color = mufVal >= 35 ? '#9333ea'   // Exceptional    — purple
+                          : mufVal >= 30 ? '#ef4444'   // Outstanding    — red
+                          : mufVal >= 25 ? '#f97316'   // Excellent      — orange
+                          : mufVal >= 22 ? '#facc15'   // Very good      — yellow
+                          : mufVal >= 18 ? '#84cc16'   // Good           — yellow-green
+                          : mufVal >= 15 ? '#a3e635'   // Decent         — lime
+                          : mufVal >= 12 ? '#4ade80'   // Modest         — green
+                          : mufVal >= 8  ? ''          // Low            — default accent
+                          : '#6b7280';                 // Very poor      — gray
         // Solar wind colour coding (km/s)
         const swEl  = document.getElementById('solSW');
         const swVal = parseFloat(data.solarwind) || 0;
