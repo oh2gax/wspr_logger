@@ -582,9 +582,11 @@ def api_stats():
 
 @app.route("/api/muf")
 def api_muf():
-    band     = request.args.get("band", type=int, default=DEFAULT_BAND)
-    muf_rows  = db.get_muf_last_24h()
-    spot_rows = db.get_spots_last_24h(band)
+    band      = request.args.get("band", type=int, default=DEFAULT_BAND)
+    days      = request.args.get("days", type=int, default=1)
+    days      = max(1, min(days, 7))
+    muf_rows  = db.get_muf_last_24h(days)
+    spot_rows = db.get_spots_last_24h(band, days)
     return jsonify({"muf": muf_rows, "spots": spot_rows})
 
 

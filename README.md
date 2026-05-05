@@ -14,7 +14,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **Stale data indicators** — when the last spot is older than 1 hour the locator, last spot timestamp, Reporters, and Max DX texts turn red in both the sidebar and map overlay, the Propagation card switches to "No propagation / 0 reporters", helping users quickly assess band conditions
 - **Position trail** — dashed polyline connecting today's logged positions on the live map
 - **Propagation indicator** — estimates band conditions from the latest reporter count (Very poor → Extremely good) with a colour-coded bar; resets to "No propagation" automatically when data is stale
-- **MUF / Reporter count graph** — optional 24-hour dual-axis chart (blue line = Juliusruh ionosonde MUF D=3000 km, green bars = reporter count); data logged every 10 minutes; toggle on/off from sidebar
+- **MUF / Reporter count graph** — optional dual-axis chart (blue line = Juliusruh ionosonde MUF D=3000 km, green bars = reporter count); data logged every 10 minutes; selectable time range — **1d / 2d / 3d / 1wk** — directly on the panel; toggle on/off from sidebar
 - **Solar conditions panel** — optional top-left overlay showing 10 colour-coded indices: SFI, K-index, A-index, X-ray flux, Bz (IMF), Juliusruh MUF, foF2, Solar Wind speed, Aurora activity, and Proton Flux; every field uses NOAA-standard colour thresholds (quiet = default accent, escalating through yellow-green → yellow → orange → red → purple); moves down automatically when the MUF graph is also enabled; refreshes every 60 seconds from hamqsl.com and the GIRO DIDBase; toggle on/off from sidebar
 - **Reporter countries** — optional overlay listing every country that heard the beacon in the past hour, with a proportional bar and station count; loads instantly from backend cache
 - **Reporter list** — optional left-side panel showing individual reporter stations from the past 60 minutes with band, callsign, grid locator, SNR, and distance; sortable by SNR or distance; scrollable list with room for ~20 entries
@@ -240,7 +240,7 @@ sudo ufw allow 5008/tcp
 | **Band** | Static display of the active band as configured in `config.ini` |
 | **Position Trail** | Toggle the dashed trail connecting today's positions on the live map |
 | **Reporter Countries** | Toggle the country breakdown overlay on the live map |
-| **MUF / Reports Graph** | Toggle the 24-hour MUF and reporter count chart at the top of the map |
+| **MUF / Reports Graph** | Toggle the MUF and reporter count chart at the top of the map; use the 1d / 2d / 3d / 1wk buttons on the panel to change the time range |
 | **Solar Conditions** | Toggle the solar indices panel on the left side of the map |
 | **Reporter List** | Toggle the individual reporter table on the left side of the map |
 | **SNR / Dist Histogram** | Toggle the reporter distribution line chart on the left side of the map |
@@ -270,7 +270,7 @@ When the last spot is older than 1 hour the card shows **No propagation** with a
 
 **Reporter Countries** (top-right, below propagation) *(optional)* — unique countries from the past 60 minutes, sorted by station count, with proportional bars. Loads instantly from the backend cache; refreshes every 10 minutes with the poll cycle.
 
-**MUF / Reports Graph** (top of map, spanning full width) *(optional)* — 24-hour dual-axis Chart.js chart. The **blue line** shows the Juliusruh ionosonde MUF D=3000 km (left axis, MHz); the **green bars** show reporter count per transmission (right axis). Both datasets are logged every 10 minutes and stored in the database. Useful for correlating band openings with ionospheric conditions.
+**MUF / Reports Graph** (top of map, spanning full width) *(optional)* — dual-axis Chart.js chart. The **blue line** shows the Juliusruh ionosonde MUF D=3000 km (left axis, MHz); the **green bars** show reporter count per transmission (right axis). Both datasets are logged every 10 minutes and stored in the database. Use the **1d / 2d / 3d / 1wk** buttons in the panel header to switch the time range; multi-day views label the x-axis as `Mon 14:30` so you can tell days apart at a glance. Useful for correlating band openings with ionospheric conditions over longer periods.
 
 **Solar Conditions** (top-left, below the MUF graph when that is also enabled) *(optional)* — compact panel showing current solar and geomagnetic indices:
 

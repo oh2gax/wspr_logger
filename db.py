@@ -203,33 +203,35 @@ def insert_muf(timestamp: str, muf: float) -> bool:
         return False
 
 
-def get_muf_last_24h() -> list[dict]:
-    """Return MUF readings from the last 24 hours, oldest first."""
+def get_muf_last_24h(days: int = 1) -> list[dict]:
+    """Return MUF readings from the last N days, oldest first."""
+    days = max(1, min(int(days), 7))
     with _connect() as conn:
         rows = conn.execute("""
             SELECT timestamp, muf FROM muf_data
-            WHERE timestamp >= datetime('now', '-24 hours')
+            WHERE timestamp >= datetime('now', ?)
             ORDER BY timestamp ASC
-        """).fetchall()
+        """, (f'-{days} days',)).fetchall()
         return [dict(r) for r in rows]
 
 
-def get_spots_last_24h(band: int = None) -> list[dict]:
-    """Return spots from the last 24 hours for chart overlay."""
+def get_spots_last_24h(band: int = None, days: int = 1) -> list[dict]:
+    """Return spots from the last N days for chart overlay."""
+    days = max(1, min(int(days), 7))
     with _connect() as conn:
         if band:
             rows = conn.execute("""
                 SELECT timestamp, reporter_count FROM spots
-                WHERE timestamp >= datetime('now', '-24 hours')
+                WHERE timestamp >= datetime('now', ?)
                   AND band = ?
                 ORDER BY timestamp ASC
-            """, (band,)).fetchall()
+            """, (f'-{days} days', band)).fetchall()
         else:
             rows = conn.execute("""
                 SELECT timestamp, reporter_count FROM spots
-                WHERE timestamp >= datetime('now', '-24 hours')
+                WHERE timestamp >= datetime('now', ?)
                 ORDER BY timestamp ASC
-            """).fetchall()
+            """, (f'-{days} days',)).fetchall()
         return [dict(r) for r in rows]
 
 
