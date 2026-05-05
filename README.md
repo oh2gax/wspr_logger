@@ -281,12 +281,12 @@ When the last spot is older than 1 hour the card shows **No propagation** with a
 | A     | A-index (daily geomagnetic activity, 0–400, NOAA scale); yellow-green 8–15, yellow 16–29, orange 30–49, red 50–99, purple 100+ |
 | X-ray | X-ray flux class (e.g. B9.3, C2.1); orange for M-class, red for X-class |
 | Bz    | Interplanetary magnetic field Z-component (nT); diverging scale: green to purple as value goes negative, default accent for northward (≥ 0) |
-| J-MUF | Juliusruh ionosonde MUF D=3000 km (MHz) |
+| J-MUF | Juliusruh ionosonde MUF D=3000 km (MHz); colour tied to band openings: gray < 8, default accent 8–12, green 12–15, lime 15–18, yellow-green 18–22, yellow 22–25, orange 25–30, red 30–35, purple > 35 |
 | SW    | Solar wind speed (km/s); default accent below 450, then yellow-green, yellow, orange, red, purple as speed increases |
 | AU    | Aurora activity (0–9 Kp-like scale); lime at 3, yellow at 4, orange at 5, red-orange at 6, red at 7–8, purple at 9 |
 | PF    | Proton flux (pfu, NOAA S-scale); lime S1, yellow S2, orange S3, red S4 dark-red, purple S5 |
 
-All colour thresholds follow standard NOAA / space weather classifications. Default accent colour is used for quiet / background conditions in every field. Data sourced from [hamqsl.com](https://www.hamqsl.com/solarxml.php), refreshed every 60 seconds while the panel is visible.
+All colour thresholds follow standard NOAA / space weather classifications or practical amateur radio conventions. Default accent colour is used for quiet / background conditions in every field. Data sourced from [hamqsl.com](https://www.hamqsl.com/solarxml.php), refreshed every 60 seconds while the panel is visible.
 
 **Reporter List** (left side, below Solar Conditions when visible) *(optional)* — scrollable table of individual stations that received the beacon in the past 60 minutes, one row per unique reporter:
 
