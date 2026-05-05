@@ -10,7 +10,8 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 
 - **Live map** — beacon position shown as a solid colour circle; auto-centres on first spot; zoom level remembered between sessions
 - **Age-aware beacon marker** — circle is **green** when the last spot is less than 1 hour old, **red** when older, giving an instant visual indication of whether the beacon is active or the band is closed
-- **Stale data indicators** — when the last spot is older than 1 hour the locator text turns red in both the sidebar and map overlay, the Propagation card switches to "No propagation / 0 reporters", helping users quickly assess band conditions
+- **Live UTC clock** — date and time displayed at the top of the Current Position overlay, updated every second; date and time shown on separate lines for easy reading
+- **Stale data indicators** — when the last spot is older than 1 hour the locator, last spot timestamp, Reporters, and Max DX texts turn red in both the sidebar and map overlay, the Propagation card switches to "No propagation / 0 reporters", helping users quickly assess band conditions
 - **Position trail** — dashed polyline connecting today's logged positions on the live map
 - **Propagation indicator** — estimates band conditions from the latest reporter count (Very poor → Extremely good) with a colour-coded bar; resets to "No propagation" automatically when data is stale
 - **MUF / Reporter count graph** — optional 24-hour dual-axis chart (blue line = Juliusruh ionosonde MUF D=3000 km, green bars = reporter count); data logged every 10 minutes; toggle on/off from sidebar
@@ -234,7 +235,7 @@ sudo ufw allow 5008/tcp
 | **Status dot** | Green = live data (< 20 min old) · Amber = stale · Red = no recent data |
 | **Locator** | Current 6-character Maidenhead grid square; turns red when last spot is older than 1 hour |
 | **Latitude / Longitude** | Decimal coordinates derived from the locator |
-| **Reporters / Max DX** | How many stations received the last transmission and the farthest one |
+| **Reporters / Max DX** | How many stations received the last transmission and the farthest one; turn red when data is stale |
 | **Last Spot (UTC)** | Timestamp of the most recent logged transmission |
 | **Band** | Static display of the active band as configured in `config.ini` |
 | **Position Trail** | Toggle the dashed trail connecting today's positions on the live map |
@@ -252,7 +253,7 @@ The main view opens by default. The beacon position is shown as a **solid circle
 
 Up to **seven overlay elements** can be shown simultaneously:
 
-**Current Position** (top-right) — locator (red when stale), timestamp, reporter count, max DX, and band.
+**Current Position** (top-right) — live UTC date and time clock (updated every second) at the top, followed by the 6-character Maidenhead locator, last spot timestamp, reporter count, max DX, and band. The locator, timestamp, reporter count, max DX, and band values all turn red when the last spot is older than 1 hour, reverting to their normal colours when fresh data arrives.
 
 **Propagation** (top-right, below position) — estimated band condition with a colour-coded label and fill bar:
 
