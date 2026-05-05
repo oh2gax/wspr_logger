@@ -355,7 +355,7 @@ select:focus, input:focus { border-color: var(--accent); }
 }
 .ov-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: var(--text-muted); margin-bottom: 4px; }
 .ov-locator { font-size: 28px; font-weight: 700; color: var(--accent); font-family: monospace; letter-spacing: 4px; }
-.ov-time { font-size: 11px; color: var(--text); margin-top: 2px; }
+.ov-time { font-size: 14px; color: var(--text); margin-top: 2px; font-family: monospace; }
 .ov-stats { display: flex; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
 .ov-stat { flex: 1; }
 .ov-stat-lbl { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
@@ -859,6 +859,10 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
 
         <div class="map-overlays">
             <div class="map-overlay" id="mapOverlay">
+                <div id="utcClock" style="font-family:monospace;font-weight:600;color:var(--text);margin-bottom:6px;line-height:1.4;">
+                    <div id="utcDate" style="font-size:14px;letter-spacing:1px;">—</div>
+                    <div id="utcTime" style="font-size:20px;letter-spacing:2px;">—</div>
+                </div>
                 <div class="ov-lbl">Current Position</div>
                 <div class="ov-locator" id="ovLocator">——</div>
                 <div class="ov-time"    id="ovTime">No data yet</div>
@@ -1159,6 +1163,8 @@ function updateLiveDisplay(spot) {
     document.getElementById('infoLon').textContent       = lon.toFixed(4) + '°';
     document.getElementById('infoReporters').textContent = stale ? '—' : reporter_count;
     document.getElementById('infoMaxDist').textContent   = (!stale && max_distance) ? max_distance + ' km' : '—';
+    document.getElementById('infoReporters').style.color = stale ? '#ef4444' : '';
+    document.getElementById('infoMaxDist').style.color   = stale ? '#ef4444' : '';
     document.getElementById('infoTime').textContent      = timestamp;
 
     // Map overlay
@@ -1169,6 +1175,10 @@ function updateLiveDisplay(spot) {
     document.getElementById('ovReporters').textContent = stale ? '—' : reporter_count;
     document.getElementById('ovDX').textContent        = (!stale && max_distance) ? max_distance + ' km' : '—';
     document.getElementById('ovBand').textContent      = BAND_NAMES[currentBand] || currentBand + 'MHz';
+    const staleColor = stale ? '#ef4444' : '';
+    document.getElementById('ovReporters').style.color = staleColor;
+    document.getElementById('ovDX').style.color        = staleColor;
+    document.getElementById('ovBand').style.color      = staleColor;
 
     // Beacon marker
     const popup = `<strong>${CALLSIGN}</strong><br>
@@ -1880,6 +1890,18 @@ document.addEventListener('DOMContentLoaded', () => {
     initLiveMap();
     fetchLatest();
     setInterval(fetchLatest, 60_000);
+
+    // UTC clock — updates every second
+    function tickUtcClock() {
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        document.getElementById('utcDate').textContent =
+            `${now.getUTCFullYear()}-${pad(now.getUTCMonth()+1)}-${pad(now.getUTCDate())}`;
+        document.getElementById('utcTime').textContent =
+            `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())} UTC`;
+    }
+    tickUtcClock();
+    setInterval(tickUtcClock, 1000);
 });
 </script>
 </body>
