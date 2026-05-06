@@ -818,6 +818,10 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
                 <span>Reporter Plot</span>
                 <div class="sw" id="swReporterPlot" onclick="toggleReporterPlot()"></div>
             </div>
+            <div class="toggle-row">
+                <span>Day / Night</span>
+                <div class="sw" id="swDayNight" onclick="toggleDayNight()"></div>
+            </div>
         </div>
 
         <!-- Today's mini-stats -->
@@ -1080,6 +1084,7 @@ let showSolar        = false;
 let showReporterList = false;
 let showHistogram    = false;
 let showReporterPlot = false;
+let showDayNight     = false;
 let _reporterListData = [];
 let _rlSortKey        = 'snr';   // 'snr' | 'dist'
 let _hgramMode        = 'snr';   // 'snr' | 'dist'
@@ -1094,6 +1099,8 @@ let liveTileLayer      = null;
 let liveMarker         = null;
 let liveTrail          = null;
 let reporterPlotLayer  = null;
+let dayNightLayer      = null;
+let _dayNightTimer     = null;
 let _txLat             = null;
 let _txLon             = null;
 
@@ -1566,6 +1573,64 @@ function renderMufChart(mufRows, spotRows) {
     });
 }
 
+// ── Great-circle path helper ─────────────────────────────────────────────────
+/**
+ * Return an array of [lat, lon] waypoints following the great-circle arc
+ * between two points, split at the antimeridian so Leaflet doesn't wrap
+ * across the map incorrectly.  Uses spherical SLERP interpolation.
+ */
+function greatCirclePoints(lat1, lon1, lat2, lon2, steps) {
+    steps = steps || 60;
+    const toRad = d => d * Math.PI / 180;
+    const toDeg = r => r * 180 / Math.PI;
+
+    // Convert to unit-sphere Cartesian
+    function toXYZ(lat, lon) {
+        const φ = toRad(lat), λ = toRad(lon);
+        return [Math.cos(φ)*Math.cos(λ), Math.cos(φ)*Math.sin(λ), Math.sin(φ)];
+    }
+    function fromXYZ(v) {
+        const lat = toDeg(Math.asin(v[2]));
+        const lon = toDeg(Math.atan2(v[1], v[0]));
+        return [lat, lon];
+    }
+    function dot(a, b) { return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]; }
+    function scale(v, s) { return [v[0]*s, v[1]*s, v[2]*s]; }
+    function add(a, b) { return [a[0]+b[0], a[1]+b[1], a[2]+b[2]]; }
+
+    const A = toXYZ(lat1, lon1);
+    const B = toXYZ(lat2, lon2);
+    const cosΩ = Math.max(-1, Math.min(1, dot(A, B)));
+    const Ω    = Math.acos(cosΩ);
+
+    const pts = [];
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        let v;
+        if (Ω < 1e-10) {
+            v = A;
+        } else {
+            const sA = Math.sin((1-t)*Ω) / Math.sin(Ω);
+            const sB = Math.sin(   t *Ω) / Math.sin(Ω);
+            v = add(scale(A, sA), scale(B, sB));
+        }
+        pts.push(fromXYZ(v));
+    }
+
+    // Split at antimeridian crossings into separate polyline segments
+    const segments = [[]];
+    for (let i = 0; i < pts.length; i++) {
+        segments[segments.length - 1].push(pts[i]);
+        if (i < pts.length - 1) {
+            const dLon = pts[i+1][1] - pts[i][1];
+            if (Math.abs(dLon) > 180) {
+                segments.push([]);  // start new segment after wrap
+            }
+        }
+    }
+    return segments;   // array of arrays of [lat, lon]
+}
+
 // ── Reporter Plot ────────────────────────────────────────────────────────────
 function maidenheadToLatLon(grid) {
     if (!grid || grid.length < 4) return null;
@@ -1622,10 +1687,14 @@ function renderReporterPlot() {
         const opacity = 0.18 + norm * 0.72;            // 0.18 → 0.90
         const weight  = 1 + norm * 2.5;                // 1 px → 3.5 px
 
-        // Line: TX → reporter
-        L.polyline([[_txLat, _txLon], pos], {
-            color: accent, weight, opacity
-        }).addTo(reporterPlotLayer);
+        // Great-circle line: TX → reporter (split at antimeridian if needed)
+        const gcSegs = greatCirclePoints(_txLat, _txLon, pos[0], pos[1], 60);
+        gcSegs.forEach(seg => {
+            if (seg.length > 1) {
+                L.polyline(seg, { color: accent, weight, opacity })
+                 .addTo(reporterPlotLayer);
+            }
+        });
 
         // Reporter circle
         L.circleMarker(pos, {
@@ -1641,6 +1710,154 @@ function renderReporterPlot() {
             `Dist: ${r.distance} km`
         ).addTo(reporterPlotLayer);
     });
+}
+
+// ── Day / Night / Grayline overlay ──────────────────────────────────────────
+/**
+ * Compute the subsolar point (lat, lon) for a given UTC Date.
+ * Uses a simplified low-accuracy solar position model.
+ */
+function sunPosition(date) {
+    const toRad = d => d * Math.PI / 180;
+    const toDeg = r => r * 180 / Math.PI;
+
+    const JD = date / 86400000 + 2440587.5;
+    const n  = JD - 2451545.0;   // days since J2000.0
+
+    // Mean longitude and mean anomaly (degrees, kept positive)
+    const L0 = ((280.46646 + 0.9856474 * n) % 360 + 360) % 360;
+    const M  = toRad(((357.52911 + 0.9856003 * n) % 360 + 360) % 360);
+
+    // Equation of centre → Sun's true longitude
+    const C   = 1.9146 * Math.sin(M) + 0.0200 * Math.sin(2*M) + 0.0003 * Math.sin(3*M);
+    const lam = toRad(L0 + C);
+
+    // Obliquity, right ascension, declination
+    const eps = toRad(23.439 - 0.0000004 * n);
+    const RA  = Math.atan2(Math.cos(eps) * Math.sin(lam), Math.cos(lam));
+    const dec = Math.asin(Math.sin(eps) * Math.sin(lam));
+
+    // Greenwich Mean Sidereal Time — correct formula with J2000.0 epoch offset.
+    // The old approach (UTC_hours × 15) is off by ~135° today; this is exact.
+    const GMST = ((280.46061837 + 360.98564724 * n) % 360 + 360) % 360;
+
+    // Greenwich Hour Angle → subsolar longitude
+    const GHA = ((GMST - toDeg(RA)) % 360 + 360) % 360;
+    let lon = -GHA;
+    if (lon < -180) lon += 360;
+    if (lon >  180) lon -= 360;
+
+    return { lat: toDeg(dec), lon };
+}
+
+/**
+ * Compute the terminator latitude at a given longitude.
+ *
+ * The terminator satisfies:
+ *   sin(φs)·sin(φ) + cos(φs)·cos(φ)·cos(λ−λs) = 0
+ * Rearranging:
+ *   tan(φ) = −cos(λ−λs) / tan(φs)
+ *   φ = atan(−cos(Δλ) / tan(φs))
+ *
+ * sunLat/sunLon in degrees, lon in degrees, returns lat in degrees.
+ * The optional offsetDeg shifts the boundary (positive = toward night side).
+ */
+function terminatorLatAt(lon, sunLat, sunLon, offsetDeg) {
+    const toRad = d => d * Math.PI / 180;
+    const toDeg = r => r * 180 / Math.PI;
+    offsetDeg = offsetDeg || 0;
+    const dLon   = toRad(lon - sunLon);
+    const tanSun = Math.tan(toRad(sunLat));
+    // Handle near-equinox edge case (terminator is a meridian)
+    if (Math.abs(tanSun) < 1e-9) {
+        return Math.cos(dLon) >= 0 ? -(90 - offsetDeg) : (90 - offsetDeg);
+    }
+    // Basic terminator lat at this longitude
+    const lat = toDeg(Math.atan(-Math.cos(dLon) / tanSun));
+    // Shift toward night by offsetDeg along the meridian
+    // (positive offset pushes boundary into the night side)
+    return lat - offsetDeg * Math.sign(sunLat) * Math.sign(Math.cos(dLon + Math.PI / 2));
+}
+
+/**
+ * Build the night-hemisphere polygon and a pair of terminator line arrays.
+ * Returns { nightPoly, termLine, grayLine }.
+ *
+ * The polygon is constructed as:
+ *   terminator points (lon −180 → 180) + night-pole corners to close it.
+ *
+ * Night pole = south pole when sun is in northern hemisphere, and vice versa.
+ * This is the same approach used by the Leaflet.terminator plugin.
+ */
+function buildNightPolygon(sunLat, sunLon) {
+    const termLine = [];
+    for (let lon = -180; lon <= 180; lon++) {
+        termLine.push([terminatorLatAt(lon, sunLat, sunLon, 0), lon]);
+    }
+    // The night pole is the pole NOT illuminated
+    const nightPole = sunLat >= 0 ? -90 : 90;
+    // Close the polygon by adding the two corners of the night pole strip
+    const nightPoly = termLine.concat([
+        [nightPole, 180],
+        [nightPole, -180]
+    ]);
+    return { nightPoly, termLine };
+}
+
+function renderDayNight() {
+    if (!showDayNight || !liveMap) return;
+    if (!dayNightLayer) {
+        dayNightLayer = L.layerGroup().addTo(liveMap);
+    }
+    dayNightLayer.clearLayers();
+
+    const now = new Date();
+    const sun = sunPosition(now);
+    const { nightPoly, termLine } = buildNightPolygon(sun.lat, sun.lon);
+
+    // Night fill
+    L.polygon(nightPoly, {
+        color: 'none',
+        fillColor: '#1a3a5c',
+        fillOpacity: 0.40,
+        stroke: false,
+        interactive: false,
+    }).addTo(dayNightLayer);
+
+    // Terminator — single dashed amber line, split at large lat jumps (polar wrap)
+    const segs = [[]];
+    for (let i = 0; i < termLine.length; i++) {
+        segs[segs.length - 1].push(termLine[i]);
+        if (i < termLine.length - 1 &&
+            Math.abs(termLine[i+1][0] - termLine[i][0]) > 60) {
+            segs.push([]);
+        }
+    }
+    segs.forEach(seg => {
+        if (seg.length > 1) {
+            L.polyline(seg, {
+                color: '#fbbf24', weight: 1.5, opacity: 0.80,
+                dashArray: '6 5', interactive: false,
+            }).addTo(dayNightLayer);
+        }
+    });
+}
+
+function clearDayNight() {
+    if (dayNightLayer) dayNightLayer.clearLayers();
+}
+
+function toggleDayNight() {
+    showDayNight = !showDayNight;
+    document.getElementById('swDayNight').className = 'sw' + (showDayNight ? ' on' : '');
+    if (showDayNight) {
+        renderDayNight();
+        _dayNightTimer = setInterval(renderDayNight, 60000);
+    } else {
+        clearInterval(_dayNightTimer);
+        _dayNightTimer = null;
+        clearDayNight();
+    }
 }
 
 // ── Solar conditions ────────────────────────────────────────────────────────
