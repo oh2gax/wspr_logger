@@ -19,6 +19,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **Reporter countries** — optional overlay listing every country that heard the beacon in the past hour, with a proportional bar and station count; loads instantly from backend cache
 - **Reporter list** — optional left-side panel showing individual reporter stations from the past 60 minutes with band, callsign, grid locator, SNR, and distance; sortable by SNR or distance; scrollable list with room for ~20 entries
 - **SNR / Dist histogram** — optional left-side panel showing a smooth filled line graph of reporter distribution for the past 60 minutes; toggle between SNR (dB bins) and Distance (km bins) with a tab switch; stacks below the Reporter List when both are visible
+- **Reporter plot** — optional map layer that places a filled circle at each reporter's grid location and draws a line from the beacon to each reporter; line thickness and opacity scale with SNR so the strongest reporters stand out visually; click any marker for a popup showing callsign, grid, SNR, and distance; clears automatically when data goes stale
 - **History view** — map and table of all logged spots for any selected date
 - **Statistics view** — daily and all-time records (spot count, longest DX, max reporters)
 - **1 h / Today stats** — toggle the sidebar mini-stats between the last 60 minutes (default) and the full day
@@ -26,6 +27,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **Collapsible sidebar** — fold the panel away for a full-screen map view, handy on mobile
 - **Config-file driven** — all settings managed in `config.ini`; no settings UI exposed to the browser
 - **SQLite storage** — one database file, WAL mode, indexed for fast date-range queries; separate table for MUF history
+- **Expanded callsign→country mapping** — 350+ prefix entries covering all of Europe (including full Balkans: 9A, S5, YU, E7, Z3, 4O, ZA, Z6), complete German D* series, UK Foundation/Intermediate calls (2E/2M/2W/2I), French TM special events, Caucasus, Central Asia, and more; raw prefix shown as fallback for truly unknown callsigns
 
 ---
 
@@ -244,6 +246,7 @@ sudo ufw allow 5008/tcp
 | **Solar Conditions** | Toggle the solar indices panel on the left side of the map |
 | **Reporter List** | Toggle the individual reporter table on the left side of the map |
 | **SNR / Dist Histogram** | Toggle the reporter distribution line chart on the left side of the map |
+| **Reporter Plot** | Toggle the map layer that plots reporter locations and draws SNR-weighted lines from the beacon to each reporter |
 | **1h / Today tabs** | Switch the mini-stats cards between the last 60 minutes (default) and the full day |
 | **🌙 / ☀️ Dark / Light Mode** | Toggle the colour theme; saved across sessions |
 
@@ -251,7 +254,7 @@ sudo ufw allow 5008/tcp
 
 The main view opens by default. The beacon position is shown as a **solid circle** — **green** when the last spot is less than 1 hour old, **red** when older. The map auto-pans to the beacon on first load. A **dashed polyline** shows today's path. Click the circle to see a popup with full spot details.
 
-Up to **seven overlay elements** can be shown simultaneously:
+Up to **eight overlay elements** can be shown simultaneously:
 
 **Current Position** (top-right) — live UTC date and time clock (updated every second) at the top, followed by the 6-character Maidenhead locator, last spot timestamp, reporter count, max DX, and band. The locator, timestamp, reporter count, max DX, and band values all turn red when the last spot is older than 1 hour, reverting to their normal colours when fresh data arrives.
 
@@ -302,6 +305,8 @@ All colour thresholds follow standard NOAA / space weather classifications or pr
 Click the **SNR** or **Dist** column header to re-sort the list. The panel stacks automatically below Solar Conditions (or below the MUF graph if Solar is hidden, or at the top-left if neither is active). Refreshes every 60 seconds alongside the main poll cycle.
 
 **SNR / Dist Histogram** (left side, below Reporter List when visible) *(optional)* — smooth filled line chart showing the distribution of reporters across SNR or distance bins for the past 60 minutes. Use the **SNR** / **Dist** tab buttons to switch modes. SNR mode bins reporters in 3 dB steps from −33 to +9 dB; Distance mode bins in 500 km or 1000 km steps depending on the furthest reporter. Data is derived from the cached reporter list — no extra server query needed. Stacks in the same left-side chain as Solar Conditions and Reporter List.
+
+**Reporter Plot** *(optional)* — Leaflet map layer that plots a filled circle at each reporter's decoded Maidenhead grid position and draws a line from the beacon's current location to every reporter heard in the past 60 minutes. Both the line weight (1–3.5 px) and opacity (0.18–0.90) scale with SNR, so the strongest reporters are immediately visible as thick bright lines while weak stations appear as faint thin ones. Click any reporter circle to open a popup showing callsign, grid locator, SNR, and distance. The layer clears automatically when the last spot is older than 1 hour, consistent with all other live panels. Can be enabled independently of the Reporter List panel.
 
 ### History View
 
