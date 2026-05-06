@@ -14,12 +14,13 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **Stale data indicators** — when the last spot is older than 1 hour the locator, last spot timestamp, Reporters, and Max DX texts turn red in both the sidebar and map overlay, the Propagation card switches to "No propagation / 0 reporters", helping users quickly assess band conditions
 - **Position trail** — dashed polyline connecting today's logged positions on the live map
 - **Propagation indicator** — estimates band conditions from the latest reporter count (Very poor → Extremely good) with a colour-coded bar; resets to "No propagation" automatically when data is stale
-- **MUF / Reporter count graph** — optional dual-axis chart (blue line = Juliusruh ionosonde MUF D=3000 km, green bars = reporter count); data logged every 10 minutes; selectable time range — **1d / 2d / 3d / 1wk** — directly on the panel; toggle on/off from sidebar
+- **MUF / Reporter count graph** — optional dual-axis chart (blue line = Juliusruh ionosonde MUF D=3000 km, green bars = reporter count); data logged every 10 minutes; selectable time range — **1d / 2d / 3d / 1wk** — directly on the panel; toggle on/off from sidebar; MUF values sourced from the GIRO DIDBase MUFD endpoint (station JR055) alongside foF2, replacing the older HTML scraper
 - **Solar conditions panel** — optional top-left overlay showing 10 colour-coded indices: SFI, K-index, A-index, X-ray flux, Bz (IMF), Juliusruh MUF, foF2, Solar Wind speed, Aurora activity, and Proton Flux; every field uses NOAA-standard colour thresholds (quiet = default accent, escalating through yellow-green → yellow → orange → red → purple); moves down automatically when the MUF graph is also enabled; refreshes every 60 seconds from hamqsl.com and the GIRO DIDBase; toggle on/off from sidebar
 - **Reporter countries** — optional overlay listing every country that heard the beacon in the past hour, with a proportional bar and station count; loads instantly from backend cache
 - **Reporter list** — optional left-side panel showing individual reporter stations from the past 60 minutes with band, callsign, grid locator, SNR, and distance; sortable by SNR or distance; scrollable list with room for ~20 entries
 - **SNR / Dist histogram** — optional left-side panel showing a smooth filled line graph of reporter distribution for the past 60 minutes; toggle between SNR (dB bins) and Distance (km bins) with a tab switch; stacks below the Reporter List when both are visible
-- **Reporter plot** — optional map layer that places a filled circle at each reporter's grid location and draws a line from the beacon to each reporter; line thickness and opacity scale with SNR so the strongest reporters stand out visually; click any marker for a popup showing callsign, grid, SNR, and distance; clears automatically when data goes stale
+- **Reporter plot** — optional map layer that places a filled circle at each reporter's grid location and draws a **great-circle arc** from the beacon to each reporter (using spherical SLERP interpolation with 60 waypoints, correctly split at the antimeridian); line thickness and opacity scale with SNR so the strongest reporters stand out visually; click any marker for a popup showing callsign, grid, SNR, and distance; clears automatically when data goes stale
+- **Day / Night overlay** — optional map layer showing the current night hemisphere as a semi-transparent dark fill with a dashed amber terminator line; computed entirely in the browser from an accurate solar position model (correct GMST formula with J2000.0 epoch offset); redraws every 60 seconds independently of the data poll cycle
 - **History view** — map and table of all logged spots for any selected date
 - **Statistics view** — daily and all-time records (spot count, longest DX, max reporters)
 - **1 h / Today stats** — toggle the sidebar mini-stats between the last 60 minutes (default) and the full day
@@ -34,7 +35,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 ## Screenshots
 
 ![WSPR Logger — live map view](https://raw.githubusercontent.com/oh2gax/wspr_logger/main/Main_screen_1_wspr_logger.png)
-*Live map (dark mode) with all panels enabled: MUF D=3000 km / Reporter Count graph spanning the top, Solar Conditions, Reporter List, and SNR / Dist Histogram stacked on the left, Current Position / Propagation / Reporter Countries overlays on the right, Reporter Plot layer showing SNR-weighted lines from the beacon to each reporter on the map, and the collapsible info sidebar on the left.*
+*Live map (dark mode) with all panels enabled: MUF D=3000 km / Reporter Count graph spanning the top, Solar Conditions, Reporter List, and SNR / Dist Histogram stacked on the left, Current Position / Propagation / Reporter Countries overlays on the right, Reporter Plot layer showing SNR-weighted great-circle arcs from the beacon to each reporter, Day/Night overlay with dashed terminator line, and the collapsible info sidebar on the left.*
 
 ---
 
@@ -43,7 +44,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 1. A background thread polls **wspr.live** (a public ClickHouse database) at minutes `:08`, `:18`, `:28`, `:38`, `:48`, `:58` — six minutes after each 10-minute WSPR transmission cycle, giving reporters time to upload their data.
 2. The query groups all received spots for the latest transmission by `(tx_loc, time)` and returns the Maidenhead locator, UTC timestamp, reporter count, and maximum reported distance.
 3. Valid new spots are inserted into the local SQLite database; duplicates are silently ignored.
-4. At each poll cycle the backend also fetches the **MUF D=3000 km** value from the [Juliusruh ionosonde page](https://www.ionosonde.iap-kborn.de/actuellz.htm) and stores it in the `muf_data` table alongside the timestamp. The **foF2** critical frequency is fetched separately from the [GIRO DIDBase](https://lgdc.uml.edu/) (station JR055, Juliusruh) using a 24-hour rolling window to account for data upload delays; it is cached in memory and served via `/api/solar`.
+4. At each poll cycle the backend fetches both the **MUF D=3000 km** (MUFD) and **foF2** values from the [GIRO DIDBase](https://lgdc.uml.edu/) (station JR055, Juliusruh) using the `DIDBGetValues` API with a 24-hour rolling window and the `YYYY/MM/DD HH:MM:SS` date format required by the endpoint (~5 minute data lag). Both use the same parser that requires a decimal point in the value token to avoid misreading integer quality-score fields. MUF is stored in the `muf_data` table; foF2 is cached in memory and served via `/api/solar`.
 5. Reporter country data is derived from individual reporter callsigns, cached in memory, and bundled into every `/api/latest` response — no extra wspr.live queries are ever triggered from the browser.
 6. Individual reporter details (callsign, grid, SNR, distance) are also fetched and cached at each poll cycle, available via `/api/reporter_list` for the Reporter List panel.
 7. On startup the background thread performs an immediate fetch of the latest spot, reporter countries, reporter list, and MUF value so the UI has data ready the moment the page is opened.
@@ -246,7 +247,8 @@ sudo ufw allow 5008/tcp
 | **Solar Conditions** | Toggle the solar indices panel on the left side of the map |
 | **Reporter List** | Toggle the individual reporter table on the left side of the map |
 | **SNR / Dist Histogram** | Toggle the reporter distribution line chart on the left side of the map |
-| **Reporter Plot** | Toggle the map layer that plots reporter locations and draws SNR-weighted lines from the beacon to each reporter |
+| **Reporter Plot** | Toggle the map layer that plots reporter locations and draws SNR-weighted great-circle arcs from the beacon to each reporter |
+| **Day / Night** | Toggle the day/night overlay showing the current night hemisphere and terminator line; updates every 60 seconds |
 | **1h / Today tabs** | Switch the mini-stats cards between the last 60 minutes (default) and the full day |
 | **🌙 / ☀️ Dark / Light Mode** | Toggle the colour theme; saved across sessions |
 
@@ -254,7 +256,7 @@ sudo ufw allow 5008/tcp
 
 The main view opens by default. The beacon position is shown as a **solid circle** — **green** when the last spot is less than 1 hour old, **red** when older. The map auto-pans to the beacon on first load. A **dashed polyline** shows today's path. Click the circle to see a popup with full spot details.
 
-Up to **eight overlay elements** can be shown simultaneously:
+Up to **nine overlay elements** can be shown simultaneously:
 
 **Current Position** (top-right) — live UTC date and time clock (updated every second) at the top, followed by the 6-character Maidenhead locator, last spot timestamp, reporter count, max DX, and band. The locator, timestamp, reporter count, max DX, and band values all turn red when the last spot is older than 1 hour, reverting to their normal colours when fresh data arrives.
 
@@ -306,7 +308,9 @@ Click the **SNR** or **Dist** column header to re-sort the list. The panel stack
 
 **SNR / Dist Histogram** (left side, below Reporter List when visible) *(optional)* — smooth filled line chart showing the distribution of reporters across SNR or distance bins for the past 60 minutes. Use the **SNR** / **Dist** tab buttons to switch modes. SNR mode bins reporters in 3 dB steps from −33 to +9 dB; Distance mode bins in 500 km or 1000 km steps depending on the furthest reporter. Data is derived from the cached reporter list — no extra server query needed. Stacks in the same left-side chain as Solar Conditions and Reporter List.
 
-**Reporter Plot** *(optional)* — Leaflet map layer that plots a filled circle at each reporter's decoded Maidenhead grid position and draws a line from the beacon's current location to every reporter heard in the past 60 minutes. Both the line weight (1–3.5 px) and opacity (0.18–0.90) scale with SNR, so the strongest reporters are immediately visible as thick bright lines while weak stations appear as faint thin ones. Click any reporter circle to open a popup showing callsign, grid locator, SNR, and distance. The layer clears automatically when the last spot is older than 1 hour, consistent with all other live panels. Can be enabled independently of the Reporter List panel.
+**Reporter Plot** *(optional)* — Leaflet map layer that plots a filled circle at each reporter's decoded Maidenhead grid position and draws a **great-circle arc** from the beacon's current location to every reporter heard in the past 60 minutes. Arcs are computed using spherical SLERP interpolation (60 waypoints) and are correctly split at the antimeridian so no lines streak across the map. Both the line weight (1–3.5 px) and opacity (0.18–0.90) scale with SNR, so the strongest reporters are immediately visible as thick bright lines while weak stations appear as faint thin ones. Click any reporter circle to open a popup showing callsign, grid locator, SNR, and distance. The layer clears automatically when the last spot is older than 1 hour, consistent with all other live panels. Can be enabled independently of the Reporter List panel.
+
+**Day / Night** *(optional)* — Leaflet map layer showing the current night hemisphere as a semi-transparent dark blue fill, with a single dashed amber line marking the solar terminator. The solar position is calculated in the browser using a low-precision but accurate astronomical model (correct Greenwich Mean Sidereal Time with J2000.0 epoch offset); the terminator latitude at each longitude is derived analytically from the solar declination. The overlay redraws every 60 seconds entirely in JavaScript — no server requests are made. Toggle from the sidebar.
 
 ### History View
 

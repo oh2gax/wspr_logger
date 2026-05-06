@@ -338,29 +338,37 @@ def fetch_reporter_list(callsign: str, band: int) -> list:
     return result
 
 
-def fetch_muf_value() -> float | None:
+def fetch_giro_mufd() -> float | None:
     """
-    Scrape the current MUF(D=3000 km) from the Juliusruh ionosonde page.
-    Returns the MUF in MHz, or None if unavailable.
+    Fetch the latest MUF(D=3000 km) directly from Juliusruh (JR055) via
+    the GIRO DIDBase MUFD endpoint.  MUFD is the measured propagation MUF
+    for a 3000 km path — same data that was previously scraped from the HTML
+    page but sourced from the authoritative ionosonde database (~5 min lag).
+    Returns MUF in MHz, or None if unavailable.
     """
-    url = "https://www.ionosonde.iap-kborn.de/actuellz.htm"
+    now     = datetime.utcnow()
+    from_dt = (now - timedelta(hours=24)).strftime("%Y/%m/%d %H:%M:%S")
+    to_dt   = now.strftime("%Y/%m/%d %H:%M:%S")
+    params  = urllib.parse.urlencode({
+        "ursiCode": "JR055",
+        "charName": "MUFD",
+        "DMUF":     "3000",
+        "fromDate": from_dt,
+        "toDate":   to_dt,
+    })
+    url = f"https://lgdc.uml.edu/common/DIDBGetValues?{params}"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=15) as resp:
-            html = resp.read().decode("utf-8", errors="replace")
-        # Table row format: <td>3000</td><td> 16.2</td>
-        m = re.search(
-            r'<td>\s*3000\s*</td>\s*<td>\s*(\d{1,2}\.?\d*)\s*</td>',
-            html, re.IGNORECASE
-        )
-        if m:
-            val = float(m.group(1))
-            if 1.0 < val < 50.0:
-                return val
-        print("[MUF] Could not parse MUF value from page")
-        return None
+            text = resp.read().decode("utf-8", errors="replace")
+        val = _parse_giro_latest(text)
+        if val is not None:
+            print(f"[GIRO] MUFD = {val:.3f} MHz")
+        else:
+            print("[GIRO] MUFD: no valid data in response")
+        return val
     except Exception as e:
-        print(f"[MUF] Fetch failed: {e}")
+        print(f"[GIRO] MUFD fetch failed: {e}")
         return None
 
 
@@ -517,7 +525,7 @@ def update_thread():
     with _state_lock:
         _cached_countries     = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
         _cached_reporter_list = fetch_reporter_list(CALLSIGN, DEFAULT_BAND)
-    muf_init = fetch_muf_value()
+    muf_init = fetch_giro_mufd()
     if muf_init:
         db.insert_muf(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), muf_init)
     fof2_init = fetch_giro_fof2()
@@ -542,8 +550,8 @@ def update_thread():
                 _cached_countries     = countries
                 _cached_reporter_list = reporter_list
 
-            # MUF from Juliusruh page; foF2 from GIRO DIDBase
-            muf = fetch_muf_value()
+            # MUF and foF2 both from GIRO DIDBase (JR055, ~5 min lag)
+            muf = fetch_giro_mufd()
             if muf:
                 db.insert_muf(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), muf)
                 print(f"[INFO] MUF D=3000: {muf} MHz")
