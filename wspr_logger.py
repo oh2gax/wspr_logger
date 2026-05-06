@@ -398,18 +398,21 @@ def _parse_giro_latest(text: str) -> float | None:
 def fetch_giro_fof2() -> float | None:
     """
     Fetch the latest foF2 from Juliusruh (JR055) via GIRO DIDBase.
-    Uses a 24-hour rolling window to cope with station upload delays.
+    Uses a 24-hour rolling window with the correct GIRO date format
+    (YYYY/MM/DD HH:MM:SS) which returns near-real-time data (~5 min lag).
     Returns foF2 in MHz, or None if unavailable.
     """
     now     = datetime.utcnow()
-    from_dt = (now - timedelta(hours=24)).strftime("%Y.%m.%d")
-    to_dt   = now.strftime("%Y.%m.%d")
-    url = (
-        "https://lgdc.uml.edu/common/DIDBGetValues"
-        f"?ursiCode=JR055"
-        f"&charName=foF2"
-        f"&fromDate={from_dt}&toDate={to_dt}"
-    )
+    from_dt = (now - timedelta(hours=24)).strftime("%Y/%m/%d %H:%M:%S")
+    to_dt   = now.strftime("%Y/%m/%d %H:%M:%S")
+    params  = urllib.parse.urlencode({
+        "ursiCode": "JR055",
+        "charName": "foF2",
+        "DMUF":     "3000",
+        "fromDate": from_dt,
+        "toDate":   to_dt,
+    })
+    url = f"https://lgdc.uml.edu/common/DIDBGetValues?{params}"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=15) as resp:
