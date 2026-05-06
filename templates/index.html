@@ -814,6 +814,10 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
                 <span>SNR / Dist Histogram</span>
                 <div class="sw" id="swHgram" onclick="toggleHistogram()"></div>
             </div>
+            <div class="toggle-row">
+                <span>Reporter Plot</span>
+                <div class="sw" id="swReporterPlot" onclick="toggleReporterPlot()"></div>
+            </div>
         </div>
 
         <!-- Today's mini-stats -->
@@ -1075,6 +1079,7 @@ let showMuf          = false;
 let showSolar        = false;
 let showReporterList = false;
 let showHistogram    = false;
+let showReporterPlot = false;
 let _reporterListData = [];
 let _rlSortKey        = 'snr';   // 'snr' | 'dist'
 let _hgramMode        = 'snr';   // 'snr' | 'dist'
@@ -1084,10 +1089,13 @@ let mufChart      = null;
 let mufDays       = 1;
 
 // Live map objects
-let liveMap       = null;
-let liveTileLayer = null;
-let liveMarker    = null;
-let liveTrail     = null;
+let liveMap            = null;
+let liveTileLayer      = null;
+let liveMarker         = null;
+let liveTrail          = null;
+let reporterPlotLayer  = null;
+let _txLat             = null;
+let _txLon             = null;
 
 // Latest spot cache
 let latestSpot    = null;
@@ -1179,11 +1187,12 @@ async function fetchLatest() {
 
         if (showCountries) updateCountryOverlay(isStale ? [] : (data.countries || []));
         if (showMuf)       fetchMufData();
-        if (showReporterList) {
+        if (showReporterList || showReporterPlot) {
             if (isStale) {
                 _reporterListData = [];
-                renderReporterList();
-                if (showHistogram) renderHistogram();
+                if (showReporterList) renderReporterList();
+                if (showHistogram)    renderHistogram();
+                if (showReporterPlot) clearReporterPlot();
             } else {
                 fetchReporterList();
             }
@@ -1198,6 +1207,7 @@ async function fetchLatest() {
 
 function updateLiveDisplay(spot) {
     const { lat, lon, tx_loc, timestamp, reporter_count, max_distance } = spot;
+    _txLat = lat; _txLon = lon;   // used by reporter plot
 
     // Age-based state
     const ageMs   = Date.now() - new Date(timestamp.replace(' ', 'T') + 'Z');
@@ -1556,6 +1566,83 @@ function renderMufChart(mufRows, spotRows) {
     });
 }
 
+// ── Reporter Plot ────────────────────────────────────────────────────────────
+function maidenheadToLatLon(grid) {
+    if (!grid || grid.length < 4) return null;
+    const g = grid.toUpperCase();
+    try {
+        let lon = (g.charCodeAt(0) - 65) * 20 - 180;
+        let lat = (g.charCodeAt(1) - 65) * 10 - 90;
+        lon += (g.charCodeAt(2) - 48) * 2;
+        lat += (g.charCodeAt(3) - 48) * 1;
+        if (g.length >= 6) {
+            lon += (g.charCodeAt(4) - 65) * (2.0 / 24.0);
+            lat += (g.charCodeAt(5) - 65) * (1.0 / 24.0);
+        }
+        lon += (2.0 / 24.0) / 2;
+        lat += (1.0 / 24.0) / 2;
+        return [lat, lon];
+    } catch(e) { return null; }
+}
+
+function toggleReporterPlot() {
+    showReporterPlot = !showReporterPlot;
+    document.getElementById('swReporterPlot').className = 'sw' + (showReporterPlot ? ' on' : '');
+    if (!showReporterPlot) {
+        clearReporterPlot();
+    } else {
+        fetchReporterList();   // fetches & renders; guard inside handles dual-use
+    }
+}
+
+function clearReporterPlot() {
+    if (reporterPlotLayer) reporterPlotLayer.clearLayers();
+}
+
+function renderReporterPlot() {
+    if (!showReporterPlot || !liveMap) return;
+    if (!reporterPlotLayer) {
+        reporterPlotLayer = L.layerGroup().addTo(liveMap);
+    }
+    reporterPlotLayer.clearLayers();
+    if (_txLat === null || !_reporterListData.length) return;
+
+    // Normalise SNR to opacity and line weight
+    const snrs    = _reporterListData.map(r => r.snr);
+    const minSnr  = Math.min(...snrs);
+    const maxSnr  = Math.max(...snrs);
+    const snrSpan = maxSnr - minSnr || 1;
+
+    const accent = '#38bdf8';
+
+    _reporterListData.forEach(r => {
+        const pos = maidenheadToLatLon(r.grid);
+        if (!pos) return;
+        const norm    = (r.snr - minSnr) / snrSpan;   // 0 = weakest, 1 = strongest
+        const opacity = 0.18 + norm * 0.72;            // 0.18 → 0.90
+        const weight  = 1 + norm * 2.5;                // 1 px → 3.5 px
+
+        // Line: TX → reporter
+        L.polyline([[_txLat, _txLon], pos], {
+            color: accent, weight, opacity
+        }).addTo(reporterPlotLayer);
+
+        // Reporter circle
+        L.circleMarker(pos, {
+            radius: 5,
+            color: accent,
+            fillColor: accent,
+            fillOpacity: opacity,
+            weight: 1.5,
+        }).bindPopup(
+            `<strong>${r.callsign}</strong><br>` +
+            `Grid: ${r.grid}<br>` +
+            `SNR: ${r.snr} dB<br>` +
+            `Dist: ${r.distance} km`
+        ).addTo(reporterPlotLayer);
+    });
+}
+
 // ── Solar conditions ────────────────────────────────────────────────────────
 function toggleSolar() {
     showSolar = !showSolar;
@@ -1677,13 +1764,14 @@ function toggleReporterList() {
 }
 
 async function fetchReporterList() {
-    if (!showReporterList) return;
+    if (!showReporterList && !showReporterPlot) return;
     try {
         const r    = await fetch('/api/reporter_list');
         const data = await r.json();
         _reporterListData = data.reporters || [];
-        renderReporterList();
-        if (showHistogram) renderHistogram();
+        if (showReporterList) renderReporterList();
+        if (showHistogram)    renderHistogram();
+        if (showReporterPlot) renderReporterPlot();
     } catch(e) { /* silent */ }
 }
 
