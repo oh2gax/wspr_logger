@@ -1730,9 +1730,8 @@ async function fetchSolarData() {
                          : pfVal >= 10000  ? '#b91c1c'   // S4 Severe      — dark red
                          : pfVal >= 1000   ? '#ef4444'   // S3 Strong      — red
                          : pfVal >= 100    ? '#f97316'   // S2 Moderate    — orange
-                         : pfVal >= 10     ? '#facc15'   // S1 Minor       — yellow
-                         : pfVal >= 1      ? '#a3e635'   // Elevated       — lime
-                         : '';                            // Background <1  — default accent
+                         : pfVal >= 50     ? '#facc15'   // S1 Minor       — yellow
+                         : '';                            // < 50 pfu       — default accent
         document.getElementById('solarUpdated').textContent = data.updated ? 'Updated: ' + data.updated : '';
 
         // K-index: orange 4–5, red 6+
