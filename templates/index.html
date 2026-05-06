@@ -1138,6 +1138,13 @@ function initLiveMap() {
     liveMap.on('zoomend', () => {
         localStorage.setItem('wspr_zoom', liveMap.getZoom());
     });
+
+    // Custom pane for the day/night overlay — sits between the tile layer
+    // (z-index 200) and the default overlay pane (z-index 400) so it is
+    // always rendered below Reporter Plot lines and markers.
+    liveMap.createPane('dayNightPane');
+    liveMap.getPane('dayNightPane').style.zIndex = 300;
+    liveMap.getPane('dayNightPane').style.pointerEvents = 'none';
 }
 
 // ── Init history map ───────────────────────────────────────────────────────
@@ -1815,13 +1822,16 @@ function renderDayNight() {
     const sun = sunPosition(now);
     const { nightPoly, termLine } = buildNightPolygon(sun.lat, sun.lon);
 
-    // Night fill
+    // Night fill — rendered in the custom dayNightPane (z-index 300) so it
+    // always sits below Reporter Plot lines (default overlayPane, z-index 400),
+    // preventing brightness flicker when the polygon is cleared and redrawn.
     L.polygon(nightPoly, {
         color: 'none',
         fillColor: '#1a3a5c',
         fillOpacity: 0.40,
         stroke: false,
         interactive: false,
+        pane: 'dayNightPane',
     }).addTo(dayNightLayer);
 
     // Terminator — single dashed amber line, split at large lat jumps (polar wrap)
@@ -1838,6 +1848,7 @@ function renderDayNight() {
             L.polyline(seg, {
                 color: '#fbbf24', weight: 1.5, opacity: 0.80,
                 dashArray: '6 5', interactive: false,
+                pane: 'dayNightPane',
             }).addTo(dayNightLayer);
         }
     });
