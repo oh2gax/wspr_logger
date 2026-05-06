@@ -288,7 +288,7 @@ When the last spot is older than 1 hour the card shows **No propagation** with a
 | foF2  | F2-layer critical frequency from Juliusruh (JR055) via [GIRO DIDBase](https://lgdc.uml.edu/) (MHz); displayed in the default accent colour |
 | SW    | Solar wind speed (km/s); default accent below 450, then yellow-green, yellow, orange, red, purple as speed increases |
 | AU    | Aurora activity (0–9 Kp-like scale); lime at 3, yellow at 4, orange at 5, red-orange at 6, red at 7–8, purple at 9 |
-| PF    | Proton flux (pfu, NOAA S-scale); lime S1, yellow S2, orange S3, red S4 dark-red, purple S5 |
+| PF    | Proton flux (pfu, NOAA S-scale); default accent below 50 pfu, yellow ≥ 50, orange S2 (≥ 100), red S3 (≥ 1000), dark-red S4 (≥ 10000), purple S5 (≥ 100000) |
 
 All colour thresholds follow standard NOAA / space weather classifications or practical amateur radio conventions. Default accent colour is used for quiet / background conditions in every field. Solar and geomagnetic data sourced from [hamqsl.com](https://www.hamqsl.com/solarxml.php); foF2 sourced from the [GIRO DIDBase](https://lgdc.uml.edu/); both refreshed every 60 seconds while the panel is visible.
 
