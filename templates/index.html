@@ -1970,11 +1970,13 @@ async function fetchSolarData() {
                          : '';                            // < 50 pfu       — default accent
         document.getElementById('solarUpdated').textContent = data.updated ? 'Updated: ' + data.updated : '';
 
-        // K-index: orange 4–5, red 6+
+        // K-index: green 0–1 (very quiet), default 2–3, orange 4–5, red 6+
         const kEl = document.getElementById('solK');
         const kVal = parseInt(data.kindex) || 0;
         kEl.textContent  = data.kindex ?? '—';
-        kEl.style.color  = kVal >= 6 ? '#ef4444' : kVal >= 4 ? '#f97316' : '';
+        kEl.style.color  = kVal >= 6 ? '#ef4444'
+                         : kVal >= 4 ? '#f97316'
+                         : kVal <= 1 ? '#22c55e' : '';
 
         // X-ray: yellow for C-class, orange for M-class, red for X-class
         const xEl  = document.getElementById('solX');
