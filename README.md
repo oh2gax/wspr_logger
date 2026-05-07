@@ -285,7 +285,7 @@ When the last spot is older than 1 hour the card shows **No propagation** with a
 | Field | Description |
 |-------|-------------|
 | SFI   | Solar Flux Index |
-| K     | K-index (geomagnetic activity, 0–9); orange at 4–5, red at 6+ |
+| K     | K-index (geomagnetic activity, 0–9); green at 0–1 (very quiet), orange at 4–5, red at 6+ |
 | A     | A-index (daily geomagnetic activity, 0–400, NOAA scale); yellow-green 8–15, yellow 16–29, orange 30–49, red 50–99, purple 100+ |
 | X-ray | X-ray flux class (e.g. B9.3, C2.1); yellow for C-class, orange for M-class, red for X-class |
 | Bz    | Interplanetary magnetic field Z-component (nT); diverging scale: green to purple as value goes negative, default accent for northward (≥ 0) |
