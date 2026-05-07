@@ -1300,12 +1300,13 @@ async function refreshTrail() {
 
 // ── Propagation condition ──────────────────────────────────────────────────
 function getPropCondition(n) {
-    if (n <= 5)  return { text: 'Very poor',      color: '#ef4444', pct:  8 };
-    if (n <= 10) return { text: 'Poor',           color: '#f97316', pct: 20 };
-    if (n <= 20) return { text: 'Normal',         color: '#eab308', pct: 40 };
-    if (n <= 40) return { text: 'Good',           color: '#84cc16', pct: 60 };
-    if (n <= 60) return { text: 'Very good',      color: '#22c55e', pct: 80 };
-    return             { text: 'Extremely good',  color: '#4ade80', pct: 100 };
+    if (n <= 5)   return { text: 'Very poor',      color: '#ef4444', pct:  8 };
+    if (n <= 10)  return { text: 'Poor',           color: '#f97316', pct: 20 };
+    if (n <= 20)  return { text: 'Normal',         color: '#eab308', pct: 40 };
+    if (n <= 40)  return { text: 'Good',           color: '#84cc16', pct: 60 };
+    if (n <= 60)  return { text: 'Very good',      color: '#22c55e', pct: 75 };
+    if (n <= 100) return { text: 'Extremely good', color: '#4ade80', pct: 88 };
+    return              { text: 'Exceptional',     color: '#a855f7', pct: 100 };
 }
 
 function updatePropagation(reporter_count, stale = false) {
@@ -1318,13 +1319,20 @@ function updatePropagation(reporter_count, stale = false) {
         document.getElementById('propReporters').textContent    = '0 reporters heard';
         return;
     }
-    const c = getPropCondition(reporter_count || 0);
-    el.textContent  = c.text;
-    el.style.color  = c.color;
+    const n = reporter_count || 0;
+    const c = getPropCondition(n);
+
+    // Append "& DX" at any level when more than 2 reporters are beyond 6000 km
+    const dxCount = _reporterListData.filter(r => r.distance > 6000).length;
+    const hasDX   = dxCount > 2;
+
+    el.textContent = hasDX ? c.text + ' & DX' : c.text;
+    el.style.color = c.color;
     document.getElementById('propBarFill').style.width      = c.pct + '%';
     document.getElementById('propBarFill').style.background = c.color;
     document.getElementById('propReporters').textContent    =
-        (reporter_count || 0) + ' reporter' + (reporter_count === 1 ? '' : 's') + ' heard';
+        n + ' reporter' + (n === 1 ? '' : 's') + ' heard' +
+        (hasDX ? ', ' + dxCount + ' over 6000 km' : '');
 }
 
 // ── Status bar ─────────────────────────────────────────────────────────────
