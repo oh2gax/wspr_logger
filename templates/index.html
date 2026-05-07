@@ -829,8 +829,8 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
             <div class="mini-stats-hdr">
                 <div class="mini-stats-title" id="miniStatsTitle">Last 1h</div>
                 <div class="ms-tabs">
-                    <span class="ms-tab"        id="tabToday" onclick="setStatsWindow('today')">Today</span>
-                    <span class="ms-tab active" id="tab1h"    onclick="setStatsWindow('1h')">1h</span>
+                    <span class="ms-tab active" id="tabToday" onclick="setStatsWindow('today')">Today</span>
+                    <span class="ms-tab"        id="tab1h"    onclick="setStatsWindow('1h')">1h</span>
                 </div>
             </div>
             <div class="mini-grid">
@@ -1077,7 +1077,7 @@ const BAND_NAMES = {3:'80m',7:'40m',10:'30m',14:'20m',18:'17m',21:'15m',24:'12m'
 let currentBand  = {{ default_band }};
 let showTrail    = true;
 let isDark       = true;
-let statsWindow  = '1h';      // 'today' | '1h'
+let statsWindow  = 'today';   // 'today' | '1h'
 let showCountries    = false;
 let showMuf          = false;
 let showSolar        = false;
