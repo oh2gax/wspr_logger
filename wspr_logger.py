@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from flask import Flask, jsonify, render_template, request
 
 import db
+import replay_db
 
 # ---------------------------------------------------------------------------
 # Load configuration
@@ -42,10 +43,15 @@ DB_PATH          = cfg.get("database", "path",          fallback="wspr_data.db")
 MAP_DEFAULT_LAT  = cfg.getfloat("map", "default_lat", fallback=60.0)
 MAP_DEFAULT_LON  = cfg.getfloat("map", "default_lon", fallback=24.0)
 MAP_DEFAULT_ZOOM = cfg.getint("map",   "default_zoom", fallback=6)
+REPLAY_ENABLED   = cfg.getboolean("replay", "enabled", fallback=True)
+REPLAY_DB_PATH   = cfg.get("replay",   "path",          fallback="wspr_replay.db")
 
-# Make DB_PATH relative to the script directory if not absolute
+# Make DB paths relative to the script directory if not absolute
+_script_dir = os.path.dirname(os.path.abspath(__file__))
 if not os.path.isabs(DB_PATH):
-    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), DB_PATH)
+    DB_PATH = os.path.join(_script_dir, DB_PATH)
+if not os.path.isabs(REPLAY_DB_PATH):
+    REPLAY_DB_PATH = os.path.join(_script_dir, REPLAY_DB_PATH)
 
 # ---------------------------------------------------------------------------
 # Flask app
@@ -522,17 +528,24 @@ def update_thread():
                                    int(initial_spot.get("max_distance")   or 0))
         except ValueError:
             pass
+    init_reporters = fetch_reporter_list(CALLSIGN, DEFAULT_BAND)
     with _state_lock:
         _cached_countries     = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
-        _cached_reporter_list = fetch_reporter_list(CALLSIGN, DEFAULT_BAND)
+        _cached_reporter_list = init_reporters
     muf_init = fetch_giro_mufd()
     if muf_init:
         db.insert_muf(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), muf_init)
     fof2_init = fetch_giro_fof2()
     with _state_lock:
         _cached_fof2 = fof2_init
+
+    # Store initial snapshot in replay DB
+    _ts_init = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    n_rep = replay_db.insert_reporters(_ts_init, init_reporters, DEFAULT_BAND)
+    solar_init = fetch_solar_data()
+    replay_db.insert_solar(_ts_init, solar_init, fof2_init, muf_init)
     print(f"[INFO] Initial fetch complete — {len(_cached_countries)} countries cached, "
-          f"{len(_cached_reporter_list)} reporters, "
+          f"{len(init_reporters)} reporters (stored {n_rep} to replay DB), "
           f"MUF={muf_init} MHz, foF2={fof2_init} MHz")
 
     while True:
@@ -558,6 +571,12 @@ def update_thread():
             fof2 = fetch_giro_fof2()
             with _state_lock:
                 _cached_fof2 = fof2
+
+            # Store replay snapshots
+            _ts_poll = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            replay_db.insert_reporters(_ts_poll, reporter_list, DEFAULT_BAND)
+            solar_poll = fetch_solar_data()
+            replay_db.insert_solar(_ts_poll, solar_poll, fof2, muf)
 
             if row:
                 tx_loc         = row["tx_loc"]
@@ -711,13 +730,12 @@ def api_reporter_list():
     return jsonify({"reporters": reporters})
 
 
-
-
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     db.init(DB_PATH)
+    replay_db.init(REPLAY_DB_PATH, enabled=REPLAY_ENABLED)
     threading.Thread(target=update_thread, daemon=True).start()
     app.run(debug=DEBUG, host=HOST, port=PORT, use_reloader=False)

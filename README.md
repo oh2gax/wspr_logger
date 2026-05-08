@@ -49,7 +49,8 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 6. Individual reporter details (callsign, grid, SNR, distance) are also fetched and cached at each poll cycle, available via `/api/reporter_list` for the Reporter List panel.
 7. On startup the background thread performs an immediate fetch of the latest spot, reporter countries, reporter list, and MUF value so the UI has data ready the moment the page is opened.
 8. The browser polls `/api/latest` every 60 seconds and updates the map, overlays, and sidebar without a page reload.
-9. **Solar conditions** are fetched on demand from [hamqsl.com](https://www.hamqsl.com/solarxml.php) with a 60-second server-side cache; the frontend polls `/api/solar` every 60 seconds when the panel is visible.
+9. **Solar conditions** are fetched on demand from [hamqsl.com](https://www.hamqsl.com/solarxml.php) with a 60-second server-side cache; the frontend polls `/api/solar` every 60 seconds when the panel is visible. Solar data is also fetched in the background poll thread to ensure it is stored even when no browser has the panel open.
+10. At every poll cycle the backend writes a historical snapshot to a separate **replay database** (`wspr_replay.db`) — individual reporter records (callsign, grid, SNR, distance) and a full solar/geomagnetic conditions row (SFI, K, A, X-ray, Bz, solar wind, aurora, proton flux, foF2, MUF). This database is the data foundation for the upcoming replay feature and grows at roughly 50–80 MB per year.
 
 ---
 
@@ -344,6 +345,10 @@ path = wspr_data.db
 default_lat = 60.0
 default_lon = 24.0
 default_zoom = 6
+
+[replay]
+enabled = true           ; set false to disable replay data collection
+path = wspr_replay.db    ; separate file — safe to delete to reclaim space
 ```
 
 ---
@@ -352,11 +357,13 @@ default_zoom = 6
 
 ```
 wspr_logger/
-├── config.ini          — station, server, map, and database settings
+├── config.ini          — station, server, map, database, and replay settings
 ├── wspr_logger.py      — Flask app, background polling thread, REST API
-├── db.py               — SQLite read/write layer
+├── db.py               — SQLite read/write layer (live operational data)
+├── replay_db.py        — SQLite read/write layer (replay history database)
 ├── requirements.txt    — Python dependencies (flask)
-├── wspr_data.db        — SQLite database (created automatically on first run)
+├── wspr_data.db        — main SQLite database (created automatically on first run)
+├── wspr_replay.db      — replay SQLite database (created automatically, safe to delete)
 └── templates/
     └── index.html      — single-page frontend (Leaflet.js, Chart.js, vanilla JS)
 ```
