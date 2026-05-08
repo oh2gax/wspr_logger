@@ -570,7 +570,7 @@ def update_thread():
                 print(f"[INFO] MUF D=3000: {muf} MHz")
             fof2 = fetch_giro_fof2()
             with _state_lock:
-                _cached_fof2 = fof2
+                _cached_fof2 = fof2   # None when GIRO unavailable → shows — in UI
 
             # Store replay snapshots
             _ts_poll = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
@@ -710,7 +710,14 @@ def api_solar():
     data = fetch_solar_data()
     muf_rows = db.get_muf_last_24h()
     data = dict(data)
-    data["muf"] = muf_rows[-1]["muf"] if muf_rows else None
+    # Only serve J-MUF if the most recent stored value is within 30 minutes.
+    # If GIRO is down no new rows are written, so an old value would be stale.
+    if muf_rows:
+        last_ts = datetime.strptime(muf_rows[-1]["timestamp"], "%Y-%m-%d %H:%M:%S")
+        age_min = (datetime.utcnow() - last_ts).total_seconds() / 60
+        data["muf"] = muf_rows[-1]["muf"] if age_min <= 30 else None
+    else:
+        data["muf"] = None
     with _state_lock:
         data["fof2"] = _cached_fof2
     return jsonify(data)
