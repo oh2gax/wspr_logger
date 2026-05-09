@@ -1312,7 +1312,10 @@ function getPropCondition(n) {
 function updatePropagation(reporter_count, stale = false) {
     const el = document.getElementById('propCondition');
     if (stale) {
-        el.textContent  = 'No propagation';
+        // On 20 m during daytime (06–15 UTC) silence is suspicious — flag TX Fail
+        const utcHour = new Date().getUTCHours();
+        const daytime20m = (currentBand === 14) && (utcHour >= 6 && utcHour < 15);
+        el.textContent  = daytime20m ? 'No propagation or TX Fail' : 'No propagation';
         el.style.color  = '#ef4444';
         document.getElementById('propBarFill').style.width      = '0%';
         document.getElementById('propBarFill').style.background = '#ef4444';
