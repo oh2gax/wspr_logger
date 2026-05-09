@@ -1336,9 +1336,9 @@ function updatePropagation(reporter_count, stale = false) {
     const n = reporter_count || 0;
     const c = getPropCondition(n);
 
-    // Append "& DX" at any level when more than 2 reporters are beyond 6000 km
+    // Append "& DX" at any level when 2 or more reporters are beyond 6000 km
     const dxCount = _reporterListData.filter(r => r.distance > 6000).length;
-    const hasDX   = dxCount > 2;
+    const hasDX   = dxCount >= 2;
 
     el.textContent = hasDX ? c.text + ' & DX' : c.text;
     el.style.color = c.color;
