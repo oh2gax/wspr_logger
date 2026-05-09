@@ -867,3 +867,4 @@ if __name__ == "__main__":
     replay_db.init(REPLAY_DB_PATH, enabled=REPLAY_ENABLED)
     threading.Thread(target=update_thread, daemon=True).start()
     app.run(debug=DEBUG, host=HOST, port=PORT, use_reloader=False)
+
