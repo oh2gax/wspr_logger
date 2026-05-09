@@ -873,8 +873,8 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                 <div class="muf-panel-title" id="mufPanelTitle" style="margin-bottom:0;">MUF D=3000 km (MHz) &amp; Reporter Count — Last 24 h</div>
                 <div class="muf-period-btns">
-                    <button class="muf-period-btn active" id="mufBtn1d" onclick="setMufDays(1)">1d</button>
-                    <button class="muf-period-btn" id="mufBtn2d" onclick="setMufDays(2)">2d</button>
+                    <button class="muf-period-btn" id="mufBtn1d" onclick="setMufDays(1)">1d</button>
+                    <button class="muf-period-btn active" id="mufBtn2d" onclick="setMufDays(2)">2d</button>
                     <button class="muf-period-btn" id="mufBtn3d" onclick="setMufDays(3)">3d</button>
                     <button class="muf-period-btn" id="mufBtn7d" onclick="setMufDays(7)">1wk</button>
                 </div>
@@ -938,7 +938,7 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
                 <div class="prop-reporters" id="propReporters">— reporters</div>
             </div>
             <div class="map-overlay" id="countryOverlay" style="display:none;">
-                <div class="ov-lbl">Reporter Countries</div>
+                <div class="ov-lbl">Reporter Countries <span id="countryCount"></span></div>
                 <div class="country-list" id="countryList">
                     <div style="color:var(--text-muted);font-size:11px;">No data</div>
                 </div>
@@ -1100,7 +1100,7 @@ let _hgramMode        = 'snr';   // 'snr' | 'dist'
 let hgramChart        = null;
 let _solarTimer   = null;
 let mufChart      = null;
-let mufDays       = 1;
+let mufDays       = 2;
 
 // Live map objects
 let liveMap            = null;
@@ -1389,6 +1389,7 @@ function toggleCountries() {
 
 function updateCountryOverlay(list) {
     const el = document.getElementById('countryList');
+    document.getElementById('countryCount').textContent = list.length ? list.length : '';
     if (!list.length) {
         el.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">No data</div>';
         return;
