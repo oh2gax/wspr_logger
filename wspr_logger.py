@@ -400,8 +400,7 @@ def fetch_reporter_list(callsign: str, band: int) -> list:
             rx_sign,
             rx_loc,
             max(snr)      AS snr,
-            max(distance) AS distance,
-            max(time)     AS latest_time
+            max(distance) AS distance
         FROM wspr.rx
         WHERE tx_sign = '{callsign}'
           AND band    = {band}
@@ -420,17 +419,12 @@ def fetch_reporter_list(callsign: str, band: int) -> list:
             dist = int(r.get("distance", 0))
         except (TypeError, ValueError):
             snr, dist = 0, 0
-        # Keep only HH:MM from the timestamp for compact display.
-        # ClickHouse may return time as a datetime object, so coerce to str first.
-        raw_time = str(r.get("latest_time") or "")
-        spot_time = raw_time[11:16] if len(raw_time) >= 16 else raw_time
         result.append({
             "band":     band_label,
             "callsign": r.get("rx_sign", "?"),
             "grid":     (r.get("rx_loc") or "?")[:6],
             "snr":      snr,
             "distance": dist,
-            "time":     spot_time,
         })
     return result
 
