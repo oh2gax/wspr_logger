@@ -260,9 +260,91 @@ _COUNTRY_MAP = {
 }
 
 
-def callsign_to_country(sign: str) -> str:
-    """Return a country name for a given amateur callsign."""
+# ---------------------------------------------------------------------------
+# Grid-based geographic lookup (used for non-standard callsigns)
+# ---------------------------------------------------------------------------
+
+# Ordered list of geographic bounding boxes: (name, lon_min, lon_max, lat_min, lat_max).
+# More specific regions are listed before broader ones so the first match wins.
+_GEO_BOXES = [
+    ("UK/Ireland",        -11,   2,   49,  62),
+    ("Iceland",           -25, -13,   62,  67),
+    ("Faroe Islands",      -8,  -6,   61,  63),
+    ("Azores",            -32, -25,   36,  40),
+    ("Canary Islands",    -18, -13,   27,  30),
+    ("Scandinavia",         4,  32,   55,  72),
+    ("Finland",            20,  32,   59,  70),
+    ("W. Europe",         -10,  15,   36,  55),
+    ("C. Europe",           6,  20,   46,  56),
+    ("E. Europe",          14,  40,   44,  60),
+    ("Russia",             28, 180,   50,  78),
+    ("Japan",             129, 146,   30,  46),
+    ("Australia",         112, 155,  -44, -10),
+    ("New Zealand",       165, 180,  -47, -34),
+    ("Hawaii",           -163,-154,   18,  23),
+    ("Alaska",           -170,-130,   54,  72),
+    ("W. USA",           -130, -100,  31,  50),
+    ("C. USA",           -100,  -81,  29,  50),
+    ("E. USA",            -82,  -65,  24,  47),
+    ("Canada",           -145,  -52,  45,  72),
+    ("Caribbean",         -90,  -60,  10,  26),
+    ("Mexico",           -120,  -86,  14,  33),
+    ("N. Africa",         -18,   55,  14,  38),
+    ("S. Africa",          12,   40, -35, -10),
+    ("Middle East",        25,   65,  14,  42),
+    ("India",              68,   97,   6,  37),
+    ("SE Asia",            95,  135,  -5,  28),
+    ("China",              73,  135,  18,  54),
+    ("N. America",       -170,  -34,   5,  85),
+    ("S. America",        -85,  -34, -60,  15),
+    ("Europe",            -25,   45,  35,  72),
+    ("Africa",            -20,   55, -35,  38),
+    ("Asia",               25,  180,   5,  78),
+]
+
+
+def _grid_to_latlon(grid: str) -> tuple:
+    """Convert a Maidenhead grid square to approximate (lat, lon) centre."""
+    if not grid or len(grid) < 2:
+        return None, None
+    g = grid.upper()
+    try:
+        lon = (ord(g[0]) - ord('A')) * 20 - 180
+        lat = (ord(g[1]) - ord('A')) * 10 - 90
+        if len(g) >= 4 and g[2].isdigit() and g[3].isdigit():
+            lon += int(g[2]) * 2 + 1   # centre of 2°×1° subsquare
+            lat += int(g[3]) + 0.5
+        else:
+            lon += 10   # centre of 20°×10° field
+            lat += 5
+        return lat, lon
+    except Exception:
+        return None, None
+
+
+def _latlon_to_region(lat: float, lon: float) -> str:
+    """Return the most specific named region for the given coordinates."""
+    for name, lon_min, lon_max, lat_min, lat_max in _GEO_BOXES:
+        if lon_min <= lon <= lon_max and lat_min <= lat <= lat_max:
+            return name
+    return "Unknown"
+
+
+def callsign_to_country(sign: str, grid: str = "") -> str:
+    """Return a country/region name for a given callsign.
+
+    Non-standard callsigns (those containing no digit) cannot be identified
+    by prefix — amateur callsigns always include at least one digit.  For
+    these special/beacon stations the grid locator is used to derive an
+    approximate geographic region instead.
+    """
     base = sign.upper().strip().split('/')[0]   # strip /P /M suffixes
+    # Validate: real amateur callsigns always contain at least one digit.
+    if not any(c.isdigit() for c in base):
+        lat, lon = _grid_to_latlon(grid)
+        if lat is not None:
+            return _latlon_to_region(lat, lon)
+        return "Special Station"
     for length in (3, 2, 1):
         if len(base) >= length:
             country = _COUNTRY_MAP.get(base[:length])
@@ -277,7 +359,7 @@ def fetch_reporter_countries(callsign: str, band: int) -> list:
     sorted by count descending.
     """
     sql = f"""
-        SELECT DISTINCT rx_sign
+        SELECT DISTINCT rx_sign, rx_loc
         FROM wspr.rx
         WHERE tx_sign = '{callsign}'
           AND band    = {band}
@@ -289,7 +371,10 @@ def fetch_reporter_countries(callsign: str, band: int) -> list:
 
     counts: dict = {}
     for row in rows:
-        country = callsign_to_country(row.get("rx_sign", "??"))
+        country = callsign_to_country(
+            row.get("rx_sign", "??"),
+            row.get("rx_loc", "")
+        )
         counts[country] = counts.get(country, 0) + 1
 
     return sorted(
@@ -344,13 +429,39 @@ def fetch_reporter_list(callsign: str, band: int) -> list:
     return result
 
 
+def fetch_muf_fallback() -> float | None:
+    """
+    Fallback MUF source: scrape the current MUF(D=3000 km) from the
+    Juliusruh ionosonde page.  Used automatically when GIRO DIDBase is
+    unavailable.  Lower resolution than GIRO (~hourly update) but stable.
+    """
+    url = "https://www.ionosonde.iap-kborn.de/actuellz.htm"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            html = resp.read().decode("utf-8", errors="replace")
+        m = re.search(
+            r'<td>\s*3000\s*</td>\s*<td>\s*(\d{1,2}\.?\d*)\s*</td>',
+            html, re.IGNORECASE
+        )
+        if m:
+            val = float(m.group(1))
+            if 1.0 < val < 50.0:
+                print(f"[MUF-fallback] {val} MHz (from Juliusruh HTML page)")
+                return val
+        print("[MUF-fallback] Could not parse MUF from page")
+        return None
+    except Exception as e:
+        print(f"[MUF-fallback] Fetch failed: {e}")
+        return None
+
+
 def fetch_giro_mufd() -> float | None:
     """
-    Fetch the latest MUF(D=3000 km) directly from Juliusruh (JR055) via
-    the GIRO DIDBase MUFD endpoint.  MUFD is the measured propagation MUF
-    for a 3000 km path — same data that was previously scraped from the HTML
-    page but sourced from the authoritative ionosonde database (~5 min lag).
-    Returns MUF in MHz, or None if unavailable.
+    Fetch the latest MUF(D=3000 km) from Juliusruh (JR055) via GIRO DIDBase.
+    If GIRO is unavailable or returns no valid data, automatically falls back
+    to scraping the Juliusruh ionosonde HTML page.
+    Returns MUF in MHz, or None if both sources fail.
     """
     now     = datetime.utcnow()
     from_dt = (now - timedelta(hours=24)).strftime("%Y/%m/%d %H:%M:%S")
@@ -370,12 +481,11 @@ def fetch_giro_mufd() -> float | None:
         val = _parse_giro_latest(text)
         if val is not None:
             print(f"[GIRO] MUFD = {val:.3f} MHz")
-        else:
-            print("[GIRO] MUFD: no valid data in response")
-        return val
+            return val
+        print("[GIRO] MUFD: no valid data — trying fallback")
     except Exception as e:
-        print(f"[GIRO] MUFD fetch failed: {e}")
-        return None
+        print(f"[GIRO] MUFD fetch failed: {e} — trying fallback")
+    return fetch_muf_fallback()
 
 
 def _parse_giro_latest(text: str) -> float | None:

@@ -28,7 +28,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **Collapsible sidebar** — fold the panel away for a full-screen map view, handy on mobile
 - **Config-file driven** — all settings managed in `config.ini`; no settings UI exposed to the browser
 - **SQLite storage** — one database file, WAL mode, indexed for fast date-range queries; separate table for MUF history
-- **Expanded callsign→country mapping** — 350+ prefix entries covering all of Europe (including full Balkans: 9A, S5, YU, E7, Z3, 4O, ZA, Z6), complete German D* series, UK Foundation/Intermediate calls (2E/2M/2W/2I), French TM special events, Caucasus, Central Asia, and more; raw prefix shown as fallback for truly unknown callsigns
+- **Expanded callsign→country mapping** — 350+ prefix entries covering all of Europe (including full Balkans: 9A, S5, YU, E7, Z3, 4O, ZA, Z6), complete German D* series, UK Foundation/Intermediate calls (2E/2M/2W/2I), French TM special events, Caucasus, Central Asia, and more; raw prefix shown as fallback for truly unknown callsigns; non-standard station identifiers that contain no digit (e.g. monitoring beacons such as WESSEX) are automatically identified by their grid locator instead of the callsign prefix, preventing misclassification
 
 ---
 
