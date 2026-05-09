@@ -1340,8 +1340,10 @@ function updatePropagation(reporter_count, stale = false) {
     const dxCount = _reporterListData.filter(r => r.distance > 6000).length;
     const hasDX   = dxCount >= 2;
 
-    el.textContent = hasDX ? c.text + ' & DX' : c.text;
-    el.style.color = c.color;
+    el.innerHTML = hasDX
+        ? `<span style="color:${c.color}">${c.text}</span> <span style="color:#4ade80">& DX</span>`
+        : `<span style="color:${c.color}">${c.text}</span>`;
+    el.style.color = '';
     document.getElementById('propBarFill').style.width      = c.pct + '%';
     document.getElementById('propBarFill').style.background = c.color;
     document.getElementById('propReporters').textContent    =
