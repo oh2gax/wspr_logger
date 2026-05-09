@@ -420,8 +420,9 @@ def fetch_reporter_list(callsign: str, band: int) -> list:
             dist = int(r.get("distance", 0))
         except (TypeError, ValueError):
             snr, dist = 0, 0
-        # Keep only HH:MM from the timestamp for compact display
-        raw_time = r.get("latest_time") or ""
+        # Keep only HH:MM from the timestamp for compact display.
+        # ClickHouse may return time as a datetime object, so coerce to str first.
+        raw_time = str(r.get("latest_time") or "")
         spot_time = raw_time[11:16] if len(raw_time) >= 16 else raw_time
         result.append({
             "band":     band_label,
@@ -670,66 +671,71 @@ def update_thread():
         # (6 minutes after each 10-min WSPR TX cycle boundary so data is settled)
         if now.minute % 10 == 8:
             print(f"[INFO] Polling WSPR.live at {now.strftime('%H:%M:%S')} UTC")
-
-            row           = fetch_latest_spot(CALLSIGN, DEFAULT_BAND)
-            countries     = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
-            reporter_list = fetch_reporter_list(CALLSIGN, DEFAULT_BAND)
-            with _state_lock:
-                _cached_countries     = countries
-                _cached_reporter_list = reporter_list
-
-            # MUF and foF2 both from GIRO DIDBase (JR055, ~5 min lag)
-            muf = fetch_giro_mufd()
-            if muf:
-                db.insert_muf(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), muf)
-                print(f"[INFO] MUF D=3000: {muf} MHz")
-            fof2 = fetch_giro_fof2()
-            with _state_lock:
-                _cached_fof2 = fof2   # None when GIRO unavailable → shows — in UI
-
-            # Store replay snapshots
-            _ts_poll = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-            replay_db.insert_reporters(_ts_poll, reporter_list, DEFAULT_BAND)
-            solar_poll = fetch_solar_data()
-            replay_db.insert_solar(_ts_poll, solar_poll, fof2, muf)
-
-            if row:
-                tx_loc         = row["tx_loc"]
-                timestamp_str  = row["time"]
-                reporter_count = int(row.get("reporter_count") or 0)
-                max_distance   = int(row.get("max_distance")   or 0)
-
-                try:
-                    ts = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
-                except ValueError:
-                    print(f"[WARN] Unparseable timestamp: {timestamp_str}")
-                    time.sleep(60)
-                    continue
-
-                # Only accept WSPR cycle timestamps (minute ends in :02, :12, :22, ...)
-                if ts.minute % 10 != 2:
-                    print(f"[INFO] Skipping — timestamp minute {ts.minute} not a TX slot")
-                else:
-                    lat, lon = maidenhead_to_latlon(tx_loc)
-                    if lat is not None:
-                        inserted = db.insert_spot(
-                            timestamp_str, tx_loc, lat, lon,
-                            DEFAULT_BAND, reporter_count, max_distance
-                        )
-                        if inserted:
-                            with _state_lock:
-                                _last_update_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-                                _update_error    = None
-                            print(f"[INFO] Logged: {tx_loc} @ {timestamp_str}  "
-                                  f"reporters={reporter_count}  max_dx={max_distance} km")
-                        else:
-                            print(f"[INFO] Duplicate, skipped: {timestamp_str}")
-                    else:
-                        print(f"[WARN] Could not convert locator: {tx_loc}")
-            else:
-                print("[INFO] No data returned from WSPR.live")
+            try:
+                row           = fetch_latest_spot(CALLSIGN, DEFAULT_BAND)
+                countries     = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
+                reporter_list = fetch_reporter_list(CALLSIGN, DEFAULT_BAND)
                 with _state_lock:
-                    _update_error = "No data from WSPR.live"
+                    _cached_countries     = countries
+                    _cached_reporter_list = reporter_list
+
+                # MUF and foF2 both from GIRO DIDBase (JR055, ~5 min lag)
+                muf = fetch_giro_mufd()
+                if muf:
+                    db.insert_muf(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), muf)
+                    print(f"[INFO] MUF D=3000: {muf} MHz")
+                fof2 = fetch_giro_fof2()
+                with _state_lock:
+                    _cached_fof2 = fof2   # None when GIRO unavailable → shows — in UI
+
+                # Store replay snapshots
+                _ts_poll = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                replay_db.insert_reporters(_ts_poll, reporter_list, DEFAULT_BAND)
+                solar_poll = fetch_solar_data()
+                replay_db.insert_solar(_ts_poll, solar_poll, fof2, muf)
+
+                if row:
+                    tx_loc         = row["tx_loc"]
+                    timestamp_str  = row["time"]
+                    reporter_count = int(row.get("reporter_count") or 0)
+                    max_distance   = int(row.get("max_distance")   or 0)
+
+                    try:
+                        ts = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+                    except ValueError:
+                        print(f"[WARN] Unparseable timestamp: {timestamp_str}")
+                        time.sleep(60)
+                        continue
+
+                    # Only accept WSPR cycle timestamps (minute ends in :02, :12, :22, ...)
+                    if ts.minute % 10 != 2:
+                        print(f"[INFO] Skipping — timestamp minute {ts.minute} not a TX slot")
+                    else:
+                        lat, lon = maidenhead_to_latlon(tx_loc)
+                        if lat is not None:
+                            inserted = db.insert_spot(
+                                timestamp_str, tx_loc, lat, lon,
+                                DEFAULT_BAND, reporter_count, max_distance
+                            )
+                            if inserted:
+                                with _state_lock:
+                                    _last_update_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                                    _update_error    = None
+                                print(f"[INFO] Logged: {tx_loc} @ {timestamp_str}  "
+                                      f"reporters={reporter_count}  max_dx={max_distance} km")
+                            else:
+                                print(f"[INFO] Duplicate, skipped: {timestamp_str}")
+                        else:
+                            print(f"[WARN] Could not convert locator: {tx_loc}")
+                else:
+                    print("[INFO] No data returned from WSPR.live")
+                    with _state_lock:
+                        _update_error = "No data from WSPR.live"
+
+            except Exception as e:
+                print(f"[ERROR] Poll cycle exception: {e}")
+                with _state_lock:
+                    _update_error = f"Poll error: {e}"
 
         time.sleep(60)
 
