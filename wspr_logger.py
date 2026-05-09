@@ -336,12 +336,94 @@ _FAKE_CALLSIGNS = {
     "N0CALL", "NOCALL", "N0ONE", "UNKNWN", "INVALID",
 }
 
+# Continent/zone for each country in _COUNTRY_MAP.
+# Countries that genuinely span multiple zones (Russia, Turkey, Kazakhstan)
+# are set to None to skip the cross-check and avoid false positives.
+_COUNTRY_ZONE = {
+    # North America
+    'USA':'n_america',       'Canada':'n_america',    'Mexico':'n_america',
+    'Alaska':'n_america',    'Hawaii':'pacific',       'Puerto Rico':'n_america',
+    'US Virgin Is.':'n_america', 'N. Mariana Is.':'pacific',
+    'Costa Rica':'n_america','Dom. Rep.':'n_america',  'Cuba':'n_america',
+    'Trinidad':'n_america',  'Barbados':'n_america',
+    # South America
+    'Brazil':'s_america',    'Argentina':'s_america',  'Chile':'s_america',
+    'Colombia':'s_america',  'Peru':'s_america',       'Bolivia':'s_america',
+    'Uruguay':'s_america',   'Paraguay':'s_america',   'Ecuador':'s_america',
+    'Venezuela':'s_america',
+    # Europe
+    'Finland':'europe',      'Sweden':'europe',        'Norway':'europe',
+    'Denmark':'europe',      'Faroe Is.':'europe',     'Iceland':'europe',
+    'Greenland':'n_america',
+    'UK':'europe',           'Scotland':'europe',      'Wales':'europe',
+    'N. Ireland':'europe',   'Isle of Man':'europe',   'Jersey':'europe',
+    'Guernsey':'europe',     'Ireland':'europe',
+    'Germany':'europe',      'France':'europe',        'Netherlands':'europe',
+    'Belgium':'europe',      'Switzerland':'europe',   'Austria':'europe',
+    'Luxembourg':'europe',   'Liechtenstein':'europe',
+    'Italy':'europe',        'Spain':'europe',         'Portugal':'europe',
+    'Canary Is.':'africa',   'Ceuta/Melilla':'africa',
+    'Croatia':'europe',      'Slovenia':'europe',      'Serbia':'europe',
+    'Bosnia':'europe',       'N. Macedonia':'europe',  'Montenegro':'europe',
+    'Albania':'europe',      'Kosovo':'europe',
+    'Poland':'europe',       'Czechia':'europe',       'Slovakia':'europe',
+    'Hungary':'europe',      'Romania':'europe',       'Bulgaria':'europe',
+    'Greece':'europe',       'Moldova':'europe',
+    'Estonia':'europe',      'Latvia':'europe',        'Lithuania':'europe',
+    'Belarus':'europe',      'Ukraine':'europe',       'Cyprus':'europe',
+    'Turkey':None,           # straddles Europe/Asia
+    'Russia':None,           # spans Europe and Asia
+    # Asia / Pacific
+    'Japan':'asia',          'China':'asia',           'S. Korea':'asia',
+    'Taiwan':'asia',         'Australia':'pacific',    'New Zealand':'pacific',
+    'India':'asia',          'Thailand':'asia',        'Vietnam':'asia',
+    'Indonesia':'asia',      'Philippines':'asia',     'Malaysia':'asia',
+    'Singapore':'asia',      'Hong Kong':'asia',       'Mongolia':'asia',
+    'Nepal':'asia',          'Bangladesh':'asia',      'Pakistan':'asia',
+    'Sri Lanka':'asia',      'Cambodia':'asia',        'Laos':'asia',
+    'Kazakhstan':None,       'Kyrgyzstan':'asia',      'Tajikistan':'asia',
+    'Turkmenistan':'asia',   'Uzbekistan':'asia',
+    'Azerbaijan':'asia',     'Georgia':'asia',         'Armenia':'asia',
+    'Israel':'asia',         'Oman':'asia',            'UAE':'asia',
+    'Qatar':'asia',          'Bahrain':'asia',         'Kuwait':'asia',
+    'Saudi Arabia':'asia',   'Syria':'asia',           'Lebanon':'asia',
+    'Iraq':'asia',           'Iran':'asia',
+    # Africa
+    'S. Africa':'africa',    'Morocco':'africa',       'Algeria':'africa',
+    'Tunisia':'africa',      'Libya':'africa',         'Egypt':'africa',
+    'Sudan':'africa',        'Kenya':'africa',         'Tanzania':'africa',
+    'Zambia':'africa',       'Zimbabwe':'africa',      'Malawi':'africa',
+    'Namibia':'africa',      'Botswana':'africa',      'Rwanda':'africa',
+    'Burundi':'africa',      'Madagascar':'africa',    'Mali':'africa',
+    'Nigeria':'africa',      'Guinea':'africa',        'Senegal':'africa',
+    'C. African Rep.':'africa','Gabon':'africa',       'Cameroon':'africa',
+    'DR Congo':'africa',     'Eswatini':'africa',
+}
+
+# Zone for each region name returned by _latlon_to_region().
+_REGION_ZONE = {
+    'UK/Ireland':'europe',   'Iceland':'europe',       'Faroe Islands':'europe',
+    'Azores':'europe',       'Canary Islands':'africa',
+    'Scandinavia':'europe',  'Finland':'europe',
+    'W. Europe':'europe',    'C. Europe':'europe',     'E. Europe':'europe',
+    'Russia':'europe',
+    'Japan':'asia',          'Australia':'pacific',    'New Zealand':'pacific',
+    'Hawaii':'pacific',      'Alaska':'n_america',
+    'W. USA':'n_america',    'C. USA':'n_america',     'E. USA':'n_america',
+    'Canada':'n_america',    'Caribbean':'n_america',  'Mexico':'n_america',
+    'N. Africa':'africa',    'S. Africa':'africa',
+    'Middle East':'asia',    'India':'asia',            'SE Asia':'asia',
+    'China':'asia',
+    'N. America':'n_america','S. America':'s_america',
+    'Europe':'europe',       'Africa':'africa',         'Asia':'asia',
+}
+
 def callsign_to_country(sign: str, grid: str = "") -> str:
     """Return a country/region name for a given callsign.
 
-    Non-standard callsigns (those containing no digit) and known placeholder
-    callsigns cannot be identified by prefix.  For these the grid locator is
-    used to derive an approximate geographic region instead.
+    Non-standard callsigns (those containing no digit), known placeholder
+    callsigns, and callsigns whose prefix country is geographically
+    incompatible with their grid locator all fall back to grid-based lookup.
     """
     base = sign.upper().strip().split('/')[0]   # strip /P /M suffixes
     # Validate: real amateur callsigns always contain at least one digit,
@@ -355,6 +437,17 @@ def callsign_to_country(sign: str, grid: str = "") -> str:
         if len(base) >= length:
             country = _COUNTRY_MAP.get(base[:length])
             if country:
+                # Cross-check: verify the country zone matches the grid zone.
+                # Skip check when either zone is undefined (large/spanning countries).
+                if grid:
+                    lat, lon = _grid_to_latlon(grid)
+                    if lat is not None:
+                        grid_region  = _latlon_to_region(lat, lon)
+                        grid_zone    = _REGION_ZONE.get(grid_region)
+                        country_zone = _COUNTRY_ZONE.get(country)
+                        if (grid_zone and country_zone
+                                and grid_zone != country_zone):
+                            return grid_region  # mismatch — trust the grid
                 return country
     return base[:2] if len(base) >= 2 else base  # fallback: show prefix
 
@@ -620,6 +713,115 @@ def fetch_latest_spot(callsign: str, band: int):
 
 
 # ---------------------------------------------------------------------------
+# Flask routes
+# ---------------------------------------------------------------------------
+
+@app.route('/')
+def index():
+    return render_template(
+        'index.html',
+        callsign=CALLSIGN,
+        default_band=DEFAULT_BAND,
+        map_lat=MAP_DEFAULT_LAT,
+        map_lon=MAP_DEFAULT_LON,
+        map_zoom=MAP_DEFAULT_ZOOM,
+    )
+
+
+@app.route('/api/latest')
+def api_latest():
+    """Latest spot + cached reporter countries."""
+    band = request.args.get('band', DEFAULT_BAND, type=int)
+    spot = db.get_latest_spot(band)
+    with _state_lock:
+        countries = list(_cached_countries)
+    spot_out = None
+    if spot:
+        spot_out = {
+            "timestamp":      spot["timestamp"],
+            "tx_loc":         spot["tx_loc"],
+            "lat":            spot["lat"],
+            "lon":            spot["lon"],
+            "band":           spot["band"],
+            "reporter_count": spot["reporter_count"],
+            "max_distance":   spot["max_distance"],
+        }
+    return jsonify({"spot": spot_out, "countries": countries})
+
+
+@app.route('/api/positions')
+def api_positions():
+    """Spot positions for map trail and history view.
+
+    Query params:
+      date=YYYY-MM-DD          – all spots for that day
+      from=YYYY-MM-DD HH:MM:SS – range start (used with to=)
+      to=YYYY-MM-DD HH:MM:SS   – range end
+      band=<int>               – band filter (default: DEFAULT_BAND)
+    """
+    band     = request.args.get('band', DEFAULT_BAND, type=int)
+    date_str = request.args.get('date')
+    from_dt  = request.args.get('from')
+    to_dt    = request.args.get('to')
+    if from_dt and to_dt:
+        rows = db.get_spots_range(from_dt, to_dt, band)
+    elif date_str:
+        rows = db.get_spots_by_date(date_str, band)
+    else:
+        rows = db.get_spots_by_date(datetime.utcnow().strftime("%Y-%m-%d"), band)
+    return jsonify(rows)
+
+
+@app.route('/api/reporters')
+def api_reporters():
+    """Cached reporter countries list."""
+    with _state_lock:
+        countries = list(_cached_countries)
+    return jsonify({"countries": countries})
+
+
+@app.route('/api/reporter_list')
+def api_reporter_list():
+    """Cached per-reporter details (callsign, grid, snr, distance)."""
+    with _state_lock:
+        reporters = list(_cached_reporter_list)
+    return jsonify({"reporters": reporters})
+
+
+@app.route('/api/muf')
+def api_muf():
+    """MUF history + reporter-count overlay for chart."""
+    days = request.args.get('days', 1, type=int)
+    band = request.args.get('band', DEFAULT_BAND, type=int)
+    muf_rows  = db.get_muf_last_24h(days)
+    spot_rows = db.get_spots_last_24h(band, days)
+    return jsonify({"muf": muf_rows, "spots": spot_rows})
+
+
+@app.route('/api/solar')
+def api_solar():
+    """Solar indices + foF2 + latest MUF."""
+    solar = fetch_solar_data()
+    with _state_lock:
+        fof2 = _cached_fof2
+    muf_rows   = db.get_muf_last_24h(1)
+    latest_muf = muf_rows[-1]["muf"] if muf_rows else None
+    result      = dict(solar)
+    result["fof2"] = fof2
+    result["muf"]  = latest_muf
+    return jsonify(result)
+
+
+@app.route('/api/stats')
+def api_stats():
+    """Daily statistics (spot count, max DX, max reporters)."""
+    date_str = request.args.get('date', datetime.utcnow().strftime("%Y-%m-%d"))
+    band     = request.args.get('band', DEFAULT_BAND, type=int)
+    stats    = db.get_stats_by_date(date_str, band)
+    return jsonify({"stats": stats})
+
+
+# ---------------------------------------------------------------------------
 # Background update thread
 # ---------------------------------------------------------------------------
 
@@ -686,7 +888,7 @@ def update_thread():
                     print(f"[INFO] MUF D=3000: {muf} MHz")
                 fof2 = fetch_giro_fof2()
                 with _state_lock:
-                    _cached_fof2 = fof2   # None when GIRO unavailable → shows — in UI
+                    _cached_fof2 = fof2   # None when GIRO unavailable
 
                 # Store replay snapshots
                 _ts_poll = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
@@ -709,9 +911,10 @@ def update_thread():
 
                     # Only accept WSPR cycle timestamps (minute ends in :02, :12, :22, ...)
                     if ts.minute % 10 != 2:
-                        print(f"[INFO] Skipping — timestamp minute {ts.minute} not a TX slot")
+                        print(f"[INFO] Skipping -- not a TX slot")
                     else:
                         lat, lon = maidenhead_to_latlon(tx_loc)
+
                         if lat is not None:
                             inserted = db.insert_spot(
                                 timestamp_str, tx_loc, lat, lon,
@@ -721,8 +924,7 @@ def update_thread():
                                 with _state_lock:
                                     _last_update_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
                                     _update_error    = None
-                                print(f"[INFO] Logged: {tx_loc} @ {timestamp_str}  "
-                                      f"reporters={reporter_count}  max_dx={max_distance} km")
+                                print(f"[INFO] Logged: {tx_loc} @ {timestamp_str}  reporters={reporter_count}  max_dx={max_distance} km")
                             else:
                                 print(f"[INFO] Duplicate, skipped: {timestamp_str}")
                         else:
@@ -741,131 +943,13 @@ def update_thread():
 
 
 # ---------------------------------------------------------------------------
-# Flask routes — pages
-# ---------------------------------------------------------------------------
-
-_BAND_LABELS = {
-    3:'80m — 3.5 MHz', 7:'40m — 7 MHz', 10:'30m — 10 MHz',
-    14:'20m — 14 MHz', 18:'17m — 18 MHz', 21:'15m — 21 MHz',
-    24:'12m — 24 MHz', 28:'10m — 28 MHz',
-}
-
-@app.route("/")
-def index():
-    return render_template(
-        "index.html",
-        callsign=CALLSIGN,
-        default_band=DEFAULT_BAND,
-        band_label=_BAND_LABELS.get(DEFAULT_BAND, f"{DEFAULT_BAND} MHz"),
-        map_lat=MAP_DEFAULT_LAT,
-        map_lon=MAP_DEFAULT_LON,
-        map_zoom=MAP_DEFAULT_ZOOM,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Flask routes — REST API
-# ---------------------------------------------------------------------------
-
-@app.route("/api/latest")
-def api_latest():
-    band = request.args.get("band", type=int)
-    spot = db.get_latest_spot(band)
-    with _state_lock:
-        lu        = _last_update_utc
-        err       = _update_error
-        countries = _cached_countries
-    return jsonify({
-        "spot":        spot,
-        "last_update": lu,
-        "error":       err,
-        "callsign":    CALLSIGN,
-        "countries":   countries,
-    })
-
-
-@app.route("/api/positions")
-def api_positions():
-    band    = request.args.get("band",  type=int)
-    date    = request.args.get("date")
-    from_dt = request.args.get("from")
-    to_dt   = request.args.get("to")
-
-    if date:
-        spots = db.get_spots_by_date(date, band)
-    elif from_dt and to_dt:
-        spots = db.get_spots_range(from_dt, to_dt, band)
-    else:
-        today = datetime.utcnow().strftime("%Y-%m-%d")
-        spots = db.get_spots_by_date(today, band)
-
-    return jsonify(spots)
-
-
-@app.route("/api/stats")
-def api_stats():
-    band    = request.args.get("band",  type=int)
-    date    = request.args.get("date",  default=datetime.utcnow().strftime("%Y-%m-%d"))
-    stats   = db.get_stats_by_date(date, band)
-    dates   = db.get_available_dates(band)
-    alltime = db.get_all_time_stats()
-    return jsonify({
-        "stats":           stats,
-        "available_dates": dates,
-        "all_time":        alltime,
-    })
-
-
-@app.route("/api/muf")
-def api_muf():
-    band      = request.args.get("band", type=int, default=DEFAULT_BAND)
-    days      = request.args.get("days", type=int, default=1)
-    days      = max(1, min(days, 7))
-    muf_rows  = db.get_muf_last_24h(days)
-    spot_rows = db.get_spots_last_24h(band, days)
-    return jsonify({"muf": muf_rows, "spots": spot_rows})
-
-
-@app.route("/api/solar")
-def api_solar():
-    data = fetch_solar_data()
-    muf_rows = db.get_muf_last_24h()
-    data = dict(data)
-    # Only serve J-MUF if the most recent stored value is within 30 minutes.
-    # If GIRO is down no new rows are written, so an old value would be stale.
-    if muf_rows:
-        last_ts = datetime.strptime(muf_rows[-1]["timestamp"], "%Y-%m-%d %H:%M:%S")
-        age_min = (datetime.utcnow() - last_ts).total_seconds() / 60
-        data["muf"] = muf_rows[-1]["muf"] if age_min <= 30 else None
-    else:
-        data["muf"] = None
-    with _state_lock:
-        data["fof2"] = _cached_fof2
-    return jsonify(data)
-
-
-@app.route("/api/reporters")
-def api_reporters():
-    with _state_lock:
-        countries = _cached_countries
-    return jsonify({"countries": countries})
-
-
-@app.route("/api/reporter_list")
-def api_reporter_list():
-    with _state_lock:
-        reporters = _cached_reporter_list
-    return jsonify({"reporters": reporters})
-
-
-# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
-
+if __name__ == "__main__":
+    db.init(DB_PATH)
+    replay_db.init(REPLAY_DB_PATH, enabled=REPLAY_ENABLED)
+    threading.Thread(target=update_thread, daemon=True).start()
 if __name__ == "__main__":
     db.init(DB_PATH)
     replay_db.init(REPLAY_DB_PATH, enabled=REPLAY_ENABLED)
