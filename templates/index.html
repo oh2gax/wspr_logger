@@ -362,6 +362,13 @@ select:focus, input:focus { border-color: var(--accent); }
 .ov-stat-val { font-size: 14px; font-weight: 600; color: var(--green); }
 
 /* Propagation overlay */
+.prop-high-muf {
+    font-size: 11px;
+    font-weight: 700;
+    color: #a855f7;
+    letter-spacing: .5px;
+    margin-bottom: 2px;
+}
 .prop-condition {
     font-size: 18px;
     font-weight: 700;
@@ -923,6 +930,7 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
             </div>
             <div class="map-overlay" id="propOverlay">
                 <div class="ov-lbl">Propagation</div>
+                <div class="prop-high-muf" id="propHighMuf" style="display:none;">⚡ HIGH MUF</div>
                 <div class="prop-condition" id="propCondition">No data</div>
                 <div class="prop-bar-wrap">
                     <div class="prop-bar-fill" id="propBarFill"></div>
@@ -1086,6 +1094,7 @@ let showHistogram    = false;
 let showReporterPlot = false;
 let showDayNight     = false;
 let _reporterListData = [];
+let _latestMuf        = 0;    // most recent J-MUF value in MHz (0 = unknown)
 let _rlSortKey        = 'snr';   // 'snr' | 'dist'
 let _hgramMode        = 'snr';   // 'snr' | 'dist'
 let hgramChart        = null;
@@ -1310,7 +1319,9 @@ function getPropCondition(n) {
 }
 
 function updatePropagation(reporter_count, stale = false) {
-    const el = document.getElementById('propCondition');
+    const el        = document.getElementById('propCondition');
+    const highMufEl = document.getElementById('propHighMuf');
+    highMufEl.style.display = (_latestMuf > 28) ? 'block' : 'none';
     if (stale) {
         // On 20 m during daytime (06–15 UTC) silence is suspicious — flag TX Fail
         const utcHour = new Date().getUTCHours();
@@ -1930,6 +1941,7 @@ async function fetchSolarData() {
         // J-MUF colour coding (MHz, band-open scale)
         const mufEl  = document.getElementById('solMUF');
         const mufVal = parseFloat(data.muf) || 0;
+        _latestMuf = mufVal;
         mufEl.textContent = data.muf ? data.muf.toFixed(1) : '—';
         mufEl.style.color = mufVal >= 35 ? '#9333ea'   // Exceptional    — purple
                           : mufVal >= 30 ? '#ef4444'   // Outstanding    — red
