@@ -1256,7 +1256,7 @@ function updateLiveDisplay(spot) {
     // Beacon marker
     const popup = `<strong>${CALLSIGN}</strong><br>
         Locator: ${tx_loc}<br>
-        Time: ${timestamp} UTC<br>
+        Time: ${timestamp}<br>
         Reporters: ${reporter_count}<br>
         Max DX: ${max_distance} km`;
 
@@ -1722,7 +1722,8 @@ function renderReporterPlot() {
             `<strong>${r.callsign}</strong><br>` +
             `Grid: ${r.grid}<br>` +
             `SNR: ${r.snr} dB<br>` +
-            `Dist: ${r.distance} km`
+            `Dist: ${r.distance} km<br>` +
+            `Time: ${r.time}`
         ).addTo(reporterPlotLayer);
     });
 }
