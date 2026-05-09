@@ -265,8 +265,8 @@ Up to **nine overlay elements** can be shown simultaneously:
 
 | Reporters | Condition |
 |-----------|-----------|
-| ≤ 5       | Very poor |
-| ≤ 10      | Poor |
+| ≤ 5       | Very low |
+| ≤ 10      | Low |
 | ≤ 20      | Normal |
 | ≤ 40      | Good |
 | ≤ 60      | Very good |
