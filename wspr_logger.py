@@ -330,17 +330,23 @@ def _latlon_to_region(lat: float, lon: float) -> str:
     return "Unknown"
 
 
+# Known placeholder / invalid callsigns that should be located by grid
+# rather than prefix (they look like real calls but are not).
+_FAKE_CALLSIGNS = {
+    "N0CALL", "NOCALL", "N0ONE", "UNKNWN", "INVALID",
+}
+
 def callsign_to_country(sign: str, grid: str = "") -> str:
     """Return a country/region name for a given callsign.
 
-    Non-standard callsigns (those containing no digit) cannot be identified
-    by prefix — amateur callsigns always include at least one digit.  For
-    these special/beacon stations the grid locator is used to derive an
-    approximate geographic region instead.
+    Non-standard callsigns (those containing no digit) and known placeholder
+    callsigns cannot be identified by prefix.  For these the grid locator is
+    used to derive an approximate geographic region instead.
     """
     base = sign.upper().strip().split('/')[0]   # strip /P /M suffixes
-    # Validate: real amateur callsigns always contain at least one digit.
-    if not any(c.isdigit() for c in base):
+    # Validate: real amateur callsigns always contain at least one digit,
+    # and must not be a known placeholder.
+    if not any(c.isdigit() for c in base) or base in _FAKE_CALLSIGNS:
         lat, lon = _grid_to_latlon(grid)
         if lat is not None:
             return _latlon_to_region(lat, lon)
@@ -856,9 +862,12 @@ def api_reporter_list():
 # Entry point
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
 if __name__ == "__main__":
     db.init(DB_PATH)
     replay_db.init(REPLAY_DB_PATH, enabled=REPLAY_ENABLED)
     threading.Thread(target=update_thread, daemon=True).start()
     app.run(debug=DEBUG, host=HOST, port=PORT, use_reloader=False)
-
