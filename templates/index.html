@@ -1300,8 +1300,8 @@ async function refreshTrail() {
 
 // ── Propagation condition ──────────────────────────────────────────────────
 function getPropCondition(n) {
-    if (n <= 5)   return { text: 'Very poor',      color: '#ef4444', pct:  8 };
-    if (n <= 10)  return { text: 'Poor',           color: '#f97316', pct: 20 };
+    if (n <= 5)   return { text: 'Very low',        color: '#ef4444', pct:  8 };
+    if (n <= 10)  return { text: 'Low',            color: '#f97316', pct: 20 };
     if (n <= 20)  return { text: 'Normal',         color: '#eab308', pct: 40 };
     if (n <= 40)  return { text: 'Good',           color: '#84cc16', pct: 60 };
     if (n <= 60)  return { text: 'Very good',      color: '#22c55e', pct: 75 };
