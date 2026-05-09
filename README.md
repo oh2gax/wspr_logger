@@ -277,6 +277,8 @@ If more than 2 of the current reporters are beyond 6000 km, **& DX** is appended
 
 When the last spot is older than 1 hour the card shows **No propagation** with a red bar and 0 reporters, regardless of the last recorded value. On the 20 m band during daytime hours (06:00–15:00 UTC), when silence is unusual enough to suggest a transmitter problem, the message changes to **No propagation or TX Fail** as an early warning that the beacon may have stopped transmitting.
 
+When the Juliusruh ionosonde MUF D=3000 km exceeds 28 MHz, a **⚡ HIGH MUF** label appears in purple above the condition text, indicating enhanced propagation conditions regardless of the current reporter count.
+
 **Reporter Countries** (top-right, below propagation) *(optional)* — unique countries from the past 60 minutes, sorted by station count, with proportional bars. Loads instantly from the backend cache; refreshes every 10 minutes with the poll cycle.
 
 **MUF / Reports Graph** (top of map, spanning full width) *(optional)* — dual-axis Chart.js chart. The **blue line** shows the Juliusruh ionosonde MUF D=3000 km (left axis, MHz); the **green bars** show reporter count per transmission (right axis). Both datasets are logged every 10 minutes and stored in the database. Use the **1d / 2d / 3d / 1wk** buttons in the panel header to switch the time range; multi-day views label the x-axis as `Mon 14:30` so you can tell days apart at a glance. Useful for correlating band openings with ionospheric conditions over longer periods.
