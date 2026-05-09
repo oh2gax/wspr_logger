@@ -275,7 +275,7 @@ Up to **nine overlay elements** can be shown simultaneously:
 
 If more than 2 of the current reporters are beyond 6000 km, **& DX** is appended to the condition text at any level (e.g. *Poor & DX*, *Good & DX*, *Exceptional & DX*) and the reporter sub-line shows how many were over 6000 km. The colour stays the same as the base level.
 
-When the last spot is older than 1 hour the card shows **No propagation** with a red bar and 0 reporters, regardless of the last recorded value.
+When the last spot is older than 1 hour the card shows **No propagation** with a red bar and 0 reporters, regardless of the last recorded value. On the 20 m band during daytime hours (06:00–15:00 UTC), when silence is unusual enough to suggest a transmitter problem, the message changes to **No propagation or TX Fail** as an early warning that the beacon may have stopped transmitting.
 
 **Reporter Countries** (top-right, below propagation) *(optional)* — unique countries from the past 60 minutes, sorted by station count, with proportional bars. Loads instantly from the backend cache; refreshes every 10 minutes with the poll cycle.
 
