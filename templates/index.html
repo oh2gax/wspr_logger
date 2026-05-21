@@ -1,0 +1,2390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WSPR Logger &mdash; {{ callsign }}</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+/* ── CSS Variables — Dark (default) ── */
+:root {
+    --bg-base:       #111827;
+    --bg-surface:    #1f2937;
+    --bg-deep:       #0d1117;
+    --border:        #374151;
+    --text-primary:  #d1d5db;
+    --text-secondary:#9ca3af;
+    --text-muted:    #4b5563;
+    --accent:        #38bdf8;
+    --accent-dim:    #0369a1;
+    --accent-bg:     #1e3a5f;
+    --accent-btn:    #0369a1;
+    --accent-btn-hover: #0284c7;
+    --green:         #4ade80;
+    --dot-live:      #22c55e;
+    --dot-stale:     #f59e0b;
+    --dot-dead:      #ef4444;
+    --overlay-bg:    rgba(17,24,39,.93);
+    --input-bg:      #111827;
+    --mini-card-bg:  #111827;
+    --scrollbar-thumb: #374151;
+    --toast-bg:      #1e3a5f;
+    --toast-ok-bg:   #14532d;
+    --toast-ok-text: #bbf7d0;
+    --toast-err-bg:  #7f1d1d;
+    --toast-err-text:#fecaca;
+    --popup-bg:      #1f2937;
+    --popup-border:  #374151;
+    --popup-text:    #d1d5db;
+    --popup-strong:  #38bdf8;
+    --popup-tip:     #1f2937;
+}
+/* ── CSS Variables — Light ── */
+html.light {
+    --bg-base:       #f1f5f9;
+    --bg-surface:    #ffffff;
+    --bg-deep:       #e2e8f0;
+    --border:        #cbd5e1;
+    --text-primary:  #1e293b;
+    --text-secondary:#475569;
+    --text-muted:    #94a3b8;
+    --accent:        #0284c7;
+    --accent-dim:    #7dd3fc;
+    --accent-bg:     #e0f2fe;
+    --accent-btn:    #0284c7;
+    --accent-btn-hover: #0369a1;
+    --green:         #16a34a;
+    --dot-live:      #16a34a;
+    --dot-stale:     #d97706;
+    --dot-dead:      #dc2626;
+    --overlay-bg:    rgba(241,245,249,.93);
+    --input-bg:      #f8fafc;
+    --mini-card-bg:  #f1f5f9;
+    --scrollbar-thumb: #94a3b8;
+    --toast-bg:      #0284c7;
+    --toast-ok-bg:   #166534;
+    --toast-ok-text: #dcfce7;
+    --toast-err-bg:  #991b1b;
+    --toast-err-text:#fee2e2;
+    --popup-bg:      #ffffff;
+    --popup-border:  #cbd5e1;
+    --popup-text:    #1e293b;
+    --popup-strong:  #0284c7;
+    --popup-tip:     #ffffff;
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    display: flex;
+    height: 100vh;
+    transition: background .2s, color .2s;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 10;
+    transition: width .25s ease, min-width .25s ease;
+}
+#sidebar.collapsed {
+    width: 36px;
+    min-width: 36px;
+}
+#sidebar.collapsed #sbToggleBtn { transform: rotate(180deg); }
+.sb-header {
+    padding: 14px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    position: relative;
+}
+#sbToggleBtn {
+    position: absolute;
+    top: 8px; right: 8px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    width: 22px; height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 9px;
+    line-height: 20px;
+    text-align: center;
+    transition: transform .25s, background .15s;
+    flex-shrink: 0;
+    user-select: none;
+    padding: 0;
+}
+#sbToggleBtn:hover { background: var(--border); color: var(--text-primary); }
+.sb-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: .5px;
+}
+.sb-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+.sb-sub strong { color: var(--text-secondary); }
+
+/* Status bar */
+.status-bar {
+    padding: 6px 14px;
+    background: var(--bg-deep);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--dot-live);
+    flex-shrink: 0;
+    transition: background .3s;
+}
+.dot.stale { background: var(--dot-stale); }
+.dot.dead  { background: var(--dot-dead); }
+
+/* Navigation */
+nav {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary);
+    border-left: 3px solid transparent;
+    transition: background .15s, color .15s;
+    user-select: none;
+}
+.nav-item:hover { background: var(--border); color: var(--text-primary); }
+.nav-item.active { background: var(--accent-bg); color: var(--accent); border-left-color: var(--accent); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; }
+
+/* Sidebar scrollable body */
+.sb-body {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+.sb-body::-webkit-scrollbar { width: 4px; }
+.sb-body::-webkit-scrollbar-track { background: var(--bg-surface); }
+.sb-body::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
+
+/* Info panel */
+.info-panel {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+}
+.lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text-muted);
+    margin-top: 9px;
+}
+.lbl:first-child { margin-top: 0; }
+.val { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.val.mono { font-family: 'Courier New', monospace; font-size: 22px; color: var(--accent); letter-spacing: 3px; }
+.val.green { color: var(--green); }
+.val.sm  { font-size: 13px; }
+.row2 { display: flex; gap: 16px; }
+.row2 > div { flex: 1; }
+
+/* Sidebar sections */
+.sb-section {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+}
+.sb-section-lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+/* Form controls */
+select, input[type=text], input[type=number], input[type=date] {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 6px 9px;
+    border-radius: 5px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .15s;
+}
+select:focus, input:focus { border-color: var(--accent); }
+
+/* Toggle switch */
+.toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 7px;
+}
+.toggle-row:last-child { margin-bottom: 0; }
+.sw {
+    width: 34px; height: 18px;
+    background: var(--border);
+    border-radius: 9px;
+    cursor: pointer;
+    position: relative;
+    transition: background .2s;
+    flex-shrink: 0;
+}
+.sw.on { background: var(--accent-dim); }
+.sw::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    background: var(--text-secondary);
+    border-radius: 50%;
+    top: 3px; left: 3px;
+    transition: left .2s, background .2s;
+}
+.sw.on::after { left: 19px; background: var(--accent); }
+
+/* Today mini-stats */
+.mini-stats {
+    padding: 10px 14px;
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+}
+.mini-stats-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.mini-stats-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text-muted);
+}
+.ms-tabs { display: flex; gap: 2px; }
+.ms-tab {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--text-muted);
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    user-select: none;
+    transition: background .15s, color .15s;
+}
+.ms-tab:hover { color: var(--text-primary); }
+.ms-tab.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-dim); }
+.mini-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+.mini-card {
+    background: var(--mini-card-bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 7px 9px;
+}
+.mini-card-lbl { font-size: 10px; color: var(--text-muted); }
+.mini-card-val { font-size: 18px; font-weight: 700; color: var(--accent); }
+.mini-card-val.g { color: var(--green); }
+
+/* ── Main content ── */
+#main {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Views */
+.view { position: absolute; inset: 0; display: none; flex-direction: column; }
+.view.active { display: flex; }
+
+/* ── MAP VIEW ── */
+#map { flex: 1; }
+.map-overlays {
+    position: absolute;
+    top: 12px; right: 12px;
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+.map-overlay {
+    background: var(--overlay-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    min-width: 210px;
+    backdrop-filter: blur(6px);
+}
+.ov-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: var(--text-muted); margin-bottom: 4px; }
+.ov-locator { font-size: 28px; font-weight: 700; color: var(--accent); font-family: monospace; letter-spacing: 4px; }
+.ov-time { font-size: 14px; color: var(--text); margin-top: 2px; font-family: monospace; }
+.ov-stats { display: flex; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.ov-stat { flex: 1; }
+.ov-stat-lbl { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+.ov-stat-val { font-size: 14px; font-weight: 600; color: var(--green); }
+
+/* Propagation overlay */
+.prop-high-muf {
+    font-size: 11px;
+    font-weight: 700;
+    color: #a855f7;
+    letter-spacing: .5px;
+    margin-bottom: 2px;
+}
+.prop-condition {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 3px 0 6px;
+    transition: color .4s;
+}
+.prop-bar-wrap {
+    height: 5px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+.prop-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width .5s ease, background .5s ease;
+    width: 0%;
+}
+.prop-reporters {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* Country list overlay */
+.country-list {
+    margin-top: 4px;
+}
+.country-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+    font-size: 12px;
+}
+.country-name {
+    flex: 1;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.country-bar-wrap {
+    width: 46px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.country-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width .4s ease;
+}
+.country-count {
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 600;
+    min-width: 16px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+/* ── VIEW HEADER (shared) ── */
+.view-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-surface);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+.view-title { font-size: 15px; font-weight: 600; color: var(--accent); margin-right: 4px; }
+.quick-btn {
+    padding: 4px 9px;
+    font-size: 11px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s, color .15s;
+}
+.quick-btn:hover { background: var(--border); color: var(--text-primary); }
+.quick-btn.active-qb { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-dim); }
+
+/* ── HISTORY VIEW ── */
+.history-body { flex: 1; display: flex; overflow: hidden; }
+#history-map { flex: 1; }
+.hist-table-pane {
+    width: 330px;
+    min-width: 330px;
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+.hist-table-pane::-webkit-scrollbar { width: 4px; }
+.hist-table-pane::-webkit-scrollbar-track { background: var(--bg-surface); }
+.hist-table-pane::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); }
+.htbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.htbl th {
+    padding: 8px 10px;
+    background: var(--bg-deep);
+    color: var(--text-muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    text-align: left;
+    position: sticky; top: 0;
+    border-bottom: 1px solid var(--border);
+}
+.htbl td { padding: 7px 10px; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+.htbl tr:hover td { background: var(--accent-bg); }
+.htbl td.mono { font-family: monospace; color: var(--accent); font-size: 13px; }
+.no-data { text-align: center; padding: 32px; color: var(--border); font-size: 13px; }
+
+/* ── STATISTICS VIEW ── */
+#stats-view { overflow-y: auto; }
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+    padding: 18px;
+}
+.stat-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+}
+.stat-card-lbl { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.stat-card-val { font-size: 30px; font-weight: 700; color: var(--accent); margin: 4px 0 2px; }
+.stat-card-val.g { color: var(--green); }
+.stat-card-val.sm2 { font-size: 18px; }
+.stat-card-unit { font-size: 12px; color: var(--text-muted); }
+.dates-section { padding: 0 18px 18px; }
+.dates-title { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+.dates-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.alltime-section {
+    margin: 0 18px 18px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+}
+.alltime-title { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+.alltime-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.at-item-lbl { font-size: 10px; color: var(--text-muted); }
+.at-item-val { font-size: 16px; font-weight: 700; color: var(--accent); }
+
+
+/* ── Toast ── */
+#toast {
+    position: fixed;
+    bottom: 20px; right: 20px;
+    background: var(--toast-bg);
+    color: #e0f2fe;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    z-index: 9999;
+    display: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,.3);
+    max-width: 320px;
+}
+#toast.ok  { background: var(--toast-ok-bg);  color: var(--toast-ok-text); }
+#toast.err { background: var(--toast-err-bg); color: var(--toast-err-text); }
+
+/* ── Leaflet popup theming ── */
+.leaflet-popup-content-wrapper {
+    background: var(--popup-bg) !important;
+    color: var(--popup-text) !important;
+    border: 1px solid var(--popup-border) !important;
+    border-radius: 6px !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,.2) !important;
+}
+.leaflet-popup-tip { background: var(--popup-tip) !important; }
+.leaflet-popup-content { font-size: 12px; line-height: 1.7; color: var(--popup-text); }
+.leaflet-popup-content strong { color: var(--popup-strong); }
+.leaflet-popup-content .popup-divider {
+    border: none;
+    border-top: 1px solid var(--popup-border);
+    margin: 5px 0;
+}
+
+/* Leaflet controls in light mode */
+html.light .leaflet-control-zoom a {
+    background: var(--bg-surface) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+}
+html.light .leaflet-bar { border-color: var(--border) !important; }
+
+.leaflet-div-icon { background: none !important; border: none !important; }
+
+/* ── MUF graph panel ── */
+.muf-period-btns {
+    display: flex;
+    gap: 4px;
+    pointer-events: auto;
+    flex-shrink: 0;
+}
+.muf-period-btn {
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 1.6;
+}
+.muf-period-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+.muf-panel {
+    position: absolute;
+    top: 12px;
+    left: 50px;
+    right: 250px;
+    z-index: 500;
+    background: var(--overlay-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px 12px;
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+}
+.muf-panel-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+.muf-chart-wrap { height: 150px; }
+
+/* ── Solar data panel ── */
+.solar-panel {
+    position: absolute;
+    top: 12px;
+    left: 46px;
+    z-index: 500;
+    background: var(--overlay-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-width: 310px;
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+    transition: top .25s ease;
+}
+.solar-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px 8px;
+    margin-top: 6px;
+}
+.solar-item { display: flex; flex-direction: column; }
+.solar-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); }
+.solar-val { font-size: 15px; font-weight: 700; color: var(--accent); line-height: 1.3; }
+.solar-updated { font-size: 10px; color: var(--text-muted); margin-top: 6px; }
+
+/* ── Reporter list panel (bottom-left) ── */
+.reporter-list-panel {
+    position: absolute;
+    top: 12px;
+    left: 46px;
+    z-index: 500;
+    background: var(--overlay-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px 10px;
+    min-width: 320px;
+    max-width: 420px;
+    backdrop-filter: blur(6px);
+    pointer-events: auto;
+    transition: top .25s ease;
+}
+.rl-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+.rl-table-wrap {
+    max-height: 320px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+.rl-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+}
+.rl-table th {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--text-muted);
+    padding: 2px 6px 4px;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+}
+.rl-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+.rl-table th.sortable:hover { color: var(--accent); }
+.rl-table th.sort-active    { color: var(--accent); }
+.rl-table td {
+    padding: 3px 6px;
+    color: var(--text);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+}
+.rl-table tr:last-child td { border-bottom: none; }
+.rl-table td.rl-snr  { color: var(--accent); font-weight: 600; }
+.rl-table td.rl-dist { color: #4ade80; font-weight: 600; }
+.rl-empty { font-size: 11px; color: var(--text-muted); padding: 6px 0; }
+
+/* ── Histogram panel (left side) ── */
+.hgram-panel {
+    position: absolute;
+    top: 12px;
+    left: 46px;
+    z-index: 500;
+    background: var(--overlay-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px 12px;
+    min-width: 280px;
+    max-width: 360px;
+    backdrop-filter: blur(6px);
+    pointer-events: auto;
+    transition: top .25s ease;
+}
+.hgram-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+.hgram-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text-muted);
+}
+.hgram-tabs { display: flex; gap: 4px; }
+.hgram-tab {
+    font-size: 9px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    background: transparent;
+}
+.hgram-tab.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+.hgram-chart-wrap { height: 130px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ SIDEBAR ═══════════════════════ -->
+<div id="sidebar">
+    <div class="sb-header">
+        <div class="sb-title">📡 WSPR Logger</div>
+        <div class="sb-sub">Tracking: <strong>{{ callsign }}</strong></div>
+        <button id="sbToggleBtn" onclick="toggleSidebar()" title="Collapse sidebar">◀</button>
+    </div>
+
+    <div class="status-bar">
+        <div class="dot" id="statusDot"></div>
+        <span id="statusText">Connecting…</span>
+    </div>
+
+    <nav>
+        <div class="nav-item active" id="nav-map"     onclick="showView('map')">     <span class="nav-icon">🗺️</span> Live Map</div>
+        <div class="nav-item"        id="nav-history" onclick="showView('history')"> <span class="nav-icon">📅</span> History</div>
+        <div class="nav-item"        id="nav-stats"   onclick="showView('stats')">   <span class="nav-icon">📊</span> Statistics</div>
+        <div class="nav-item"        id="nav-theme"   onclick="toggleTheme()">       <span class="nav-icon" id="themeIcon">🌙</span> <span id="themeLabel">Dark Mode</span></div>
+    </nav>
+
+    <div class="sb-body">
+        <!-- Current position info -->
+        <div class="info-panel">
+            <div class="lbl">Locator</div>
+            <div class="val mono" id="infoLocator">——</div>
+
+            <div class="row2">
+                <div><div class="lbl">Latitude</div><div class="val sm" id="infoLat">—</div></div>
+                <div><div class="lbl">Longitude</div><div class="val sm" id="infoLon">—</div></div>
+            </div>
+
+            <div class="row2">
+                <div><div class="lbl">Reporters</div><div class="val green" id="infoReporters">—</div></div>
+                <div><div class="lbl">Max DX</div><div class="val green" id="infoMaxDist">—</div></div>
+            </div>
+
+            <div class="lbl">Last Spot (UTC)</div>
+            <div class="val sm" id="infoTime">—</div>
+        </div>
+
+        <!-- Band display -->
+        <div class="sb-section">
+            <div class="sb-section-lbl">Band</div>
+            <div class="val sm" id="bandDisplay">{{ band_label }}</div>
+        </div>
+
+        <!-- Map layer toggles -->
+        <div class="sb-section">
+            <div class="sb-section-lbl">Map Layers</div>
+            <div class="toggle-row">
+                <span>Position Trail</span>
+                <div class="sw on" id="swTrail" onclick="toggleTrail()"></div>
+            </div>
+            <div class="toggle-row">
+                <span>Reporter Countries</span>
+                <div class="sw" id="swCountries" onclick="toggleCountries()"></div>
+            </div>
+            <div class="toggle-row">
+                <span>MUF / Reports Graph</span>
+                <div class="sw" id="swMuf" onclick="toggleMuf()"></div>
+            </div>
+            <div class="toggle-row">
+                <span>Solar Conditions</span>
+                <div class="sw" id="swSolar" onclick="toggleSolar()"></div>
+            </div>
+            <div class="toggle-row">
+                <span>Reporter List</span>
+                <div class="sw" id="swReporterList" onclick="toggleReporterList()"></div>
+            </div>
+            <div class="toggle-row">
+                <span>SNR / Dist Histogram</span>
+                <div class="sw" id="swHgram" onclick="toggleHistogram()"></div>
+            </div>
+            <div class="toggle-row">
+                <span>Reporter Plot</span>
+                <div class="sw" id="swReporterPlot" onclick="toggleReporterPlot()"></div>
+            </div>
+            <div class="toggle-row">
+                <span>Day / Night</span>
+                <div class="sw" id="swDayNight" onclick="toggleDayNight()"></div>
+            </div>
+        </div>
+
+        <!-- Today's mini-stats -->
+        <div class="mini-stats">
+            <div class="mini-stats-hdr">
+                <div class="mini-stats-title" id="miniStatsTitle">Last 1h</div>
+                <div class="ms-tabs">
+                    <span class="ms-tab active" id="tabToday" onclick="setStatsWindow('today')">Today</span>
+                    <span class="ms-tab"        id="tab1h"    onclick="setStatsWindow('1h')">1h</span>
+                </div>
+            </div>
+            <div class="mini-grid">
+                <div class="mini-card">
+                    <div class="mini-card-lbl">Spots</div>
+                    <div class="mini-card-val" id="todaySpots">—</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-card-lbl">Best DX</div>
+                    <div class="mini-card-val g" id="todayDX">—</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-card-lbl">Reporters</div>
+                    <div class="mini-card-val" id="todayReporters">—</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-card-lbl">Band</div>
+                    <div class="mini-card-val" id="todayBand">20m</div>
+                </div>
+            </div>
+        </div>
+    </div><!-- /sb-body -->
+</div><!-- /sidebar -->
+
+<!-- ═══════════════════════ MAIN CONTENT ═══════════════════════ -->
+<div id="main">
+
+    <!-- ── MAP VIEW ── -->
+    <div class="view active" id="map-view">
+        <div id="map"></div>
+        <!-- MUF / Reporter count graph -->
+        <div class="muf-panel" id="mufPanel" style="display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <div class="muf-panel-title" id="mufPanelTitle" style="margin-bottom:0;">MUF D=3000 km (MHz) &amp; Reporter Count — Last 24 h</div>
+                <div class="muf-period-btns">
+                    <button class="muf-period-btn" id="mufBtn1d" onclick="setMufDays(1)">1d</button>
+                    <button class="muf-period-btn active" id="mufBtn2d" onclick="setMufDays(2)">2d</button>
+                    <button class="muf-period-btn" id="mufBtn3d" onclick="setMufDays(3)">3d</button>
+                    <button class="muf-period-btn" id="mufBtn7d" onclick="setMufDays(7)">1wk</button>
+                </div>
+            </div>
+            <div class="muf-chart-wrap">
+                <canvas id="mufCanvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Solar conditions panel -->
+        <div class="solar-panel" id="solarPanel" style="display:none;">
+            <div class="ov-lbl">Solar Conditions</div>
+            <div class="solar-grid">
+                <!-- Row 1: solar / geomagnetic indices -->
+                <div class="solar-item"><span class="solar-lbl">SFI</span><span class="solar-val" id="solSFI">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">K</span><span class="solar-val" id="solK">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">A</span><span class="solar-val" id="solA">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">X-ray</span><span class="solar-val" id="solX">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">Bz</span><span class="solar-val" id="solBz">—</span></div>
+                <!-- Row 2: ionospheric + space weather -->
+                <div class="solar-item"><span class="solar-lbl">J-MUF</span><span class="solar-val" id="solMUF">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">foF2</span><span class="solar-val" id="solFoF2">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">SW</span><span class="solar-val" id="solSW">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">AU</span><span class="solar-val" id="solAU">—</span></div>
+                <div class="solar-item"><span class="solar-lbl">PF</span><span class="solar-val" id="solPF">—</span></div>
+            </div>
+            <div class="solar-updated" id="solarUpdated">—</div>
+        </div>
+
+        <div class="map-overlays">
+            <div class="map-overlay" id="mapOverlay">
+                <div id="utcClock" style="font-family:monospace;font-weight:600;color:var(--text);margin-bottom:6px;line-height:1.4;">
+                    <div id="utcDate" style="font-size:14px;letter-spacing:1px;">—</div>
+                    <div id="utcTime" style="font-size:20px;letter-spacing:2px;">—</div>
+                </div>
+                <div class="ov-lbl">Current Position</div>
+                <div class="ov-locator" id="ovLocator">——</div>
+                <div class="ov-time"    id="ovTime">No data yet</div>
+                <div class="ov-stats">
+                    <div class="ov-stat">
+                        <div class="ov-stat-lbl">Reporters</div>
+                        <div class="ov-stat-val" id="ovReporters">—</div>
+                    </div>
+                    <div class="ov-stat">
+                        <div class="ov-stat-lbl">Max DX</div>
+                        <div class="ov-stat-val" id="ovDX">—</div>
+                    </div>
+                    <div class="ov-stat">
+                        <div class="ov-stat-lbl">Band</div>
+                        <div class="ov-stat-val" id="ovBand">20m</div>
+                    </div>
+                </div>
+            </div>
+            <div class="map-overlay" id="propOverlay">
+                <div class="ov-lbl">Propagation</div>
+                <div class="prop-high-muf" id="propHighMuf" style="display:none;">⚡ HIGH MUF</div>
+                <div class="prop-condition" id="propCondition">No data</div>
+                <div class="prop-bar-wrap">
+                    <div class="prop-bar-fill" id="propBarFill"></div>
+                </div>
+                <div class="prop-reporters" id="propReporters">— reporters</div>
+            </div>
+            <div class="map-overlay" id="countryOverlay" style="display:none;">
+                <div class="ov-lbl">Reporter Countries <span id="countryCount"></span></div>
+                <div class="country-list" id="countryList">
+                    <div style="color:var(--text-muted);font-size:11px;">No data</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Histogram panel — left side, below reporter list -->
+        <div class="hgram-panel" id="hgramPanel" style="display:none;">
+            <div class="hgram-header">
+                <span class="hgram-title">Histogram — Last 1 h</span>
+                <div class="hgram-tabs">
+                    <span class="hgram-tab active" id="htSnr"  onclick="setHgramMode('snr')">SNR</span>
+                    <span class="hgram-tab"        id="htDist" onclick="setHgramMode('dist')">Dist</span>
+                </div>
+            </div>
+            <div class="hgram-chart-wrap">
+                <canvas id="hgramCanvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Reporter list panel — left side, below solar/MUF -->
+        <div class="reporter-list-panel" id="reporterListPanel" style="display:none;">
+            <div class="rl-title">Reporters — Last 1 h</div>
+            <div class="rl-table-wrap">
+                <table class="rl-table">
+                    <thead>
+                        <tr>
+                            <th>Band</th>
+                            <th>Call</th>
+                            <th>Grid</th>
+                            <th class="sortable" id="thSnr"  onclick="sortReporterList('snr')">SNR ▾</th>
+                            <th class="sortable" id="thDist" onclick="sortReporterList('dist')">Dist ▾</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reporterListBody">
+                        <tr><td colspan="5" class="rl-empty">No data</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── HISTORY VIEW ── -->
+    <div class="view" id="history-view">
+        <div class="view-header">
+            <span class="view-title">📅 History</span>
+            <input type="date" id="histDate" onchange="loadHistory()" style="width:140px;">
+            <span class="quick-btn" onclick="setHistDate(0);  loadHistory()">Today</span>
+            <span class="quick-btn" onclick="setHistDate(-1); loadHistory()">Yesterday</span>
+            <span class="quick-btn" onclick="setHistDate(-7); loadHistory()">−7 days</span>
+        </div>
+        <div class="history-body">
+            <div id="history-map"></div>
+            <div class="hist-table-pane">
+                <table class="htbl">
+                    <thead>
+                        <tr>
+                            <th>Time UTC</th>
+                            <th>Locator</th>
+                            <th>Rprtrs</th>
+                            <th>DX km</th>
+                        </tr>
+                    </thead>
+                    <tbody id="histTbody">
+                        <tr><td colspan="4" class="no-data">Pick a date above</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── STATISTICS VIEW ── -->
+    <div class="view" id="stats-view">
+        <div class="view-header">
+            <span class="view-title">📊 Statistics</span>
+            <input type="date" id="statsDate" onchange="loadStats()" style="width:140px;">
+            <span class="quick-btn" onclick="setStatsDate(0); loadStats()">Today</span>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-card-lbl">Total Spots</div>
+                <div class="stat-card-val" id="stSpots">—</div>
+                <div class="stat-card-unit">transmissions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-lbl">Max Reporters</div>
+                <div class="stat-card-val g" id="stMaxRprt">—</div>
+                <div class="stat-card-unit">stations heard you</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-lbl">Longest DX</div>
+                <div class="stat-card-val g" id="stMaxDX">—</div>
+                <div class="stat-card-unit">km</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-lbl">First Spot</div>
+                <div class="stat-card-val sm2" id="stFirst">—</div>
+                <div class="stat-card-unit">UTC</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-lbl">Last Spot</div>
+                <div class="stat-card-val sm2" id="stLast">—</div>
+                <div class="stat-card-unit">UTC</div>
+            </div>
+        </div>
+
+        <div class="alltime-section">
+            <div class="alltime-title">All-Time Records</div>
+            <div class="alltime-grid">
+                <div><div class="at-item-lbl">Total Spots</div><div class="at-item-val" id="atSpots">—</div></div>
+                <div><div class="at-item-lbl">Best DX</div><div class="at-item-val" id="atDX">—</div></div>
+                <div><div class="at-item-lbl">Best Reporters</div><div class="at-item-val" id="atRprt">—</div></div>
+                <div><div class="at-item-lbl">Active Days</div><div class="at-item-val" id="atDays">—</div></div>
+                <div><div class="at-item-lbl">First Ever</div><div class="at-item-val" id="atFirst" style="font-size:12px;">—</div></div>
+                <div><div class="at-item-lbl">Last Ever</div><div class="at-item-val" id="atLast" style="font-size:12px;">—</div></div>
+            </div>
+        </div>
+
+        <div class="dates-section">
+            <div class="dates-title">Logged Dates</div>
+            <div class="dates-chips" id="dateChips"></div>
+        </div>
+    </div>
+
+
+</div><!-- /main -->
+
+<div id="toast"></div>
+
+<!-- ═══════════════════════ JAVASCRIPT ═══════════════════════ -->
+<script>
+'use strict';
+
+// ── Constants (injected by Flask) ──────────────────────────────────────────
+const CALLSIGN    = "{{ callsign }}";
+const MAP_LAT     = {{ map_lat }};
+const MAP_LON     = {{ map_lon }};
+const MAP_ZOOM    = {{ map_zoom }};
+
+const BAND_NAMES = {3:'80m',7:'40m',10:'30m',14:'20m',18:'17m',21:'15m',24:'12m',28:'10m'};
+
+// ── State ──────────────────────────────────────────────────────────────────
+let currentBand  = {{ default_band }};
+let showTrail    = true;
+let isDark       = true;
+let statsWindow  = 'today';   // 'today' | '1h'
+let showCountries    = false;
+let showMuf          = false;
+let showSolar        = false;
+let showReporterList = false;
+let showHistogram    = false;
+let showReporterPlot = false;
+let showDayNight     = false;
+let _reporterListData = [];
+let _latestMuf        = 0;    // most recent J-MUF value in MHz (0 = unknown)
+let _rlSortKey        = 'snr';   // 'snr' | 'dist'
+let _hgramMode        = 'snr';   // 'snr' | 'dist'
+let hgramChart        = null;
+let _solarTimer   = null;
+let mufChart      = null;
+let mufDays       = 2;
+
+// Live map objects
+let liveMap            = null;
+let liveTileLayer      = null;
+let liveMarker         = null;
+let liveTrail          = null;
+let reporterPlotLayer  = null;
+let dayNightLayer      = null;
+let _dayNightTimer     = null;
+let _txLat             = null;
+let _txLon             = null;
+
+// Latest spot cache
+let latestSpot    = null;
+
+// History map objects
+let histMap       = null;
+let histTileLayer = null;
+let histTrail     = null;
+let histMarkers   = [];
+
+// ── Tile layers ────────────────────────────────────────────────────────────
+function makeTiles(dark) {
+    return dark
+        ? L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+            { attribution: '© OpenStreetMap © CARTO', maxZoom: 19 })
+        : L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+            { attribution: '© OpenStreetMap © CARTO', maxZoom: 19 });
+}
+
+function swapTiles(map, oldLayer) {
+    if (oldLayer) map.removeLayer(oldLayer);
+    const newLayer = makeTiles(isDark);
+    newLayer.addTo(map);
+    return newLayer;
+}
+
+// ── Init live map ──────────────────────────────────────────────────────────
+function initLiveMap() {
+    const savedZoom = parseInt(localStorage.getItem('wspr_zoom')) || MAP_ZOOM;
+    liveMap = L.map('map', { center:[MAP_LAT, MAP_LON], zoom:savedZoom });
+    liveTileLayer = makeTiles(isDark);
+    liveTileLayer.addTo(liveMap);
+    liveMap.on('zoomend', () => {
+        localStorage.setItem('wspr_zoom', liveMap.getZoom());
+    });
+
+    // Custom pane for the day/night overlay — sits between the tile layer
+    // (z-index 200) and the default overlay pane (z-index 400) so it is
+    // always rendered below Reporter Plot lines and markers.
+    liveMap.createPane('dayNightPane');
+    liveMap.getPane('dayNightPane').style.zIndex = 300;
+    liveMap.getPane('dayNightPane').style.pointerEvents = 'none';
+}
+
+// ── Init history map ───────────────────────────────────────────────────────
+function initHistMap() {
+    histMap = L.map('history-map', { center:[MAP_LAT, MAP_LON], zoom:MAP_ZOOM - 1 });
+    histTileLayer = makeTiles(isDark);
+    histTileLayer.addTo(histMap);
+}
+
+// ── Theme toggle ───────────────────────────────────────────────────────────
+function toggleTheme() {
+    isDark = !isDark;
+    document.documentElement.classList.toggle('light', !isDark);
+    document.getElementById('themeIcon').textContent  = isDark ? '🌙' : '☀️';
+    document.getElementById('themeLabel').textContent = isDark ? 'Dark Mode' : 'Light Mode';
+    localStorage.setItem('wspr_theme', isDark ? 'dark' : 'light');
+
+    if (liveMap && liveTileLayer) {
+        liveTileLayer = swapTiles(liveMap, liveTileLayer);
+    }
+    if (histMap && histTileLayer) {
+        histTileLayer = swapTiles(histMap, histTileLayer);
+    }
+}
+
+function initTheme() {
+    const saved = localStorage.getItem('wspr_theme');
+    if (saved === 'light') {
+        isDark = false;
+        document.documentElement.classList.add('light');
+        document.getElementById('themeIcon').textContent  = '☀️';
+        document.getElementById('themeLabel').textContent = 'Light Mode';
+    }
+}
+
+// ── Fetch latest spot and update live map ──────────────────────────────────
+async function fetchLatest() {
+    try {
+        const r    = await fetch(`/api/latest?band=${currentBand}`);
+        const data = await r.json();
+
+        if (data.spot) {
+            latestSpot = data.spot;
+            updateLiveDisplay(data.spot);
+            setStatus(data.spot.timestamp, true);
+        } else {
+            setStatus(null, false);
+        }
+        fetchTodayStats();
+
+        // Determine staleness here so all panels react consistently
+        const isStale = !data.spot ||
+            (Date.now() - new Date(data.spot.timestamp.replace(' ', 'T') + 'Z')) > 3600000;
+
+        if (showCountries) updateCountryOverlay(isStale ? [] : (data.countries || []));
+        if (showMuf)       fetchMufData();
+        if (showReporterList || showReporterPlot) {
+            if (isStale) {
+                _reporterListData = [];
+                if (showReporterList) renderReporterList();
+                if (showHistogram)    renderHistogram();
+                if (showReporterPlot) clearReporterPlot();
+            } else {
+                fetchReporterList();
+            }
+        } else if (showHistogram && isStale) {
+            _reporterListData = [];
+            renderHistogram();
+        }
+    } catch(e) {
+        setStatus(null, false, 'Connection error');
+    }
+}
+
+function updateLiveDisplay(spot) {
+    const { lat, lon, tx_loc, timestamp, reporter_count, max_distance } = spot;
+    _txLat = lat; _txLon = lon;   // used by reporter plot
+
+    // Age-based state
+    const ageMs   = Date.now() - new Date(timestamp.replace(' ', 'T') + 'Z');
+    const stale   = ageMs > 3600000;                      // > 1 hour
+    const dotColor = stale ? '#ef4444' : '#4ade80';       // red or green
+
+    // Sidebar info panel
+    const locEl = document.getElementById('infoLocator');
+    locEl.textContent  = tx_loc;
+    locEl.style.color  = stale ? '#ef4444' : '';          // red when stale, default accent otherwise
+    document.getElementById('infoLat').textContent       = lat.toFixed(4) + '°';
+    document.getElementById('infoLon').textContent       = lon.toFixed(4) + '°';
+    document.getElementById('infoReporters').textContent = stale ? '—' : reporter_count;
+    document.getElementById('infoMaxDist').textContent   = (!stale && max_distance) ? max_distance + ' km' : '—';
+    document.getElementById('infoReporters').style.color = stale ? '#ef4444' : '';
+    document.getElementById('infoMaxDist').style.color   = stale ? '#ef4444' : '';
+    document.getElementById('infoTime').textContent      = timestamp;
+
+    // Map overlay
+    const ovLoc = document.getElementById('ovLocator');
+    ovLoc.textContent = tx_loc;
+    ovLoc.style.color = stale ? '#ef4444' : '';
+    document.getElementById('ovTime').textContent      = timestamp + ' UTC';
+    document.getElementById('ovReporters').textContent = stale ? '—' : reporter_count;
+    document.getElementById('ovDX').textContent        = (!stale && max_distance) ? max_distance + ' km' : '—';
+    document.getElementById('ovBand').textContent      = BAND_NAMES[currentBand] || currentBand + 'MHz';
+    const staleColor = stale ? '#ef4444' : '';
+    document.getElementById('ovReporters').style.color = staleColor;
+    document.getElementById('ovDX').style.color        = staleColor;
+    document.getElementById('ovBand').style.color      = staleColor;
+
+    // Beacon marker
+    const popup = `<strong>${CALLSIGN}</strong><br>
+        Locator: ${tx_loc}<br>
+        Time: ${timestamp}<br>
+        Reporters: ${reporter_count}<br>
+        Max DX: ${max_distance} km`;
+
+    if (liveMarker) {
+        liveMarker.setLatLng([lat, lon])
+                  .setStyle({ fillColor: dotColor, color: dotColor })
+                  .setPopupContent(popup);
+    } else {
+        liveMarker = L.circleMarker([lat, lon], {
+            radius: 8,
+            color: dotColor,
+            fillColor: dotColor,
+            fillOpacity: 1,
+            weight: 0
+        }).addTo(liveMap).bindPopup(popup);
+        liveMap.panTo([lat, lon]);
+    }
+
+    // Propagation
+    updatePropagation(reporter_count, stale);
+
+    // Trail
+    if (showTrail) refreshTrail();
+}
+
+async function refreshTrail() {
+    try {
+        const today = todayStr();
+        const r     = await fetch(`/api/positions?date=${today}&band=${currentBand}`);
+        const spots = await r.json();
+
+        if (liveTrail) { liveMap.removeLayer(liveTrail); liveTrail = null; }
+
+        if (spots.length > 1) {
+            liveTrail = L.polyline(spots.map(s => [s.lat, s.lon]), {
+                color:'#38bdf8', weight:2, opacity:.55, dashArray:'6 4'
+            }).addTo(liveMap);
+        }
+    } catch(e) { /* silent */ }
+}
+
+// ── Propagation condition ──────────────────────────────────────────────────
+function getPropCondition(n) {
+    if (n <= 5)   return { text: 'Very low',        color: '#ef4444', pct:  8 };
+    if (n <= 10)  return { text: 'Low',            color: '#f97316', pct: 20 };
+    if (n <= 20)  return { text: 'Normal',         color: '#eab308', pct: 40 };
+    if (n <= 40)  return { text: 'Good',           color: '#84cc16', pct: 60 };
+    if (n <= 60)  return { text: 'Very good',      color: '#22c55e', pct: 75 };
+    if (n <= 100) return { text: 'Extremely good', color: '#4ade80', pct: 88 };
+    return              { text: 'Exceptional',     color: '#a855f7', pct: 100 };
+}
+
+function updatePropagation(reporter_count, stale = false) {
+    const el        = document.getElementById('propCondition');
+    const highMufEl = document.getElementById('propHighMuf');
+    highMufEl.style.display = (_latestMuf > 28) ? 'block' : 'none';
+    if (stale) {
+        // On 20 m during daytime (06–15 UTC) silence is suspicious — flag TX Fail
+        const utcHour = new Date().getUTCHours();
+        const daytime20m = (currentBand === 14) && (utcHour >= 6 && utcHour < 15);
+        el.textContent  = daytime20m ? 'No propagation or TX Fail' : 'No propagation';
+        el.style.color  = '#ef4444';
+        document.getElementById('propBarFill').style.width      = '0%';
+        document.getElementById('propBarFill').style.background = '#ef4444';
+        document.getElementById('propReporters').textContent    = '0 reporters heard';
+        return;
+    }
+    const n = reporter_count || 0;
+    const c = getPropCondition(n);
+
+    // Append "& DX" at any level when 2 or more reporters are beyond 6000 km
+    const dxCount = _reporterListData.filter(r => r.distance > 6000).length;
+    const hasDX   = dxCount >= 2;
+
+    el.innerHTML = hasDX
+        ? `<span style="color:${c.color}">${c.text}</span> <span style="color:#4ade80">& DX</span>`
+        : `<span style="color:${c.color}">${c.text}</span>`;
+    el.style.color = '';
+    document.getElementById('propBarFill').style.width      = c.pct + '%';
+    document.getElementById('propBarFill').style.background = c.color;
+    document.getElementById('propReporters').textContent    =
+        n + ' reporter' + (n === 1 ? '' : 's') + ' heard' +
+        (hasDX ? ', ' + dxCount + ' over 6000 km' : '');
+}
+
+// ── Status bar ─────────────────────────────────────────────────────────────
+function setStatus(timestamp, ok, msg) {
+    const dot  = document.getElementById('statusDot');
+    const text = document.getElementById('statusText');
+    if (!ok) {
+        dot.className    = 'dot dead';
+        text.textContent = msg || 'No data';
+        return;
+    }
+    const diffMin = (Date.now() - new Date(timestamp.replace(' ','T')+'Z')) / 60000;
+    if (diffMin < 20) {
+        dot.className    = 'dot';
+        text.textContent = `Live · ${Math.round(diffMin)} min ago`;
+    } else if (diffMin < 120) {
+        dot.className    = 'dot stale';
+        text.textContent = `Stale · ${Math.round(diffMin)} min ago`;
+    } else {
+        dot.className    = 'dot dead';
+        text.textContent = `Last: ${timestamp.split(' ')[1]} UTC`;
+    }
+}
+
+
+// ── Reporter countries ─────────────────────────────────────────────────────
+function toggleCountries() {
+    showCountries = !showCountries;
+    document.getElementById('swCountries').className = 'sw' + (showCountries ? ' on' : '');
+    document.getElementById('countryOverlay').style.display = showCountries ? 'block' : 'none';
+    if (showCountries) {
+        fetch('/api/reporters')
+            .then(r => r.json())
+            .then(data => updateCountryOverlay(data.countries || []))
+            .catch(() => {});
+    }
+}
+
+function updateCountryOverlay(list) {
+    const el = document.getElementById('countryList');
+    document.getElementById('countryCount').textContent = list.length ? list.length : '';
+    if (!list.length) {
+        el.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">No data</div>';
+        return;
+    }
+    const maxCount = list[0].count;
+    el.innerHTML = list.map(c => `
+        <div class="country-row">
+            <span class="country-name">${c.country}</span>
+            <div class="country-bar-wrap">
+                <div class="country-bar" style="width:${Math.round(c.count / maxCount * 100)}%"></div>
+            </div>
+            <span class="country-count">${c.count}</span>
+        </div>`).join('');
+}
+
+// ── Solar panel positioning ────────────────────────────────────────────────
+function updateSolarPosition() {
+    const solar = document.getElementById('solarPanel');
+    if (!solar || solar.style.display === 'none') {
+        updateReporterListPosition();
+        return;
+    }
+    if (showMuf) {
+        const muf = document.getElementById('mufPanel');
+        solar.style.top = (muf.offsetTop + muf.offsetHeight + 8) + 'px';
+    } else {
+        solar.style.top = '12px';
+    }
+    // Chain: reporter list goes below solar
+    updateReporterListPosition();
+}
+
+function updateReporterListPosition() {
+    const panel = document.getElementById('reporterListPanel');
+    if (!panel || panel.style.display === 'none') {
+        updateHistogramPosition();
+        return;
+    }
+    if (showSolar) {
+        const solar = document.getElementById('solarPanel');
+        panel.style.top = (solar.offsetTop + solar.offsetHeight + 8) + 'px';
+    } else if (showMuf) {
+        const muf = document.getElementById('mufPanel');
+        panel.style.top = (muf.offsetTop + muf.offsetHeight + 8) + 'px';
+    } else {
+        panel.style.top = '12px';
+    }
+    updateHistogramPosition();
+}
+
+function updateHistogramPosition() {
+    const panel = document.getElementById('hgramPanel');
+    if (!panel || panel.style.display === 'none') return;
+    if (showReporterList) {
+        const rl = document.getElementById('reporterListPanel');
+        panel.style.top = (rl.offsetTop + rl.offsetHeight + 8) + 'px';
+    } else if (showSolar) {
+        const solar = document.getElementById('solarPanel');
+        panel.style.top = (solar.offsetTop + solar.offsetHeight + 8) + 'px';
+    } else if (showMuf) {
+        const muf = document.getElementById('mufPanel');
+        panel.style.top = (muf.offsetTop + muf.offsetHeight + 8) + 'px';
+    } else {
+        panel.style.top = '12px';
+    }
+}
+
+// ── MUF graph ──────────────────────────────────────────────────────────────
+function toggleMuf() {
+    showMuf = !showMuf;
+    document.getElementById('swMuf').className        = 'sw' + (showMuf ? ' on' : '');
+    document.getElementById('mufPanel').style.display = showMuf ? 'block' : 'none';
+    if (showMuf) fetchMufData();
+    updateSolarPosition();          // also chains → updateReporterListPosition
+}
+
+function setMufDays(d) {
+    mufDays = d;
+    // Update button states
+    [1,2,3,7].forEach(n => {
+        const id = n === 7 ? 'mufBtn7d' : `mufBtn${n}d`;
+        document.getElementById(id).classList.toggle('active', n === d);
+    });
+    // Update panel title
+    const labels = {1:'Last 24 h', 2:'Last 2 Days', 3:'Last 3 Days', 7:'Last 7 Days'};
+    document.getElementById('mufPanelTitle').textContent =
+        `MUF D=3000 km (MHz) & Reporter Count — ${labels[d]}`;
+    // Destroy chart so it's rebuilt with correct label format
+    if (mufChart) { mufChart.destroy(); mufChart = null; }
+    fetchMufData();
+}
+
+async function fetchMufData() {
+    if (!showMuf) return;
+    try {
+        const r    = await fetch(`/api/muf?band=${currentBand}&days=${mufDays}`);
+        const data = await r.json();
+        renderMufChart(data.muf || [], data.spots || []);
+    } catch(e) { /* silent */ }
+}
+
+function renderMufChart(mufRows, spotRows) {
+    // Key maps by full timestamp to preserve chronological uniqueness
+    const mufMap  = {};
+    mufRows.forEach(r  => { mufMap[r.timestamp]  = r.muf; });
+    const spotMap = {};
+    spotRows.forEach(s => {
+        const key = s.timestamp;
+        spotMap[key] = Math.max(spotMap[key] || 0, s.reporter_count);
+    });
+
+    // Merge full timestamps and sort chronologically
+    const allTimes = [...new Set([
+        ...mufRows.map(r  => r.timestamp),
+        ...spotRows.map(s => s.timestamp)
+    ])].sort();
+
+    // For multi-day views label as "Mon 14:30", for single day just "14:30"
+    const fmtLabel = (ts) => {
+        if (mufDays <= 1) return ts.slice(11, 16);
+        const d = new Date(ts.replace(' ', 'T') + 'Z');
+        const day = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()];
+        return `${day} ${ts.slice(11, 16)}`;
+    };
+
+    const chartLabels = allTimes.map(fmtLabel);
+    const mufVals     = allTimes.map(t => mufMap[t]  ?? null);
+    const spotVals    = allTimes.map(t => spotMap[t] || 0);
+
+    const darkMode  = isDark;
+    const gridColor = darkMode ? '#374151' : '#cbd5e1';
+    const textColor = darkMode ? '#9ca3af' : '#475569';
+    // Aim for ~24 visible ticks regardless of range
+    const maxTicks  = 24;
+
+    if (mufChart) {
+        mufChart.data.labels                          = chartLabels;
+        mufChart.data.datasets[0].data                = mufVals;
+        mufChart.data.datasets[1].data                = spotVals;
+        mufChart.options.scales.x.ticks.color         = textColor;
+        mufChart.options.scales.x.ticks.maxTicksLimit = maxTicks;
+        mufChart.options.scales.x.grid.color          = gridColor;
+        mufChart.options.scales.yM.ticks.color        = '#38bdf8';
+        mufChart.options.scales.yM.grid.color         = gridColor;
+        mufChart.options.scales.yR.ticks.color        = '#4ade80';
+        mufChart.update('none');
+        return;
+    }
+
+    const ctx = document.getElementById('mufCanvas').getContext('2d');
+    mufChart = new Chart(ctx, {
+        data: {
+            labels: chartLabels,
+            datasets: [
+                {
+                    type: 'line',
+                    label: 'MUF D=3000 (MHz)',
+                    data: mufVals,
+                    borderColor: '#38bdf8',
+                    backgroundColor: 'transparent',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    yAxisID: 'yM',
+                    tension: 0.4,
+                    spanGaps: true,
+                    order: 1,
+                },
+                {
+                    type: 'bar',
+                    label: 'Reporters',
+                    data: spotVals,
+                    backgroundColor: 'rgba(74,222,128,0.45)',
+                    borderColor: '#4ade80',
+                    borderWidth: 1,
+                    yAxisID: 'yR',
+                    order: 2,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    labels: { color: textColor, font: { size: 10 }, boxWidth: 12 }
+                },
+                tooltip: { titleFont: { size: 10 }, bodyFont: { size: 10 } }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        color: textColor, font: { size: 9 }, maxRotation: 45,
+                        maxTicksLimit: maxTicks,
+                    },
+                    grid: { color: gridColor }
+                },
+                yM: {
+                    type: 'linear', position: 'left',
+                    title: { display: true, text: 'MUF (MHz)', color: '#38bdf8', font: { size: 9 } },
+                    ticks: { color: '#38bdf8', font: { size: 9 } },
+                    grid:  { color: gridColor }
+                },
+                yR: {
+                    type: 'linear', position: 'right',
+                    title: { display: true, text: 'Reporters', color: '#4ade80', font: { size: 9 } },
+                    ticks: { color: '#4ade80', font: { size: 9 } },
+                    grid:  { drawOnChartArea: false }
+                }
+            }
+        }
+    });
+}
+
+// ── Great-circle path helper ─────────────────────────────────────────────────
+/**
+ * Return an array of [lat, lon] waypoints following the great-circle arc
+ * between two points, split at the antimeridian so Leaflet doesn't wrap
+ * across the map incorrectly.  Uses spherical SLERP interpolation.
+ */
+function greatCirclePoints(lat1, lon1, lat2, lon2, steps) {
+    steps = steps || 60;
+    const toRad = d => d * Math.PI / 180;
+    const toDeg = r => r * 180 / Math.PI;
+
+    // Convert to unit-sphere Cartesian
+    function toXYZ(lat, lon) {
+        const φ = toRad(lat), λ = toRad(lon);
+        return [Math.cos(φ)*Math.cos(λ), Math.cos(φ)*Math.sin(λ), Math.sin(φ)];
+    }
+    function fromXYZ(v) {
+        const lat = toDeg(Math.asin(v[2]));
+        const lon = toDeg(Math.atan2(v[1], v[0]));
+        return [lat, lon];
+    }
+    function dot(a, b) { return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]; }
+    function scale(v, s) { return [v[0]*s, v[1]*s, v[2]*s]; }
+    function add(a, b) { return [a[0]+b[0], a[1]+b[1], a[2]+b[2]]; }
+
+    const A = toXYZ(lat1, lon1);
+    const B = toXYZ(lat2, lon2);
+    const cosΩ = Math.max(-1, Math.min(1, dot(A, B)));
+    const Ω    = Math.acos(cosΩ);
+
+    const pts = [];
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        let v;
+        if (Ω < 1e-10) {
+            v = A;
+        } else {
+            const sA = Math.sin((1-t)*Ω) / Math.sin(Ω);
+            const sB = Math.sin(   t *Ω) / Math.sin(Ω);
+            v = add(scale(A, sA), scale(B, sB));
+        }
+        pts.push(fromXYZ(v));
+    }
+
+    // Split at antimeridian crossings into separate polyline segments
+    const segments = [[]];
+    for (let i = 0; i < pts.length; i++) {
+        segments[segments.length - 1].push(pts[i]);
+        if (i < pts.length - 1) {
+            const dLon = pts[i+1][1] - pts[i][1];
+            if (Math.abs(dLon) > 180) {
+                segments.push([]);  // start new segment after wrap
+            }
+        }
+    }
+    return segments;   // array of arrays of [lat, lon]
+}
+
+// ── Reporter Plot ────────────────────────────────────────────────────────────
+function maidenheadToLatLon(grid) {
+    if (!grid || grid.length < 4) return null;
+    const g = grid.toUpperCase();
+    try {
+        let lon = (g.charCodeAt(0) - 65) * 20 - 180;
+        let lat = (g.charCodeAt(1) - 65) * 10 - 90;
+        lon += (g.charCodeAt(2) - 48) * 2;
+        lat += (g.charCodeAt(3) - 48) * 1;
+        if (g.length >= 6) {
+            lon += (g.charCodeAt(4) - 65) * (2.0 / 24.0);
+            lat += (g.charCodeAt(5) - 65) * (1.0 / 24.0);
+        }
+        lon += (2.0 / 24.0) / 2;
+        lat += (1.0 / 24.0) / 2;
+        return [lat, lon];
+    } catch(e) { return null; }
+}
+
+function toggleReporterPlot() {
+    showReporterPlot = !showReporterPlot;
+    document.getElementById('swReporterPlot').className = 'sw' + (showReporterPlot ? ' on' : '');
+    if (!showReporterPlot) {
+        clearReporterPlot();
+    } else {
+        fetchReporterList();   // fetches & renders; guard inside handles dual-use
+    }
+}
+
+function clearReporterPlot() {
+    if (reporterPlotLayer) reporterPlotLayer.clearLayers();
+}
+
+function renderReporterPlot() {
+    if (!showReporterPlot || !liveMap) return;
+    if (!reporterPlotLayer) {
+        reporterPlotLayer = L.layerGroup().addTo(liveMap);
+    }
+    reporterPlotLayer.clearLayers();
+    if (_txLat === null || !_reporterListData.length) return;
+
+    // Normalise SNR to opacity and line weight
+    const snrs    = _reporterListData.map(r => r.snr);
+    const minSnr  = Math.min(...snrs);
+    const maxSnr  = Math.max(...snrs);
+    const snrSpan = maxSnr - minSnr || 1;
+
+    const accent = '#38bdf8';
+
+    _reporterListData.forEach(r => {
+        const pos = maidenheadToLatLon(r.grid);
+        if (!pos) return;
+        const norm    = (r.snr - minSnr) / snrSpan;   // 0 = weakest, 1 = strongest
+        const opacity = 0.18 + norm * 0.72;            // 0.18 → 0.90
+        const weight  = 1 + norm * 2.5;                // 1 px → 3.5 px
+
+        // Great-circle line: TX → reporter (split at antimeridian if needed)
+        const gcSegs = greatCirclePoints(_txLat, _txLon, pos[0], pos[1], 60);
+        gcSegs.forEach(seg => {
+            if (seg.length > 1) {
+                L.polyline(seg, { color: accent, weight, opacity })
+                 .addTo(reporterPlotLayer);
+            }
+        });
+
+        // Reporter circle
+        L.circleMarker(pos, {
+            radius: 5,
+            color: accent,
+            fillColor: accent,
+            fillOpacity: opacity,
+            weight: 1.5,
+        }).bindPopup(
+            `<strong>${r.callsign}</strong><br>` +
+            `Grid: ${r.grid}<br>` +
+            `SNR: ${r.snr} dB<br>` +
+            `Dist: ${r.distance} km`
+        ).addTo(reporterPlotLayer);
+    });
+}
+
+// ── Day / Night / Grayline overlay ──────────────────────────────────────────
+/**
+ * Compute the subsolar point (lat, lon) for a given UTC Date.
+ * Uses a simplified low-accuracy solar position model.
+ */
+function sunPosition(date) {
+    const toRad = d => d * Math.PI / 180;
+    const toDeg = r => r * 180 / Math.PI;
+
+    const JD = date / 86400000 + 2440587.5;
+    const n  = JD - 2451545.0;   // days since J2000.0
+
+    // Mean longitude and mean anomaly (degrees, kept positive)
+    const L0 = ((280.46646 + 0.9856474 * n) % 360 + 360) % 360;
+    const M  = toRad(((357.52911 + 0.9856003 * n) % 360 + 360) % 360);
+
+    // Equation of centre → Sun's true longitude
+    const C   = 1.9146 * Math.sin(M) + 0.0200 * Math.sin(2*M) + 0.0003 * Math.sin(3*M);
+    const lam = toRad(L0 + C);
+
+    // Obliquity, right ascension, declination
+    const eps = toRad(23.439 - 0.0000004 * n);
+    const RA  = Math.atan2(Math.cos(eps) * Math.sin(lam), Math.cos(lam));
+    const dec = Math.asin(Math.sin(eps) * Math.sin(lam));
+
+    // Greenwich Mean Sidereal Time — correct formula with J2000.0 epoch offset.
+    // The old approach (UTC_hours × 15) is off by ~135° today; this is exact.
+    const GMST = ((280.46061837 + 360.98564724 * n) % 360 + 360) % 360;
+
+    // Greenwich Hour Angle → subsolar longitude
+    const GHA = ((GMST - toDeg(RA)) % 360 + 360) % 360;
+    let lon = -GHA;
+    if (lon < -180) lon += 360;
+    if (lon >  180) lon -= 360;
+
+    return { lat: toDeg(dec), lon };
+}
+
+/**
+ * Compute the terminator latitude at a given longitude.
+ *
+ * The terminator satisfies:
+ *   sin(φs)·sin(φ) + cos(φs)·cos(φ)·cos(λ−λs) = 0
+ * Rearranging:
+ *   tan(φ) = −cos(λ−λs) / tan(φs)
+ *   φ = atan(−cos(Δλ) / tan(φs))
+ *
+ * sunLat/sunLon in degrees, lon in degrees, returns lat in degrees.
+ * The optional offsetDeg shifts the boundary (positive = toward night side).
+ */
+function terminatorLatAt(lon, sunLat, sunLon, offsetDeg) {
+    const toRad = d => d * Math.PI / 180;
+    const toDeg = r => r * 180 / Math.PI;
+    offsetDeg = offsetDeg || 0;
+    const dLon   = toRad(lon - sunLon);
+    const tanSun = Math.tan(toRad(sunLat));
+    // Handle near-equinox edge case (terminator is a meridian)
+    if (Math.abs(tanSun) < 1e-9) {
+        return Math.cos(dLon) >= 0 ? -(90 - offsetDeg) : (90 - offsetDeg);
+    }
+    // Basic terminator lat at this longitude
+    const lat = toDeg(Math.atan(-Math.cos(dLon) / tanSun));
+    // Shift toward night by offsetDeg along the meridian
+    // (positive offset pushes boundary into the night side)
+    return lat - offsetDeg * Math.sign(sunLat) * Math.sign(Math.cos(dLon + Math.PI / 2));
+}
+
+/**
+ * Build the night-hemisphere polygon and a pair of terminator line arrays.
+ * Returns { nightPoly, termLine, grayLine }.
+ *
+ * The polygon is constructed as:
+ *   terminator points (lon −180 → 180) + night-pole corners to close it.
+ *
+ * Night pole = south pole when sun is in northern hemisphere, and vice versa.
+ * This is the same approach used by the Leaflet.terminator plugin.
+ */
+function buildNightPolygon(sunLat, sunLon) {
+    const termLine = [];
+    for (let lon = -180; lon <= 180; lon++) {
+        termLine.push([terminatorLatAt(lon, sunLat, sunLon, 0), lon]);
+    }
+    // The night pole is the pole NOT illuminated
+    const nightPole = sunLat >= 0 ? -90 : 90;
+    // Close the polygon by adding the two corners of the night pole strip
+    const nightPoly = termLine.concat([
+        [nightPole, 180],
+        [nightPole, -180]
+    ]);
+    return { nightPoly, termLine };
+}
+
+function renderDayNight() {
+    if (!showDayNight || !liveMap) return;
+    if (!dayNightLayer) {
+        dayNightLayer = L.layerGroup().addTo(liveMap);
+    }
+    dayNightLayer.clearLayers();
+
+    const now = new Date();
+    const sun = sunPosition(now);
+    const { nightPoly, termLine } = buildNightPolygon(sun.lat, sun.lon);
+
+    // Night fill — rendered in the custom dayNightPane (z-index 300) so it
+    // always sits below Reporter Plot lines (default overlayPane, z-index 400),
+    // preventing brightness flicker when the polygon is cleared and redrawn.
+    L.polygon(nightPoly, {
+        color: 'none',
+        fillColor: '#1a3a5c',
+        fillOpacity: 0.40,
+        stroke: false,
+        interactive: false,
+        pane: 'dayNightPane',
+    }).addTo(dayNightLayer);
+
+    // Terminator — single dashed amber line, split at large lat jumps (polar wrap)
+    const segs = [[]];
+    for (let i = 0; i < termLine.length; i++) {
+        segs[segs.length - 1].push(termLine[i]);
+        if (i < termLine.length - 1 &&
+            Math.abs(termLine[i+1][0] - termLine[i][0]) > 60) {
+            segs.push([]);
+        }
+    }
+    segs.forEach(seg => {
+        if (seg.length > 1) {
+            L.polyline(seg, {
+                color: '#fbbf24', weight: 1.5, opacity: 0.80,
+                dashArray: '6 5', interactive: false,
+                pane: 'dayNightPane',
+            }).addTo(dayNightLayer);
+        }
+    });
+}
+
+function clearDayNight() {
+    if (dayNightLayer) dayNightLayer.clearLayers();
+}
+
+function toggleDayNight() {
+    showDayNight = !showDayNight;
+    document.getElementById('swDayNight').className = 'sw' + (showDayNight ? ' on' : '');
+    if (showDayNight) {
+        renderDayNight();
+        _dayNightTimer = setInterval(renderDayNight, 60000);
+    } else {
+        clearInterval(_dayNightTimer);
+        _dayNightTimer = null;
+        clearDayNight();
+    }
+}
+
+// ── Solar conditions ────────────────────────────────────────────────────────
+function toggleSolar() {
+    showSolar = !showSolar;
+    document.getElementById('swSolar').className        = 'sw' + (showSolar ? ' on' : '');
+    document.getElementById('solarPanel').style.display = showSolar ? 'block' : 'none';
+    if (showSolar) {
+        updateSolarPosition();      // also chains → updateReporterListPosition
+        fetchSolarData();
+        _solarTimer = setInterval(fetchSolarData, 60000);
+    } else {
+        clearInterval(_solarTimer);
+        _solarTimer = null;
+        updateReporterListPosition();   // re-stack without solar
+    }
+}
+
+async function fetchSolarData() {
+    if (!showSolar) return;
+    try {
+        const r    = await fetch('/api/solar');
+        const data = await r.json();
+        document.getElementById('solSFI').textContent  = data.sfi      ?? '—';
+        // A-index colour coding (NOAA scale)
+        const aEl  = document.getElementById('solA');
+        const aVal = parseInt(data.aindex) || 0;
+        aEl.textContent = data.aindex ?? '—';
+        aEl.style.color = aVal >= 100 ? '#9333ea'   // Severe storm — purple
+                        : aVal >= 50  ? '#ef4444'   // Major storm  — red
+                        : aVal >= 30  ? '#f97316'   // Minor storm  — orange
+                        : aVal >= 16  ? '#facc15'   // Active       — yellow
+                        : aVal >= 8   ? '#a3e635'   // Unsettled    — yellow-green
+                        : '';                        // Quiet        — default accent
+        // Bz colour coding (nT, diverging scale)
+        const bzEl  = document.getElementById('solBz');
+        const bzVal = parseFloat(data.bz) || 0;
+        bzEl.textContent = data.bz ?? '—';
+        bzEl.style.color = bzVal < -20  ? '#9333ea'   // Severe          — purple
+                         : bzVal < -15  ? '#ef4444'   // Strong storm    — red
+                         : bzVal < -10  ? '#f97316'   // Storm coupling  — orange
+                         : bzVal < -5   ? '#facc15'   // Geoeffective    — yellow
+                         : bzVal < -2   ? '#a3e635'   // Mildly geoeff.  — lime
+                         : bzVal < 0    ? '#4ade80'   // Slightly south  — green
+                         : '';                         // Northward (≥ 0) — default accent
+        // foF2 — default accent colour only
+        document.getElementById('solFoF2').textContent = data.fof2 ? data.fof2.toFixed(2) : '—';
+        // J-MUF colour coding (MHz, band-open scale)
+        const mufEl  = document.getElementById('solMUF');
+        const mufVal = parseFloat(data.muf) || 0;
+        _latestMuf = mufVal;
+        mufEl.textContent = data.muf ? data.muf.toFixed(1) : '—';
+        mufEl.style.color = mufVal >= 35 ? '#9333ea'   // Exceptional    — purple
+                          : mufVal >= 30 ? '#ef4444'   // Outstanding    — red
+                          : mufVal >= 25 ? '#f97316'   // Excellent      — orange
+                          : mufVal >= 22 ? '#facc15'   // Very good      — yellow
+                          : mufVal >= 18 ? '#84cc16'   // Good           — yellow-green
+                          : mufVal >= 15 ? '#a3e635'   // Decent         — lime
+                          : mufVal >= 12 ? '#4ade80'   // Modest         — green
+                          : mufVal >= 8  ? ''          // Low            — default accent
+                          : '#6b7280';                 // Very poor      — gray
+        // Solar wind colour coding (km/s)
+        const swEl  = document.getElementById('solSW');
+        const swVal = parseFloat(data.solarwind) || 0;
+        swEl.textContent = data.solarwind ?? '—';
+        swEl.style.color = swVal >= 1000 ? '#9333ea'   // Extreme        — purple
+                         : swVal >= 800  ? '#ef4444'   // Very fast/CME  — red
+                         : swVal >= 650  ? '#f97316'   // Fast stream    — orange
+                         : swVal >= 550  ? '#facc15'   // Elevated       — yellow
+                         : swVal >= 450  ? '#a3e635'   // Slightly elev. — yellow-green
+                         : '';                          // Slow / quiet   — default accent
+        // Aurora colour coding (0–9 Kp-like scale)
+        const auEl  = document.getElementById('solAU');
+        const auVal = parseInt(data.aurora) || 0;
+        auEl.textContent = data.aurora ?? '—';
+        auEl.style.color = auVal >= 9   ? '#9333ea'   // Extreme storm   — purple
+                         : auVal >= 7   ? '#ef4444'   // Strong/severe   — red
+                         : auVal >= 6   ? '#f43f5e'   // Moderate storm  — red-orange
+                         : auVal >= 5   ? '#f97316'   // Minor storm     — orange
+                         : auVal >= 4   ? '#facc15'   // Active          — yellow
+                         : auVal >= 3   ? '#a3e635'   // Background      — lime
+                         : '';                         // Very quiet 0–2  — default accent
+        // Proton flux colour coding (pfu, NOAA S-scale)
+        const pfEl  = document.getElementById('solPF');
+        const pfVal = parseFloat(data.protonflux) || 0;
+        pfEl.textContent = data.protonflux ?? '—';
+        pfEl.style.color = pfVal >= 100000 ? '#9333ea'   // S5 Extreme     — purple
+                         : pfVal >= 10000  ? '#b91c1c'   // S4 Severe      — dark red
+                         : pfVal >= 1000   ? '#ef4444'   // S3 Strong      — red
+                         : pfVal >= 100    ? '#f97316'   // S2 Moderate    — orange
+                         : pfVal >= 50     ? '#facc15'   // S1 Minor       — yellow
+                         : '';                            // < 50 pfu       — default accent
+        document.getElementById('solarUpdated').textContent = data.updated ? 'Updated: ' + data.updated : '';
+
+        // K-index: green 0–1 (very quiet), default 2–3, orange 4–5, red 6+
+        const kEl = document.getElementById('solK');
+        const kVal = parseInt(data.kindex) || 0;
+        kEl.textContent  = data.kindex ?? '—';
+        kEl.style.color  = kVal >= 6 ? '#ef4444'
+                         : kVal >= 4 ? '#f97316'
+                         : kVal <= 1 ? '#22c55e' : '';
+
+        // X-ray: yellow for C-class, orange for M-class, red for X-class
+        const xEl  = document.getElementById('solX');
+        const xray = (data.xray || '').toUpperCase();
+        xEl.textContent = data.xray ?? '—';
+        xEl.style.color = xray.startsWith('X') ? '#ef4444'
+                        : xray.startsWith('M') ? '#f97316'
+                        : xray.startsWith('C') ? '#facc15' : '';
+    } catch(e) { /* silent */ }
+}
+
+// ── Reporter list ──────────────────────────────────────────────────────────
+function toggleReporterList() {
+    showReporterList = !showReporterList;
+    document.getElementById('swReporterList').className          = 'sw' + (showReporterList ? ' on' : '');
+    document.getElementById('reporterListPanel').style.display   = showReporterList ? 'block' : 'none';
+    if (showReporterList) {
+        updateReporterListPosition();
+        fetchReporterList();
+    } else {
+        updateHistogramPosition();
+    }
+}
+
+async function fetchReporterList() {
+    if (!showReporterList && !showReporterPlot) return;
+    try {
+        const r    = await fetch('/api/reporter_list');
+        const data = await r.json();
+        _reporterListData = data.reporters || [];
+        if (showReporterList) renderReporterList();
+        if (showHistogram)    renderHistogram();
+        if (showReporterPlot) renderReporterPlot();
+    } catch(e) { /* silent */ }
+}
+
+function sortReporterList(key) {
+    _rlSortKey = key;
+    // Update header indicators
+    document.getElementById('thSnr').classList.toggle('sort-active',  key === 'snr');
+    document.getElementById('thDist').classList.toggle('sort-active', key === 'dist');
+    document.getElementById('thSnr').textContent  = 'SNR'  + (key === 'snr'  ? ' ▾' : '');
+    document.getElementById('thDist').textContent = 'Dist' + (key === 'dist' ? ' ▾' : '');
+    renderReporterList();
+}
+
+function renderReporterList() {
+    const tbody = document.getElementById('reporterListBody');
+    if (!_reporterListData.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="rl-empty">No data</td></tr>';
+        return;
+    }
+    const sorted = [..._reporterListData].sort((a, b) =>
+        _rlSortKey === 'dist' ? b.distance - a.distance : b.snr - a.snr
+    );
+    tbody.innerHTML = sorted.map(r => `
+        <tr>
+            <td>${r.band}</td>
+            <td>${r.callsign}</td>
+            <td>${r.grid}</td>
+            <td class="rl-snr">${r.snr > 0 ? '+' : ''}${r.snr}</td>
+            <td class="rl-dist">${r.distance.toLocaleString()}</td>
+        </tr>`).join('');
+}
+
+// ── Histogram ─────────────────────────────────────────────────────────────
+function toggleHistogram() {
+    showHistogram = !showHistogram;
+    document.getElementById('swHgram').className       = 'sw' + (showHistogram ? ' on' : '');
+    document.getElementById('hgramPanel').style.display = showHistogram ? 'block' : 'none';
+    if (showHistogram) {
+        updateHistogramPosition();
+        renderHistogram();
+    } else {
+        if (hgramChart) { hgramChart.destroy(); hgramChart = null; }
+    }
+}
+
+function setHgramMode(mode) {
+    _hgramMode = mode;
+    document.getElementById('htSnr').classList.toggle('active',  mode === 'snr');
+    document.getElementById('htDist').classList.toggle('active', mode === 'dist');
+    renderHistogram();
+}
+
+function renderHistogram() {
+    if (!showHistogram) return;
+    const darkMode  = isDark;
+    const gridColor = darkMode ? '#374151' : '#cbd5e1';
+    const textColor = darkMode ? '#9ca3af' : '#475569';
+
+    let labels, counts, lineColor, fillColor;
+
+    if (_hgramMode === 'snr') {
+        const MIN = -33, STEP = 3, BINS = 15;   // −33 … +9 dB
+        counts = new Array(BINS).fill(0);
+        _reporterListData.forEach(r => {
+            const idx = Math.floor((r.snr - MIN) / STEP);
+            if (idx >= 0 && idx < BINS) counts[idx]++;
+        });
+        labels    = counts.map((_, i) => { const v = MIN + i * STEP; return (v >= 0 ? '+' : '') + v; });
+        lineColor = '#38bdf8';
+        fillColor = 'rgba(56,189,248,0.18)';
+    } else {
+        const maxDist = Math.max(..._reporterListData.map(r => r.distance), 1000);
+        const STEP    = maxDist <= 5000 ? 500 : 1000;
+        const BINS    = Math.ceil(maxDist / STEP) + 1;
+        counts = new Array(BINS).fill(0);
+        _reporterListData.forEach(r => {
+            const idx = Math.floor(r.distance / STEP);
+            if (idx >= 0 && idx < BINS) counts[idx]++;
+        });
+        labels    = counts.map((_, i) => (i * STEP / 1000).toFixed(i * STEP < 1000 ? 1 : 0) + 'k');
+        lineColor = '#38bdf8';
+        fillColor = 'rgba(56,189,248,0.18)';
+    }
+
+    const ctx = document.getElementById('hgramCanvas').getContext('2d');
+
+    if (hgramChart) {
+        hgramChart.data.labels                      = labels;
+        hgramChart.data.datasets[0].data            = counts;
+        hgramChart.data.datasets[0].borderColor     = lineColor;
+        hgramChart.data.datasets[0].backgroundColor = fillColor;
+        hgramChart.options.scales.x.ticks.color = textColor;
+        hgramChart.options.scales.y.ticks.color = textColor;
+        hgramChart.update('none');
+        return;
+    }
+
+    hgramChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                data: counts,
+                borderColor: lineColor,
+                backgroundColor: fillColor,
+                borderWidth: 1.5,
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                tension: 0.4,
+                fill: true,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    titleFont: { size: 10 }, bodyFont: { size: 10 },
+                    callbacks: {
+                        title: items => (_hgramMode === 'snr' ? 'SNR ' : 'Dist ') + items[0].label,
+                        label: item  => 'Stations: ' + item.raw,
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: textColor, font: { size: 9 }, maxRotation: 0 },
+                    grid:  { display: false }
+                },
+                y: {
+                    ticks: { color: textColor, font: { size: 9 }, stepSize: 1, precision: 0 },
+                    grid:  { display: false },
+                    beginAtZero: true,
+                }
+            }
+        }
+    });
+}
+
+// ── Sidebar collapse ───────────────────────────────────────────────────────
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('collapsed');
+    // Let the CSS transition finish before telling Leaflet to resize
+    setTimeout(() => { liveMap && liveMap.invalidateSize(); }, 270);
+    setTimeout(() => { histMap && histMap.invalidateSize(); }, 270);
+}
+
+// ── Trail / Home toggles ───────────────────────────────────────────────────
+function toggleTrail() {
+    showTrail = !showTrail;
+    document.getElementById('swTrail').className = 'sw' + (showTrail ? ' on' : '');
+    if (showTrail) { refreshTrail(); }
+    else if (liveTrail) { liveMap.removeLayer(liveTrail); liveTrail = null; }
+}
+
+// ── View switching ─────────────────────────────────────────────────────────
+function showView(name) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(name+'-view').classList.add('active');
+    document.getElementById('nav-'+name).classList.add('active');
+
+    if (name === 'map') {
+        setTimeout(() => liveMap && liveMap.invalidateSize(), 60);
+    } else if (name === 'history') {
+        if (!histMap) initHistMap();
+        setTimeout(() => histMap && histMap.invalidateSize(), 60);
+        setHistDate(0); loadHistory();
+    } else if (name === 'stats') {
+        setStatsDate(0); loadStats();
+    }
+}
+
+// ── Stats window toggle ────────────────────────────────────────────────────
+function setStatsWindow(w) {
+    statsWindow = w;
+    document.getElementById('tabToday').classList.toggle('active', w === 'today');
+    document.getElementById('tab1h').classList.toggle('active',    w === '1h');
+    document.getElementById('miniStatsTitle').textContent = w === '1h' ? 'Last 1h' : 'Today';
+    fetchTodayStats();
+}
+
+// ── Today / 1h stats sidebar ───────────────────────────────────────────────
+async function fetchTodayStats() {
+    try {
+        let spotCount, maxDX, maxReporters;
+
+        if (statsWindow === '1h') {
+            // Fetch positions from the last hour and aggregate client-side
+            const now = new Date();
+            const ago = new Date(now - 3600 * 1000);
+            const fmt = d => d.toISOString().replace('T', ' ').slice(0, 19);
+            const r     = await fetch(
+                `/api/positions?from=${encodeURIComponent(fmt(ago))}&to=${encodeURIComponent(fmt(now))}&band=${currentBand}`
+            );
+            const spots = await r.json();
+            spotCount   = spots.length;
+            maxDX       = spots.reduce((m, s) => Math.max(m, s.max_distance   || 0), 0);
+            maxReporters= spots.reduce((m, s) => Math.max(m, s.reporter_count || 0), 0);
+        } else {
+            const r  = await fetch(`/api/stats?date=${todayStr()}&band=${currentBand}`);
+            const data = await r.json();
+            const s  = data.stats || {};
+            spotCount    = s.spot_count    || 0;
+            maxDX        = s.max_distance  || 0;
+            maxReporters = s.max_reporters || 0;
+        }
+
+        document.getElementById('todaySpots').textContent     = spotCount;
+        document.getElementById('todayDX').textContent        = maxDX       ? maxDX + ' km' : '—';
+        document.getElementById('todayReporters').textContent = maxReporters || '—';
+        document.getElementById('todayBand').textContent      = BAND_NAMES[currentBand] || currentBand+'MHz';
+    } catch(e) { /* silent */ }
+}
+
+// ── History ────────────────────────────────────────────────────────────────
+function setHistDate(offset) {
+    const d = new Date(); d.setDate(d.getDate() + offset);
+    document.getElementById('histDate').value = d.toISOString().split('T')[0];
+}
+
+async function loadHistory() {
+    const date = document.getElementById('histDate').value;
+    if (!date) return;
+    try {
+        const r     = await fetch(`/api/positions?date=${date}&band=${currentBand}`);
+        const spots = await r.json();
+        renderHistTable(spots);
+        renderHistMap(spots);
+    } catch(e) { showToast('Failed to load history', 'err'); }
+}
+
+function renderHistTable(spots) {
+    const tbody = document.getElementById('histTbody');
+    if (!spots.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="no-data">No data for this date</td></tr>';
+        return;
+    }
+    tbody.innerHTML = [...spots].reverse().map(s =>
+        `<tr>
+            <td>${s.timestamp.split(' ')[1]}</td>
+            <td class="mono">${s.tx_loc}</td>
+            <td>${s.reporter_count}</td>
+            <td>${s.max_distance || '—'}</td>
+        </tr>`
+    ).join('');
+}
+
+function renderHistMap(spots) {
+    if (!histMap) return;
+    if (histTrail) { histMap.removeLayer(histTrail); histTrail = null; }
+    histMarkers.forEach(m => histMap.removeLayer(m));
+    histMarkers = [];
+    if (!spots.length) return;
+
+    const pts = spots.map(s => [s.lat, s.lon]);
+
+    if (pts.length > 1) {
+        histTrail = L.polyline(pts, {
+            color:'#38bdf8', weight:2.5, opacity:.7
+        }).addTo(histMap);
+    }
+
+    spots.forEach((s, i) => {
+        const last   = i === spots.length - 1;
+        const first  = i === 0;
+        const color  = last ? '#38bdf8' : first ? '#4ade80' : '#94a3b8';
+        const radius = last ? 8 : 5;
+        const m = L.circleMarker([s.lat, s.lon], {
+            radius, color, fillColor:color, fillOpacity:.85, weight:2
+        }).addTo(histMap).bindPopup(
+            `<strong>${s.tx_loc}</strong><br>
+             ${s.timestamp}<br>
+             Reporters: ${s.reporter_count}<br>
+             Max DX: ${s.max_distance} km`
+        );
+        histMarkers.push(m);
+    });
+
+    histMap.fitBounds(L.latLngBounds(pts), { padding:[40,40] });
+}
+
+// ── Statistics ─────────────────────────────────────────────────────────────
+function setStatsDate(offset) {
+    const d = new Date(); d.setDate(d.getDate() + offset);
+    document.getElementById('statsDate').value = d.toISOString().split('T')[0];
+}
+
+async function loadStats() {
+    const date = document.getElementById('statsDate').value;
+    if (!date) return;
+    try {
+        const r    = await fetch(`/api/stats?date=${date}&band=${currentBand}`);
+        const data = await r.json();
+        const s    = data.stats || {};
+        const at   = data.all_time || {};
+
+        document.getElementById('stSpots').textContent   = s.spot_count    || 0;
+        document.getElementById('stMaxRprt').textContent = s.max_reporters || '—';
+        document.getElementById('stMaxDX').textContent   = s.max_distance  || '—';
+        document.getElementById('stFirst').textContent   = s.first_spot ? s.first_spot.split(' ')[1] : '—';
+        document.getElementById('stLast').textContent    = s.last_spot  ? s.last_spot.split(' ')[1]  : '—';
+
+        document.getElementById('atSpots').textContent = at.total_spots    || '—';
+        document.getElementById('atDX').textContent    = at.best_dx ? at.best_dx + ' km' : '—';
+        document.getElementById('atRprt').textContent  = at.best_reporters || '—';
+        document.getElementById('atDays').textContent  = at.active_days    || '—';
+        document.getElementById('atFirst').textContent = at.first_ever     || '—';
+        document.getElementById('atLast').textContent  = at.last_ever      || '—';
+
+        const chips = document.getElementById('dateChips');
+        chips.innerHTML = (data.available_dates || []).map(d =>
+            `<span class="quick-btn${d===date?' active-qb':''}"
+                   onclick="document.getElementById('statsDate').value='${d}';loadStats()">${d}</span>`
+        ).join('');
+    } catch(e) { showToast('Failed to load stats', 'err'); }
+}
+
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+let _toastTimer = null;
+function showToast(msg, type='') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = type;
+    t.style.display = 'block';
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => t.style.display = 'none', 3800);
+}
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+function todayStr() {
+    return new Date().toISOString().split('T')[0];
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
+    setHistDate(0);
+    setStatsDate(0);
+    initLiveMap();
+    fetchLatest();
+    setInterval(fetchLatest, 60_000);
+
+    // UTC clock — updates every second
+    function tickUtcClock() {
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        document.getElementById('utcDate').textContent =
+            `${now.getUTCFullYear()}-${pad(now.getUTCMonth()+1)}-${pad(now.getUTCDate())}`;
+        document.getElementById('utcTime').textContent =
+            `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())} UTC`;
+    }
+    tickUtcClock();
+    setInterval(tickUtcClock, 1000);
+});
+</script>
+</body>
+</html>
