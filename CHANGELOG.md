@@ -8,14 +8,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [2026-05-23]
 
 ### Added
-- **wspr.live timeout detection** — `wsprlive_query()` now tracks whether the last
-  query to wspr.live succeeded or failed via a `_wspr_live_down` boolean flag.
-- **"DB Timeout!" propagation indicator** — when wspr.live is unreachable the
+- **wspr.live health check** — a dedicated `check_wsprlive_health()` function runs
+  `SELECT count() AS cnt FROM wspr.rx WHERE time > subtractMinutes(now(), 5)` once
+  per poll cycle (and immediately on startup). Because there are always thousands of
+  WSPR spots globally every few minutes, a count of zero reliably indicates that the
+  ClickHouse database is broken or lagging, even when the HTTP connection itself
+  succeeds. The `_wspr_live_down` flag is set `True` on either a network failure
+  (exception) or an empty count, and cleared only when the health check confirms live
+  data is present.
+- **"DB Timeout!" propagation indicator** — when `_wspr_live_down` is `True` the
   Propagation overlay shows **DB Timeout!** in amber with a "wspr.live unreachable"
-  subtitle instead of "No propagation or TX Fail", making it clear the silence is
-  caused by an external database outage rather than a transmission problem.
+  subtitle, distinguishing a data source outage from "No propagation or TX Fail" and
+  making it immediately clear the silence is external rather than a transmission
+  problem. The indicator clears automatically on the next successful health check.
 - `/api/latest` response now includes a `wspr_down` boolean field so the frontend
-  can react to backend connectivity state without extra API calls.
+  can react to backend connectivity state without any extra API calls.
 
 ---
 

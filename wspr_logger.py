@@ -106,13 +106,32 @@ def wsprlive_query(sql: str):
     try:
         with urllib.request.urlopen(url, timeout=15) as resp:
             result = json.loads(resp.read().decode("utf-8"))["data"]
-        _wspr_live_down = False
         return result
     except Exception as e:
         print(f"[WSPR.live] Query failed: {e}")
         _wspr_live_down = True
         return None
 
+
+def check_wsprlive_health():
+    """Run a global recent-spot count against wspr.live to verify the DB is alive.
+    Sets _wspr_live_down True when the DB is unreachable OR returning no data at all.
+    This is the authoritative source for the flag — called once per poll cycle.
+    """
+    global _wspr_live_down
+    rows = wsprlive_query(
+        "SELECT count() AS cnt FROM wspr.rx WHERE time > subtractMinutes(now(), 5)"
+    )
+    if rows is None:
+        # Exception path — _wspr_live_down already set True by wsprlive_query
+        print("[WSPR.live] Health check: unreachable")
+        return
+    cnt = int(rows[0].get("cnt", 0)) if rows else 0
+    _wspr_live_down = (cnt == 0)
+    if _wspr_live_down:
+        print("[WSPR.live] Health check: DB alive but returning no recent data")
+    else:
+        print(f"[WSPR.live] Health check OK — {cnt} spots in last 5 min globally")
 
 # ---------------------------------------------------------------------------
 # Callsign prefix → Country mapping (ITU allocations)
@@ -856,6 +875,7 @@ def update_thread():
     with _state_lock:
         _cached_countries     = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
         _cached_reporter_list = init_reporters
+    check_wsprlive_health()
     muf_init = fetch_giro_mufd()
     if muf_init:
         db.insert_muf(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), muf_init)
@@ -883,6 +903,7 @@ def update_thread():
                 row           = fetch_latest_spot(CALLSIGN, DEFAULT_BAND)
                 countries     = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
                 reporter_list = fetch_reporter_list(CALLSIGN, DEFAULT_BAND)
+                check_wsprlive_health()
                 with _state_lock:
                     _cached_countries     = countries
                     _cached_reporter_list = reporter_list
