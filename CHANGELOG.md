@@ -5,7 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased]
+## [2026-05-23]
 
 ### Added
 - **wspr.live timeout detection** — `wsprlive_query()` now tracks whether the last
