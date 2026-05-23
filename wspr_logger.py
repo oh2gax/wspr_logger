@@ -65,6 +65,7 @@ _last_update_utc      = None   # ISO string of last successful fetch
 _update_error         = None   # Last error message, if any
 _cached_countries     = []     # Reporter countries from last poll
 _cached_reporter_list = []     # Individual reporter details from last poll
+_wspr_live_down       = False  # True when wspr.live queries are failing
 
 # Solar data cache (refreshed on demand, TTL = 60 s)
 _solar_cache      = {}
@@ -100,12 +101,16 @@ def maidenhead_to_latlon(grid: str):
 # ---------------------------------------------------------------------------
 
 def wsprlive_query(sql: str):
+    global _wspr_live_down
     url = "https://db1.wspr.live/?query=" + urllib.parse.quote_plus(sql + " FORMAT JSON")
     try:
         with urllib.request.urlopen(url, timeout=15) as resp:
-            return json.loads(resp.read().decode("utf-8"))["data"]
+            result = json.loads(resp.read().decode("utf-8"))["data"]
+        _wspr_live_down = False
+        return result
     except Exception as e:
         print(f"[WSPR.live] Query failed: {e}")
+        _wspr_live_down = True
         return None
 
 
@@ -735,6 +740,7 @@ def api_latest():
     spot = db.get_latest_spot(band)
     with _state_lock:
         countries = list(_cached_countries)
+    wspr_down = _wspr_live_down
     spot_out = None
     if spot:
         spot_out = {
@@ -746,7 +752,7 @@ def api_latest():
             "reporter_count": spot["reporter_count"],
             "max_distance":   spot["max_distance"],
         }
-    return jsonify({"spot": spot_out, "countries": countries})
+    return jsonify({"spot": spot_out, "countries": countries, "wspr_down": wspr_down})
 
 
 @app.route('/api/positions')

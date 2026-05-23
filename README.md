@@ -277,6 +277,8 @@ If 2 or more of the current reporters are beyond 6000 km, **& DX** is appended t
 
 When the last spot is older than 1 hour the card shows **No propagation** with a red bar and 0 reporters, regardless of the last recorded value. On the 20 m band during daytime hours (06:00–15:00 UTC), when silence is unusual enough to suggest a transmitter problem, the message changes to **No propagation or TX Fail** as an early warning that the beacon may have stopped transmitting.
 
+When wspr.live is unreachable — for example during a database outage or a network connectivity issue — the card shows **DB Timeout!** in amber with a *wspr.live unreachable* subtitle. This distinguishes an external data source problem from genuine propagation failure or a transmitter fault. The indicator clears automatically as soon as the next successful query to wspr.live completes.
+
 When the Juliusruh ionosonde MUF D=3000 km exceeds 28 MHz, a **⚡ HIGH MUF** label appears in purple above the condition text, indicating enhanced propagation conditions regardless of the current reporter count.
 
 **Reporter Countries** (top-right, below propagation) *(optional)* — unique countries from the past 60 minutes, sorted by station count, with proportional bars. Loads instantly from the backend cache; refreshes every 10 minutes with the poll cycle.
@@ -376,7 +378,7 @@ wspr_logger/
 
 | Endpoint | Method | Parameters | Description |
 |----------|--------|------------|-------------|
-| `/api/latest` | GET | `band` | Most recent spot, server status, and cached reporter countries |
+| `/api/latest` | GET | `band` | Most recent spot, cached reporter countries, and `wspr_down` flag indicating whether wspr.live is currently reachable |
 | `/api/positions` | GET | `date`, or `from`+`to`, `band` | List of spots for a date or time range |
 | `/api/stats` | GET | `date`, `band` | Aggregated stats for a date plus all-time records |
 | `/api/reporters` | GET | — | Cached reporter countries from the past 60 minutes |

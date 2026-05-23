@@ -1202,6 +1202,8 @@ async function fetchLatest() {
         } else {
             setStatus(null, false);
         }
+        // Override propagation display if wspr.live is unreachable
+        if (data.wspr_down) updatePropagation(0, false, true);
         fetchTodayStats();
 
         // Determine staleness here so all panels react consistently
@@ -1318,10 +1320,18 @@ function getPropCondition(n) {
     return              { text: 'Exceptional',     color: '#a855f7', pct: 100 };
 }
 
-function updatePropagation(reporter_count, stale = false) {
+function updatePropagation(reporter_count, stale = false, wspr_down = false) {
     const el        = document.getElementById('propCondition');
     const highMufEl = document.getElementById('propHighMuf');
     highMufEl.style.display = (_latestMuf > 28) ? 'block' : 'none';
+    if (wspr_down) {
+        el.textContent  = 'DB Timeout!';
+        el.style.color  = '#f59e0b';
+        document.getElementById('propBarFill').style.width      = '5%';
+        document.getElementById('propBarFill').style.background = '#f59e0b';
+        document.getElementById('propReporters').textContent    = 'wspr.live unreachable';
+        return;
+    }
     if (stale) {
         // On 20 m during daytime (06–15 UTC) silence is suspicious — flag TX Fail
         const utcHour = new Date().getUTCHours();
