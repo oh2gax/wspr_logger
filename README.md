@@ -92,7 +92,23 @@ source venv/bin/activate
 pip install flask
 ```
 
-### 3 — Edit the configuration file
+### 3 — Add your CARTO Basemaps API key
+
+The dark/light map tiles are served by [CARTO Basemaps](https://carto.com/basemaps/apikey/), which now requires a free API key — without one the map shows an "API key required" watermark. Copy the template and fill in your key:
+
+```bash
+cp api_keys.py.example api_keys.py
+```
+
+Edit `api_keys.py`:
+
+```python
+CARTO_API_KEY = "your-carto-key-here"
+```
+
+`api_keys.py` is listed in `.gitignore` and is never committed — this keeps your key out of the public repository while letting you develop and push freely. If the file is missing entirely, the server still starts; it just prints a console warning and the map shows the watermark until the key is added. Request a key at [carto.com/basemaps/apikey](https://carto.com/basemaps/apikey/) if you don't already have one — it's free for up to 5,000,000 tile requests per month.
+
+### 4 — Edit the configuration file
 
 Open `config.ini` and set your callsign, preferred band, and server address:
 
@@ -115,7 +131,7 @@ default_lon = 24.0
 default_zoom = 6
 ```
 
-### 4 — Test the server manually
+### 5 — Test the server manually
 
 ```bash
 source venv/bin/activate   # if not already active
@@ -361,15 +377,17 @@ path = wspr_replay.db    ; separate file — safe to delete to reclaim space
 
 ```
 wspr_logger/
-├── config.ini          — station, server, map, database, and replay settings
-├── wspr_logger.py      — Flask app, background polling thread, REST API
-├── db.py               — SQLite read/write layer (live operational data)
-├── replay_db.py        — SQLite read/write layer (replay history database)
-├── requirements.txt    — Python dependencies (flask)
-├── wspr_data.db        — main SQLite database (created automatically on first run)
-├── wspr_replay.db      — replay SQLite database (created automatically, safe to delete)
+├── config.ini              — station, server, map, database, and replay settings
+├── api_keys.py             — local API keys (CARTO, …); gitignored, never committed
+├── api_keys.py.example     — template for api_keys.py; safe to commit
+├── wspr_logger.py          — Flask app, background polling thread, REST API
+├── db.py                   — SQLite read/write layer (live operational data)
+├── replay_db.py            — SQLite read/write layer (replay history database)
+├── requirements.txt        — Python dependencies (flask)
+├── wspr_data.db            — main SQLite database (created automatically on first run)
+├── wspr_replay.db          — replay SQLite database (created automatically, safe to delete)
 └── templates/
-    └── index.html      — single-page frontend (Leaflet.js, Chart.js, vanilla JS)
+    └── index.html          — single-page frontend (Leaflet.js, Chart.js, vanilla JS)
 ```
 
 ---

@@ -1074,10 +1074,11 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
 'use strict';
 
 // ── Constants (injected by Flask) ──────────────────────────────────────────
-const CALLSIGN    = "{{ callsign }}";
-const MAP_LAT     = {{ map_lat }};
-const MAP_LON     = {{ map_lon }};
-const MAP_ZOOM    = {{ map_zoom }};
+const CALLSIGN      = "{{ callsign }}";
+const MAP_LAT       = {{ map_lat }};
+const MAP_LON       = {{ map_lon }};
+const MAP_ZOOM      = {{ map_zoom }};
+const CARTO_API_KEY = "{{ carto_api_key }}";
 
 const BAND_NAMES = {3:'80m',7:'40m',10:'30m',14:'20m',18:'17m',21:'15m',24:'12m',28:'10m'};
 
@@ -1124,11 +1125,12 @@ let histMarkers   = [];
 
 // ── Tile layers ────────────────────────────────────────────────────────────
 function makeTiles(dark) {
+    const key = CARTO_API_KEY ? `?key=${CARTO_API_KEY}` : '';
     return dark
-        ? L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-            { attribution: '© OpenStreetMap © CARTO', maxZoom: 19 })
-        : L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-            { attribution: '© OpenStreetMap © CARTO', maxZoom: 19 });
+        ? L.tileLayer(`https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png${key}`,
+            { attribution: '© OpenStreetMap © CARTO', maxZoom: 19, subdomains: 'abcd' })
+        : L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png${key}`,
+            { attribution: '© OpenStreetMap © CARTO', maxZoom: 19, subdomains: 'abcd' });
 }
 
 function swapTiles(map, oldLayer) {

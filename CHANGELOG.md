@@ -5,6 +5,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Added
+- **CARTO Basemaps API key support** — CARTO now requires a free API key on its
+  raster tile service to remove the "API key required" watermark. The key is
+  loaded from a local, gitignored `api_keys.py` file (`CARTO_API_KEY = "..."`)
+  following the same local-secrets pattern used in other projects:
+  `api_keys.py` holds the real key and is excluded via `.gitignore`;
+  `api_keys.py.example` is the committed template with an empty placeholder.
+  `wspr_logger.py` imports the key with a graceful fallback (empty string plus
+  a console warning) so the server still starts on a machine where the file
+  hasn't been configured yet — the map just keeps the watermark until it is.
+  The key is passed through `render_template()` to the frontend and appended
+  as a `?key=` query parameter on both the dark and light CARTO tile URLs in
+  `makeTiles()`.
+
+---
+
 ## [2026-05-23]
 
 ### Added

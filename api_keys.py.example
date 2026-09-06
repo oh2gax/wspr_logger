@@ -1,0 +1,18 @@
+"""
+api_keys.py.example — Template for local API key storage.
+
+Setup:
+  1. Copy this file to api_keys.py in the same folder:
+       cp api_keys.py.example api_keys.py
+  2. Fill in your own key(s) below.
+  3. api_keys.py is listed in .gitignore and will never be committed —
+     safe to edit freely without worrying about pushing secrets to GitHub.
+
+If api_keys.py is missing entirely, wspr_logger.py still starts; it just
+prints a console warning and CARTO map tiles show the "API key required"
+watermark until the file is added.
+"""
+
+# CARTO Basemaps API key — https://carto.com/basemaps/apikey/
+# Required to remove the "API key required" watermark on the dark/light tile layers.
+CARTO_API_KEY = ""

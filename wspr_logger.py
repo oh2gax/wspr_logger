@@ -21,6 +21,13 @@ from flask import Flask, jsonify, render_template, request
 import db
 import replay_db
 
+try:
+    from api_keys import CARTO_API_KEY
+except ImportError:
+    CARTO_API_KEY = ""
+    print("[WARN] api_keys.py not found — CARTO maps will show a watermark. "
+          "Copy api_keys.py.example to api_keys.py and add your key.")
+
 # ---------------------------------------------------------------------------
 # Load configuration
 # ---------------------------------------------------------------------------
@@ -749,6 +756,7 @@ def index():
         map_lat=MAP_DEFAULT_LAT,
         map_lon=MAP_DEFAULT_LON,
         map_zoom=MAP_DEFAULT_ZOOM,
+        carto_api_key=CARTO_API_KEY,
     )
 
 
