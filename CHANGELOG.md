@@ -68,7 +68,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   changes of the last 10 days (read from this CHANGELOG by `changelog.py`, endpoint
   `/api/whatsnew`) and shows the version as `v.DDMMYYYY` (date of the newest
   entry), with a NEW marker until it has been opened. *About* shows the station:
-  operator, transmitter (200 mW), antenna and home locator.
+  operator, transmitter (200 mW), antenna, home locator and a link to the public
+  GitHub repository.
 - **Statistics page redesign** — day navigation with previous/next arrows and a
   weekday label, an *average reporters* card, a *Longest DX* card that shows the
   percentage of the all-time record (or a trophy on a record day), a *Through the
