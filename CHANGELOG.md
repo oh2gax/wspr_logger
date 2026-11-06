@@ -5,7 +5,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased]
+## [2026-11-06]
+
+### Added
+- **`update.sh` — one-command server update** — pulls the latest version from
+  GitHub on a git-clone installation (such as the AWS server), restarts the
+  systemd service, and verifies that the web page answers with HTTP 200 again.
+  It shows the new commits and changed files first and asks for confirmation
+  (`-y` skips the question). `bash update.sh --rollback` returns to the version
+  that ran before the last update.
+- **Safety checks in `update.sh`** — only fast-forwards (`git merge --ff-only`)
+  and never runs `git reset`, `stash`, or `checkout`, so server-local files
+  (`config.ini` with `host = 127.0.0.1`, `api_keys.py`, the databases) are never
+  overwritten; if GitHub changes a file that is also modified locally, the script
+  stops and explains what to do. Changed `.py` files and templates are
+  syntax-checked straight from git before anything is touched, so a broken or
+  truncated push cannot take the running service down. Both SQLite databases are
+  copied to `<install folder>_backups/` with SQLite's online backup before every
+  update (the 7 newest copies are kept), and `pip install -r requirements.txt`
+  runs only when `requirements.txt` changed.
+- README: new "Updating on a Server" section; `update.sh` added to the project
+  structure.
+
+---
+
+## [2026-09-06]
 
 ### Added
 - **CARTO Basemaps API key support** — CARTO now requires a free API key on its

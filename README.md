@@ -235,6 +235,40 @@ sudo systemctl restart wspr_logger
 
 ---
 
+## Updating on a Server
+
+`update.sh` (in the repository root) brings a git-clone installation up to date with GitHub, restarts the service, and checks that the web page answers again:
+
+```bash
+bash ~/wspr_logger/update.sh
+```
+
+It first shows the new commits and changed files and asks `Update to <hash>? [y/N]`. After you answer `y` it:
+
+1. copies both SQLite databases to `<install folder>_backups/pre_update_<timestamp>/` using SQLite's online backup (safe while the service is running; the 7 newest copies are kept);
+2. syntax-checks every changed `.py` file and template straight from git **before touching anything** — if one fails, nothing is changed and the old version keeps running;
+3. fast-forwards the checkout (`git merge --ff-only`);
+4. runs `pip install -r requirements.txt` only if that file changed;
+5. restarts the service and waits (up to 40 s) until the web page returns HTTP 200.
+
+| Option | Description |
+|--------|-------------|
+| `-y`, `--yes` | Do not ask for confirmation |
+| `--rollback` | Return to the version that was running before the last update and restart |
+| `-h`, `--help` | Show usage |
+
+**Local changes are never overwritten.** Files that differ on the server — typically `config.ini` (for example `host = 127.0.0.1` behind an nginx reverse proxy), `api_keys.py`, and the databases — stay as they are, and the script never runs `git reset`, `git stash`, or `git checkout`. If GitHub changes a file that is *also* modified locally, the script stops without changing anything and explains how to proceed. Because `wspr_data.db` is tracked by git as an empty placeholder, avoid committing a populated database from your development machine — the script would refuse to update rather than overwrite the live data on the server.
+
+**Requirements:** the install must be a `git clone` with a `venv/` folder next to `wspr_logger.py`, and the user must be allowed to run `sudo systemctl restart`. The service name defaults to `wspr-logger`; if your unit is named differently, for example `wspr_logger` as in the example above, set it for the run:
+
+```bash
+SERVICE=wspr_logger bash update.sh
+```
+
+`VERIFY_SECONDS=60` extends the time the script waits for the page after a restart. If the script finds no `api_keys.py`, it warns on every run, because the map would show the CARTO watermark.
+
+---
+
 ## Firewall
 
 If the server has `ufw` enabled, allow the port:
@@ -384,6 +418,7 @@ wspr_logger/
 ├── db.py                   — SQLite read/write layer (live operational data)
 ├── replay_db.py            — SQLite read/write layer (replay history database)
 ├── requirements.txt        — Python dependencies (flask)
+├── update.sh               — server update: pull from GitHub, back up databases, restart, verify
 ├── wspr_data.db            — main SQLite database (created automatically on first run)
 ├── wspr_replay.db          — replay SQLite database (created automatically, safe to delete)
 └── templates/
