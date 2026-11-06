@@ -745,6 +745,44 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
 .wn-sec.other   { color: var(--text-muted); border: 1px solid var(--border); }
 .wn-list { margin: 0 0 0 18px; padding: 0; }
 .wn-list li { margin: 2px 0; font-size: 12px; color: var(--text-secondary); }
+/* ── Analysis: DX outlook and grey line ── */
+.ol-table { border-collapse: separate; border-spacing: 2px; width: 100%; font-size: 11px; }
+.ol-table th { font-weight: 400; color: var(--text-muted); text-align: center; padding: 2px 0; }
+.ol-table td.ol-cell { text-align: center; padding: 6px 0; border-radius: 3px; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.ol-table td.ol-name { text-align: left; white-space: nowrap; padding-right: 8px; color: var(--text-primary); font-weight: 600; }
+.ol-pill { display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 9px; border: 1px solid var(--border); color: var(--text-muted); }
+.ol-pill.likely { color: #4ade80; border-color: #4ade80; }
+.ol-pill.possible { color: #f59e0b; border-color: #f59e0b; }
+.ol-cond { font-size: 12px; color: var(--text-secondary); margin: 0 0 8px; }
+.an-gl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.an-gl-title { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.an-gl-title span { font-weight: 400; color: var(--text-muted); font-size: 11px; }
+.an-gl-stat { font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; }
+
+/* ── WPRS trip cards ── */
+.wprs-tabs { display: flex; gap: 4px; padding: 6px 10px 0; border-bottom: 1px solid var(--border); }
+.wprs-tabs .info-tab { margin-bottom: -1px; }
+.wprs-trip { padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.wprs-trip:hover { background: var(--input-bg); }
+.wprs-trip.sel { background: var(--accent-bg); box-shadow: inset 3px 0 0 var(--accent); }
+.wprs-tstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 6px; }
+.wprs-tstats b { display: block; font-size: 14px; color: var(--accent); line-height: 1.2; }
+.wprs-tstats span { font-size: 9px; text-transform: uppercase; letter-spacing: .4px; color: var(--text-muted); }
+
+/* ── Fix age label at the beacon marker ── */
+.leaflet-tooltip.fixage { background: var(--overlay-bg); border: 1px solid #4ade80; color: #4ade80; font-size: 11px;
+                          padding: 2px 7px; box-shadow: none; pointer-events: none; }
+.leaflet-tooltip.fixage::before { display: none; }
+.leaflet-tooltip.fixage.warn { border-color: #f59e0b; color: #f59e0b; }
+.leaflet-tooltip.fixage.old  { border-color: #ef4444; color: #ef4444; }
+
+/* ── Movable map panels ── */
+.drag-handle { pointer-events: auto; cursor: grab; user-select: none; touch-action: none; }
+body.panel-dragging, body.panel-dragging .drag-handle { cursor: grabbing; user-select: none; }
+.pinned { position: absolute; transition: none !important; }
+.panel-reset { cursor: pointer; font-size: 11px; color: var(--text-muted); }
+.panel-reset:hover { color: var(--accent); }
+
 /* ── WPRS page ── */
 .wprs-sub { font-size: 11px; color: var(--text-muted); }
 .wprs-body { flex: 1; display: flex; overflow: hidden; }
@@ -995,6 +1033,9 @@ html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1,
             <div class="toggle-row">
                 <span>History Player</span>
                 <div class="sw" id="swReplay" onclick="toggleReplay()"></div>
+            </div>
+            <div class="toggle-row" style="justify-content:flex-start;">
+                <span class="panel-reset" onclick="resetAllPanels()" title="Put every panel back to its default place">&#8634; Reset panel positions</span>
             </div>
         </div>
 
@@ -1301,6 +1342,13 @@ html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1,
                         <div><div class="an-now-lbl">Compared with history</div><div class="an-now-val" id="anNowVerdict">—</div><div class="an-now-sub" id="anNowBasis"></div></div>
                     </div>
                 </div>
+                <div class="an-card wide" id="anOutlookCard" style="display:none;">
+                    <div class="an-card-title">DX outlook &mdash; next 12 hours (UTC)</div>
+                    <div class="an-card-sub">Chance that at least one reporter beyond 6000 km from the region is heard in that hour, from how often it has happened in the same hour of the day, adjusted for the present MUF level and K-index.</div>
+                    <div class="ol-cond" id="anOlCond"></div>
+                    <div style="overflow-x:auto;"><table class="ol-table" id="anOlTable"></table></div>
+                    <div class="an-card-sub" id="anOlNote" style="margin:8px 0 0;"></div>
+                </div>
                 <div class="an-card wide">
                     <div class="an-head-row">
                         <div>
@@ -1353,6 +1401,12 @@ html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1,
                     <div class="an-card-sub">Bars: average stations heard. Line: share of snapshots with a reporter beyond 6000 km. The current month may be incomplete (see tooltip).</div>
                     <div class="an-chart"><canvas id="anDxMonth"></canvas></div>
                 </div>
+                <div class="an-card wide" id="anGlCard" style="display:none;">
+                    <div class="an-card-title">Grey line and long-distance windows</div>
+                    <div class="an-card-sub" id="anGlSub"></div>
+                    <div class="an-gl-grid" id="anGlBody"></div>
+                    <div class="an-card-sub" id="anGlNote" style="margin:10px 0 0;"></div>
+                </div>
                 <div class="an-card">
                     <div class="an-card-title" id="anRecTitle">Farthest reporters</div>
                     <div class="an-card-sub">One row per station (its longest distance in the period). &#9654; opens that moment in the History Player.</div>
@@ -1360,6 +1414,7 @@ html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1,
                         <table class="htbl"><thead><tr><th>#</th><th>Station</th><th>Distance</th><th>When (UTC)</th><th></th></tr></thead>
                         <tbody id="anRecBody"></tbody></table>
                     </div>
+                    <div class="an-card-sub" id="anExcluded" style="margin:8px 0 0;"></div>
                 </div>
                 <div class="an-card wide">
                     <div class="an-head-row">
@@ -1392,10 +1447,15 @@ html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1,
         <div class="view-header">
             <span class="view-title">📍 WPRS</span>
             <span class="wprs-sub">Whisper Position Reporting System &mdash; where the 6-character locator of each transmission put the car</span>
+            <span class="quick-btn" onclick="wprsCopyLink()" title="Copy a link that opens this drive (day, span and the fix shown)" style="margin-left:auto;">&#128279; Copy link</span>
         </div>
         <div class="wprs-body">
             <div class="wprs-side">
-                <div class="wprs-filter">
+                <div class="wprs-tabs">
+                    <button class="info-tab on" id="wprsTabDays" onclick="wprsTab('days')">Days</button>
+                    <button class="info-tab" id="wprsTabTrips" onclick="wprsTab('trips')">Trips</button>
+                </div>
+                <div class="wprs-filter" id="wprsFilter">
                     Days with movement or distance from home of at least
                     <br>
                     <select class="replay-input" id="wprsMin" onchange="wprsFilterChanged()">
@@ -1415,11 +1475,13 @@ html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1,
                     <div class="wprs-count" id="wprsCount"></div>
                 </div>
                 <div class="wprs-list" id="wprsList"><div class="an-empty">Loading&hellip;</div></div>
+                <div class="wprs-list" id="wprsTrips" style="display:none;"></div>
                 <div class="wprs-note">
                     Every transmission carries the locator the transmitter computed from its GPS fix, so the logged spots form a track
                     with the resolution of one Maidenhead subsquare (about 4.6&nbsp;km). <b>Moved</b> = largest distance between two squares used that day;
                     <b>away</b> = farthest distance from the home square (the most frequent locator), which also catches days parked far from home.
-                    Days are UTC days.
+                    Days are UTC days. A <b>trip</b> is a run of fixes more than 25&nbsp;km from home that lasts until the car is back near home
+                    (silent night-time gaps of up to 36&nbsp;h do not end it); its path includes the legs out and back.
                 </div>
             </div>
             <div class="wprs-mapwrap">
@@ -1724,12 +1786,37 @@ function updateLiveDisplay(spot) {
         }).addTo(liveMap).bindPopup(popup);
         liveMap.panTo([lat, lon]);
     }
+    if (!liveMarker.getTooltip()) {
+        liveMarker.bindTooltip('', { permanent: true, direction: 'right', offset: [12, 0], className: 'fixage', interactive: false });
+    }
+    updateFixAge();
 
     // Propagation
     updatePropagation(reporter_count, stale);
 
     // Trail
     if (showTrail) refreshTrail();
+}
+
+// How old the latest fix is: a label at the marker and a line in the position card.
+// Green up to 25 min (a transmission every 10 min plus the upload delay), amber to 60 min, red beyond.
+function updateFixAge() {
+    if (!liveMarker || !latestSpot) return;
+    const min = Math.max(0, Math.round((Date.now() - new Date(latestSpot.timestamp.replace(' ', 'T') + 'Z')) / 60000));
+    const txt = min < 60 ? `${min} min ago`
+              : min < 2880 ? `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')} min ago`
+              : `${Math.floor(min / 1440)} days ago`;
+    const tt = liveMarker.getTooltip();
+    if (tt) {
+        tt.setContent('last fix ' + txt);
+        const el = tt.getElement();
+        if (el) {
+            el.classList.toggle('warn', min > 25 && min <= 60);
+            el.classList.toggle('old', min > 60);
+            el.style.display = _replayActive ? 'none' : '';
+        }
+    }
+    if (!_replayActive) document.getElementById('ovTime').textContent = latestSpot.timestamp + ' UTC · ' + txt;
 }
 
 async function refreshTrail() {
@@ -1858,17 +1945,20 @@ function updateCountryOverlay(list) {
 }
 
 // ── Solar panel positioning ────────────────────────────────────────────────
+// Panels the user has moved (pinned) take no part in the automatic stacking.
 function updateSolarPosition() {
     const solar = document.getElementById('solarPanel');
     if (!solar || solar.style.display === 'none') {
         updateReporterListPosition();
         return;
     }
-    if (showMuf) {
-        const muf = document.getElementById('mufPanel');
-        solar.style.top = (muf.offsetTop + muf.offsetHeight + 8) + 'px';
-    } else {
-        solar.style.top = '12px';
+    if (!isPinned('solarPanel')) {
+        if (showMuf && !isPinned('mufPanel')) {
+            const muf = document.getElementById('mufPanel');
+            solar.style.top = (muf.offsetTop + muf.offsetHeight + 8) + 'px';
+        } else {
+            solar.style.top = '12px';
+        }
     }
     // Chain: reporter list goes below solar
     updateReporterListPosition();
@@ -1880,33 +1970,145 @@ function updateReporterListPosition() {
         updateHistogramPosition();
         return;
     }
-    if (showSolar) {
-        const solar = document.getElementById('solarPanel');
-        panel.style.top = (solar.offsetTop + solar.offsetHeight + 8) + 'px';
-    } else if (showMuf) {
-        const muf = document.getElementById('mufPanel');
-        panel.style.top = (muf.offsetTop + muf.offsetHeight + 8) + 'px';
-    } else {
-        panel.style.top = '12px';
+    if (!isPinned('reporterListPanel')) {
+        if (showSolar && !isPinned('solarPanel')) {
+            const solar = document.getElementById('solarPanel');
+            panel.style.top = (solar.offsetTop + solar.offsetHeight + 8) + 'px';
+        } else if (showMuf && !isPinned('mufPanel')) {
+            const muf = document.getElementById('mufPanel');
+            panel.style.top = (muf.offsetTop + muf.offsetHeight + 8) + 'px';
+        } else {
+            panel.style.top = '12px';
+        }
     }
     updateHistogramPosition();
 }
 
 function updateHistogramPosition() {
     const panel = document.getElementById('hgramPanel');
-    if (!panel || panel.style.display === 'none') return;
-    if (showReporterList) {
+    if (!panel || panel.style.display === 'none' || isPinned('hgramPanel')) return;
+    if (showReporterList && !isPinned('reporterListPanel')) {
         const rl = document.getElementById('reporterListPanel');
         panel.style.top = (rl.offsetTop + rl.offsetHeight + 8) + 'px';
-    } else if (showSolar) {
+    } else if (showSolar && !isPinned('solarPanel')) {
         const solar = document.getElementById('solarPanel');
         panel.style.top = (solar.offsetTop + solar.offsetHeight + 8) + 'px';
-    } else if (showMuf) {
+    } else if (showMuf && !isPinned('mufPanel')) {
         const muf = document.getElementById('mufPanel');
         panel.style.top = (muf.offsetTop + muf.offsetHeight + 8) + 'px';
     } else {
         panel.style.top = '12px';
     }
+}
+
+// ── Movable map panels ─────────────────────────────────────────────────────
+// Drag a panel by its title; the place is remembered per browser. Double-click the
+// title (or "Reset panel positions" in the sidebar) puts it back. The date / time
+// card, the Propagation overlay under it and the MUF graph stay where they are.
+const PANEL_HANDLES = {
+    solarPanel: '.ov-lbl', reporterListPanel: '.rl-title',
+    hgramPanel: '.hgram-title', countryOverlay: '.ov-lbl',
+};
+const PANEL_POS_KEY = 'wspr_panel_pos';
+let _panelPos = {};              // id -> {x, y, w}: px from the top-left of the map view
+let _panelZ = 500;
+const _panelHome = {};           // id -> comment node marking the original place of a reparented overlay
+
+function isPinned(id) { return !!_panelPos[id]; }
+function panelSavePos() { try { localStorage.setItem(PANEL_POS_KEY, JSON.stringify(_panelPos)); } catch(e) {} }
+
+function panelApply(el, p) {
+    const mv = document.getElementById('map-view');
+    if (el.parentNode !== mv) {              // the overlays sit in a flex column: move them out of it
+        const ph = document.createComment('panel-home');
+        el.parentNode.insertBefore(ph, el);
+        _panelHome[el.id] = ph;
+        mv.appendChild(el);
+    }
+    el.classList.add('pinned');
+    el.style.right = 'auto'; el.style.bottom = 'auto';
+    el.style.left = p.x + 'px'; el.style.top = p.y + 'px';
+    if (p.w) el.style.width = p.w + 'px';
+}
+
+function panelClamp(id) {
+    const el = document.getElementById(id), p = _panelPos[id], mv = document.getElementById('map-view');
+    if (!el || !p || !mv.clientWidth) return;        // map view hidden: leave positions alone
+    const w = el.offsetWidth || p.w || 200, h = el.offsetHeight || 40;
+    const x = Math.min(Math.max(p.x, 4), Math.max(4, mv.clientWidth - w - 4));
+    const y = Math.min(Math.max(p.y, 4), Math.max(4, mv.clientHeight - Math.min(h, 60) - 4));   // keep the title reachable
+    if (x !== p.x || y !== p.y) { p.x = x; p.y = y; el.style.left = x + 'px'; el.style.top = y + 'px'; }
+}
+
+function panelDown(e, el) {
+    if (e.button !== undefined && e.button !== 0) return;
+    const mv = document.getElementById('map-view');
+    const x0 = e.clientX, y0 = e.clientY;
+    let moved = false, base = null;
+    const move = ev => {
+        const dx = ev.clientX - x0, dy = ev.clientY - y0;
+        if (!moved) {
+            if (Math.abs(dx) + Math.abs(dy) < 4) return;       // a click, not a drag
+            moved = true;
+            const r = el.getBoundingClientRect(), m = mv.getBoundingClientRect();
+            base = { x: r.left - m.left, y: r.top - m.top };
+            _panelPos[el.id] = { x: base.x, y: base.y, w: Math.round(r.width) };
+            panelApply(el, _panelPos[el.id]);
+            _panelZ = Math.min(_panelZ + 1, 590);
+            el.style.zIndex = _panelZ;                          // the panel you move comes to the front
+            document.body.classList.add('panel-dragging');
+        }
+        const p = _panelPos[el.id];
+        p.x = base.x + dx; p.y = base.y + dy;
+        el.style.left = p.x + 'px'; el.style.top = p.y + 'px';
+        panelClamp(el.id);
+    };
+    const up = () => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', up);
+        document.body.classList.remove('panel-dragging');
+        if (moved) { panelSavePos(); updateSolarPosition(); }
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    e.preventDefault();
+}
+
+function panelReset(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    delete _panelPos[id];
+    panelSavePos();
+    el.classList.remove('pinned');
+    ['left', 'top', 'right', 'bottom', 'width', 'zIndex'].forEach(k => { el.style[k] = ''; });
+    const ph = _panelHome[id];
+    if (ph && ph.parentNode) { ph.parentNode.insertBefore(el, ph); ph.remove(); }
+    delete _panelHome[id];
+    updateSolarPosition();
+}
+
+function resetAllPanels() { Object.keys(PANEL_HANDLES).forEach(panelReset); showToast('Panel positions reset'); }
+
+function initMovablePanels() {
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(PANEL_POS_KEY)) || {}; } catch(e) {}
+    for (const [id, sel] of Object.entries(PANEL_HANDLES)) {
+        const el = document.getElementById(id), handle = el && el.querySelector(sel);
+        if (!handle) continue;
+        handle.classList.add('drag-handle');
+        handle.title = 'Drag to move · double-click to reset';
+        const q = saved[id];
+        if (q && Number.isFinite(q.x) && Number.isFinite(q.y)) {
+            _panelPos[id] = { x: q.x, y: q.y, w: Number.isFinite(q.w) ? q.w : 0 };
+            panelApply(el, _panelPos[id]);
+        }
+        handle.addEventListener('pointerdown', e => panelDown(e, el));
+        handle.addEventListener('dblclick', () => panelReset(id));
+        if (window.ResizeObserver) new ResizeObserver(() => panelClamp(id)).observe(el);
+    }
+    window.addEventListener('resize', () => Object.keys(_panelPos).forEach(panelClamp));
 }
 
 // ── MUF graph ──────────────────────────────────────────────────────────────
@@ -2824,6 +3026,11 @@ function showView(name) {
         setTimeout(() => wprsMap && wprsMap.invalidateSize(), 60);
         loadWprs();
     }
+    // The address bar follows the page, so a copied link opens the same view
+    // (history and statistics add their date when they load, WPRS its drive).
+    if (name === 'map') setHash('');
+    else if (name === 'wprs') setHash(wprsSel ? wprsHash() : 'wprs');
+    else if (name === 'analysis') setHash('analysis');
 }
 
 // ── Stats window toggle ────────────────────────────────────────────────────
@@ -2878,6 +3085,7 @@ function setHistDate(offset) {
 async function loadHistory() {
     const date = document.getElementById('histDate').value;
     if (!date) return;
+    setHash('history=' + date);
     try {
         const r     = await fetch(`/api/positions?date=${date}&band=${currentBand}`);
         const spots = await r.json();
@@ -2965,6 +3173,7 @@ function setStatsRange(n) {
 async function loadStats() {
     const date = document.getElementById('statsDate').value;
     if (!date) return;
+    setHash('stats=' + date);
     try {
         const [data, pos, daily] = await Promise.all([
             fetch(`/api/stats?date=${date}&band=${currentBand}`).then(r => r.json()),
@@ -3120,6 +3329,110 @@ function setHeatMetric(m) {
     drawHeatmap();
 }
 
+// ── DX outlook card ────────────────────────────────────────────────────────
+function drawOutlook() {
+    const o = _anData.outlook, card = document.getElementById('anOutlookCard');
+    if (!o || !o.zones || !o.zones.length) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    const mufTxt = o.muf ? `MUF ${o.muf.toFixed(1)} MHz` + (o.muf_class ? ` (${o.muf_class} for this hour)` : '') : 'no recent MUF reading';
+    const kTxt = o.k != null ? `K-index ${o.k} (${o.k_class})` : 'no recent K reading';
+    document.getElementById('anOlCond').textContent = o.adjusted
+        ? `Adjusted for the present conditions, assumed to persist: ${mufTxt}, ${kTxt}.`
+        : `Showing how often it has happened in that hour of the day (present MUF and K are not applied, see the note). Now: ${mufTxt}, ${kTxt}.`;
+    const model = _anData.outlook_model || { zones: {} };
+    const hours = o.zones[0].cells.map(c => c.hour);
+    let html = '<tr><th></th>' + hours.map((h, i) => `<th>${String(h).padStart(2, '0')}${i === 0 ? '<br>now' : ''}</th>`).join('') + '<th>next 3 h</th><th>best in 12 h</th></tr>';
+    for (const z of o.zones) {
+        const zm = model.zones[z.zone] || {};
+        const lm = (zm.lift_muf || {})[o.muf_class] ?? 1, lk = (zm.lift_k || {})[o.k_class] ?? 1;
+        html += `<tr><td class="ol-name">${escHtml(z.name)}</td>` + z.cells.map(c => {
+            const a = Math.min(1, c.p / 0.6) * 0.85;
+            return `<td class="ol-cell" style="background:rgba(74,222,128,${a.toFixed(2)})" ` +
+                `title="usual for this hour ${(c.base * 100).toFixed(0)} %${o.adjusted ? ` · MUF ×${lm} · K ×${lk}` : ''}">${Math.round(c.p * 100)}</td>`;
+        }).join('') + `<td style="text-align:center"><span class="ol-pill ${z.label}">${z.label}</span></td>` +
+            `<td style="text-align:center;white-space:nowrap;color:var(--text-secondary)">${String(z.best_hour).padStart(2, '0')} UTC · ${Math.round(z.best_p * 100)} %</td></tr>`;
+    }
+    document.getElementById('anOlTable').innerHTML = html;
+    const sk = (_anData.outlook_model || {}).skill;
+    document.getElementById('anOlNote').textContent =
+        'Cells show percent, from the whole history (the period buttons do not change them). A descriptive estimate from this station’s own history, not a physical forecast. ' +
+        (sk ? (o.adjusted
+              ? `The MUF and K adjustment is applied because it helped in a back-test (fitted before ${sk.split}, scored on the ${sk.test_days} later days, 6 hours ahead): Brier score ${sk.brier_model} against ${sk.brier_climatology} for the hour of the day alone, ${(sk.skill * 100).toFixed(1)} % better, a small gain.`
+              : `The MUF and K adjustment was tested (fitted before ${sk.split}, scored on the ${sk.test_days} later days, 6 hours ahead) and did not beat the hour of the day alone (Brier ${sk.brier_model} against ${sk.brier_climatology}), so it is not applied.`)
+             : 'Too little history for a back-test yet, so only the hour of the day is used.');
+}
+
+// ── Grey-line card ─────────────────────────────────────────────────────────
+const GL_COLORS = { n_america: '#f59e0b', africa: '#4ade80', pacific: '#f87171', s_america: '#a78bfa', asia: '#2dd4bf' };
+
+function sunLinesPlugin(marks) {
+    return { id: 'sunLines', beforeDatasetsDraw(ch) {
+        const ctx = ch.ctx, ca = ch.chartArea, x = ch.scales.x;
+        const px = t => Math.min(Math.max(x.getPixelForValue(t - 0.5), ca.left), ca.right);
+        ctx.save();
+        for (const m of marks) {
+            if (!m.t) continue;
+            const [q1, md, q3] = m.t, band = (a, b) => { ctx.fillStyle = m.color + '30'; ctx.fillRect(px(a), ca.top, px(b) - px(a), ca.bottom - ca.top); };
+            if (q1 <= q3) band(q1, q3); else { band(q1, 24); band(0, q3); }
+            ctx.strokeStyle = m.color; ctx.lineWidth = 1.5; ctx.setLineDash(m.dash);
+            const xm = px(md); ctx.beginPath(); ctx.moveTo(xm, ca.top); ctx.lineTo(xm, ca.bottom); ctx.stroke();
+            ctx.setLineDash([]); ctx.fillStyle = m.color; ctx.font = '10px sans-serif';
+            ctx.fillText(m.lbl, Math.min(xm + 3, ca.right - 16), ca.top + 10);
+        }
+        ctx.restore();
+    } };
+}
+
+function drawGreyline() {
+    const g = _anData.greyline, card = document.getElementById('anGlCard');
+    if (!g || !g.zones || !g.zones.length) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    const c = anColors();
+    document.getElementById('anGlSub').textContent =
+        `Bars: share of days with a reporter beyond 6000 km from the region, by UTC hour. Lines: sunrise (▲) and sunset (▼), median and quartiles over the period, ` +
+        `at home (grey, H) and at the far end (colour, F: the median position of the region's reporters).`;
+    document.getElementById('anGlBody').innerHTML = g.zones.map((z, i) =>
+        `<div><div class="an-gl-title">${escHtml(z.name)} <span>· ${z.days} days · far end ≈ ${Math.abs(z.lat)}°${z.lat >= 0 ? 'N' : 'S'} ${Math.abs(z.lon)}°${z.lon >= 0 ? 'E' : 'W'}</span></div>` +
+        `<div class="an-chart" style="height:170px;"><canvas id="anGl${i}"></canvas></div><div class="an-gl-stat" id="anGlStat${i}"></div></div>`).join('');
+    g.zones.forEach((z, i) => {
+        const col = GL_COLORS[z.zone] || c.accent;
+        const marks = [
+            { t: g.home.rise, color: '#94a3b8', dash: [4, 3], lbl: 'H▲' }, { t: g.home.set, color: '#94a3b8', dash: [4, 3], lbl: 'H▼' },
+            { t: z.far.rise, color: col, dash: [], lbl: 'F▲' }, { t: z.far.set, color: col, dash: [], lbl: 'F▼' },
+        ];
+        anChart('anGl' + i, {
+            type: 'bar',
+            data: { labels: [...Array(24).keys()], datasets: [{ data: z.by_hour.map(v => v ?? 0), backgroundColor: col + 'cc', borderWidth: 0 }] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: it => `${it.parsed.y} % of days at ${String(it.label).padStart(2, '0')} UTC` } } },
+                scales: {
+                    x: { ticks: { color: c.text, maxRotation: 0, callback: (v, k) => (k % 3 === 0 ? k : '') }, grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { color: c.text, callback: v => v + '%' }, grid: { color: c.grid } },
+                },
+            },
+            plugins: [sunLinesPlugin(marks)],
+        });
+        const clear = z.z !== null && z.z >= 2 && z.ratio >= 1.1;
+        document.getElementById('anGlStat' + i).innerHTML =
+            `Twilight at either end in <b>${z.tw_obs_pct} %</b> of its DX hours; the same hours on the other days: ${z.tw_exp_pct} %` +
+            (z.ratio ? ` (×${z.ratio}, z = ${z.z})` : '') + `. ` +
+            (clear ? 'DX is somewhat more likely when the terminator is on the path.' : 'No clear grey-line preference beyond the hour of the day.');
+    });
+    document.getElementById('anGlNote').textContent =
+        `Twilight means the sun within ±${g.twilight_deg}° of the horizon. The comparison keeps the UTC hour fixed and asks whether DX favours the days on which the terminator happens to be there; ` +
+        `z is the number of standard errors between the observed and the expected count (about 2 or more is a real difference). Home is ${g.home.loc}; the far end is one position per region.`;
+}
+
+function drawExcluded() {
+    const ex = _anData.excluded || [], el = document.getElementById('anExcluded');
+    el.textContent = ex.length
+        ? 'Left out as implausible (the reported distance contradicts the station’s own grid by more than 500 km): ' +
+          ex.map(o => `${o.callsign} (${o.grid}): ${o.reported_km.toLocaleString('en-GB')} km reported, ${o.grid_km.toLocaleString('en-GB')} km by grid`).join('; ') + '.'
+        : '';
+}
+
+
 function renderAnalysis() {
     const d = _anData, empty = document.getElementById('anEmpty'), body = document.getElementById('anBody');
     if (!d || d.empty) {
@@ -3160,7 +3473,10 @@ function renderAnalysis() {
         : '<tr><td colspan="6" class="no-data">No storm days in this period</td></tr>';
 
     renderNowCard(d.now);
+    drawOutlook();
     drawDxCharts();
+    drawGreyline();
+    drawExcluded();
     document.getElementById('anRecTitle').textContent = `Farthest reporters (${_anDays ? 'last ' + _anDays + ' days' : 'all history'})`;
     document.getElementById('anRecBody').innerHTML = (d.records || []).length
         ? d.records.map((r, i) => `<tr><td>${i + 1}</td><td><strong>${escHtml(r.callsign)}</strong> ` +
@@ -3574,6 +3890,8 @@ let wprsData = null;             // /api/wprs/days
 let wprsSel = null;              // first UTC date of the shown range
 let wprsTrack = null;            // /api/wprs/track
 let wprsIdx = 0, wprsTimer = null, wprsPlayed = null, wprsCursor = null;
+let wprsTab_ = 'days';
+let wprsPendingFix = null;       // fix index asked for by a shared link, applied when the track has loaded
 
 function initWprsMap() {
     wprsMap = L.map('wprs-map', { center: [MAP_LAT, MAP_LON], zoom: MAP_ZOOM - 2 });
@@ -3599,11 +3917,60 @@ async function loadWprs() {
         document.getElementById('wprsList').innerHTML = '<div class="an-empty">Could not load the position history.</div>';
         return;
     }
+    if (wprsSel && !wprsData.days.some(d => d.date === wprsSel && wprsDayPasses(d, +sel.value))) {
+        sel.value = '0';             // a linked day that the filter would hide: show everything
+    }
     renderWprsList();
+    if (wprsTab_ === 'trips') renderWprsTrips();
     if (!wprsSel) {
         const first = wprsData.days.find(d => wprsDayPasses(d, +sel.value));
         if (first) wprsSelect(first.date);
     }
+}
+
+function wprsTab(which) {
+    wprsTab_ = which;
+    document.getElementById('wprsTabDays').classList.toggle('on', which === 'days');
+    document.getElementById('wprsTabTrips').classList.toggle('on', which === 'trips');
+    document.getElementById('wprsFilter').style.display = which === 'days' ? '' : 'none';
+    document.getElementById('wprsList').style.display = which === 'days' ? '' : 'none';
+    document.getElementById('wprsTrips').style.display = which === 'trips' ? '' : 'none';
+    if (which === 'trips') renderWprsTrips();
+}
+
+function wprsDur(h) {
+    if (h < 1) return '< 1 h';
+    const th = Math.round(h), d = Math.floor(th / 24), r = th % 24;
+    return d ? `${d} d ${r} h` : `${th} h`;
+}
+
+function renderWprsTrips() {
+    const box = document.getElementById('wprsTrips');
+    const trips = (wprsData && wprsData.trips) || [];
+    if (!trips.length) { box.innerHTML = '<div class="an-empty">No trips beyond 25 km from home have been logged.</div>'; return; }
+    const fmt = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+    box.innerHTML = `<div class="wprs-count" style="padding:8px 12px 0;font-size:11px;">${trips.length} trip${trips.length === 1 ? '' : 's'} beyond 25 km from home ${wprsData.home ? '(' + wprsData.home.loc + ')' : ''}</div>` +
+        trips.map((t, i) => {
+            const yr = t.date_from.slice(0, 4);
+            const range = t.date_from === t.date_to ? `${fmt(t.date_from)} ${yr}` : `${fmt(t.date_from)} – ${fmt(t.date_to)} ${yr}`;
+            return `<div class="wprs-trip${t.date_from === wprsSel ? ' sel' : ''}" onclick="wprsSelectTrip(${i})">` +
+                `<div class="wprs-dhead"><span>${range}</span><span class="wprs-pill">${wprsDur(t.hours)}</span></div>` +
+                `<div class="wprs-tstats">` +
+                `<div><b>${t.far_km.toFixed(0)} km</b><span>farthest · <i style="text-transform:none;font-style:normal">${escHtml(t.far_loc)}</i></span></div>` +
+                `<div><b>${t.path_km.toFixed(0)} km</b><span>path</span></div>` +
+                `<div><b>${t.squares}</b><span>squares</span></div>` +
+                `<div><b>${t.best_dx ? t.best_dx.toLocaleString('en-GB') : '—'}</b><span>best DX km</span></div></div>` +
+                `<div class="wprs-dmeta">mostly in ${escHtml(t.top_loc)} · ${t.fixes} fixes · ${t.start.slice(11, 16)}–${t.end.slice(11, 16)} UTC first to last</div></div>`;
+        }).join('');
+}
+
+function wprsSelectTrip(i) {
+    const t = wprsData.trips[i];
+    const span = document.getElementById('wprsSpan');
+    const want = String(Math.min(t.days, 7));
+    if (![...span.options].some(o => o.value === want)) span.add(new Option(want + ' days', want));
+    span.value = want;
+    wprsSelect(t.date_from);
 }
 
 function wprsFilterChanged() {
@@ -3633,6 +4000,8 @@ function renderWprsList() {
             `<div class="wprs-mini"><div style="width:${w}%"></div></div>` +
             `<div class="wprs-dmeta">moved ${d.spread_km.toFixed(1)} km · path ${d.path_km.toFixed(0)} km · ${d.first}–${d.last} UTC${away}</div></div>`;
     }).join('');
+    const cur = document.querySelector('#wprsList .wprs-day.sel');
+    if (cur) cur.scrollIntoView({ block: 'nearest' });
 }
 
 function wprsAddDays(date, n) {
@@ -3645,7 +4014,9 @@ async function wprsSelect(date) {
     if (!date) return;
     wprsPause();
     wprsSel = date;
+    setHash(wprsHash());
     document.querySelectorAll('#wprsList .wprs-day').forEach(el => el.classList.toggle('sel', el.dataset.date === date));
+    if (wprsTab_ === 'trips') renderWprsTrips();
     const span = +document.getElementById('wprsSpan').value;
     const to = wprsAddDays(date, span - 1);
     try {
@@ -3705,7 +4076,8 @@ function renderWprsTrack(from, to) {
     if (st.squares === 1) wprsMap.setView([a.lat, a.lon], 12);
     else wprsMap.fitBounds(L.latLngBounds(pts), { padding: [60, 60], maxZoom: 13 });
     slider.max = t.fixes.length - 1;
-    wprsShow(0);
+    wprsShow(wprsPendingFix !== null ? wprsPendingFix : 0);
+    wprsPendingFix = null;
 }
 
 function wprsShow(i) {
@@ -3743,6 +4115,56 @@ function wprsPause() {
 function wprsSpeedChanged() {
     if (wprsTimer) { wprsPause(); wprsTogglePlay(); }
 }
+
+// ── Share links (the part after # in the address) ─────────────────────────
+//   #wprs=2026-06-19&days=2&fix=110   a drive on the WPRS page (days and fix optional)
+//   #history=DATE   #stats=DATE   #analysis
+function setHash(h) {
+    try { history.replaceState(null, '', h ? '#' + h : location.pathname + location.search); } catch(e) {}
+}
+
+function wprsHash(withFix) {
+    let h = `wprs=${wprsSel}&days=${document.getElementById('wprsSpan').value}`;
+    if (withFix && wprsTrack && wprsTrack.fixes.length) h += `&fix=${wprsIdx}`;
+    return h;
+}
+
+async function wprsCopyLink() {
+    if (!wprsSel) { showToast('Pick a day first'); return; }
+    const url = location.origin + location.pathname + '#' + wprsHash(true);
+    try { await navigator.clipboard.writeText(url); showToast('Link copied'); }
+    catch(e) { window.prompt('Copy this link:', url); }
+}
+
+function applyHash() {
+    const raw = location.hash.replace(/^#/, '');
+    if (!raw) return;
+    const q = new URLSearchParams(raw);
+    const isDate = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+    if (q.has('wprs')) {
+        const date = q.get('wprs');
+        if (isDate(date)) {
+            const span = document.getElementById('wprsSpan');
+            const want = String(Math.min(Math.max(parseInt(q.get('days')) || 1, 1), 7));
+            if (![...span.options].some(o => o.value === want)) span.add(new Option(want + ' days', want));
+            span.value = want;
+            wprsSel = date;
+            const fix = parseInt(q.get('fix'));
+            wprsPendingFix = Number.isFinite(fix) && fix >= 0 ? fix : null;
+        }
+        showView('wprs');
+        if (isDate(date)) wprsSelect(date);
+    } else if (q.has('history')) {
+        showView('history');
+        if (isDate(q.get('history'))) { document.getElementById('histDate').value = q.get('history'); loadHistory(); }
+    } else if (q.has('stats')) {
+        showView('stats');
+        if (isDate(q.get('stats'))) { document.getElementById('statsDate').value = q.get('stats'); loadStats(); }
+    } else if (q.has('analysis')) {
+        showView('analysis');
+    }
+}
+window.addEventListener('hashchange', applyHash);
 
 function wprsOpenHistory() {
     if (wprsTrack && wprsTrack.fixes.length) openReplayAt(wprsTrack.fixes[wprsIdx].t);
@@ -3788,9 +4210,12 @@ document.addEventListener('DOMContentLoaded', () => {
     setHistDate(0);
     setStatsDate(0);
     initLiveMap();
+    setInterval(updateFixAge, 30_000);
+    initMovablePanels();    // before the layer prefs, so the automatic stacking knows which panels are pinned
     restoreLayerPrefs();    // after the map exists (Day/Night needs it), before the first fetch
     fetchLatest();
     setInterval(fetchLatest, 60_000);
+    applyHash();            // open the view a shared link points to
 
     // UTC clock — updates every second
     function tickUtcClock() {

@@ -416,11 +416,24 @@ Shows the selected day at a glance — total spots, max and average reporters, l
 
 ### Analysis View
 
-Needs the replay database. The **band-open heatmap** shows for every UTC hour and date how many stations heard you (or the farthest distance) — switch with the Reporters / Farthest km buttons and hover for details. **Typical day** shows the median and 25–75 % range of stations heard per UTC hour with the latest day drawn over it. The three **space weather** charts compare your reporter count with the Juliusruh MUF, the K-index and the solar flux: bars are an index where 100 means "as many reporters as usual at that hour", the line is the share of snapshots with a reporter beyond 6000 km. The **storm days** table lists days when K reached 5 or more and how your reporters compared with a typical day. **Right now** (top) compares the live number of stations heard with what is usual for this UTC hour and for a similar MUF. **DX windows** show when reporters beyond 6000 km are most likely, by hour of day and by month. **Farthest reporters** lists the ten longest distances of the period, and the ▶ buttons there and in the storm table open that moment in the History Player. The **Ionosonde day view** plots Juliusruh MUF (and foF2 on days where it was collected) over the stations heard for any chosen day. Choose 30 days, 90 days or all history; results are computed from the local replay database and cached for 10 minutes (the "Right now" card is always live).
+Needs the replay database. The **band-open heatmap** shows for every UTC hour and date how many stations heard you (or the farthest distance) — switch with the Reporters / Farthest km buttons and hover for details. **Typical day** shows the median and 25–75 % range of stations heard per UTC hour with the latest day drawn over it. The three **space weather** charts compare your reporter count with the Juliusruh MUF, the K-index and the solar flux: bars are an index where 100 means "as many reporters as usual at that hour", the line is the share of snapshots with a reporter beyond 6000 km. The **storm days** table lists days when K reached 5 or more and how your reporters compared with a typical day. **Right now** (top) compares the live number of stations heard with what is usual for this UTC hour and for a similar MUF. **DX windows** show when reporters beyond 6000 km are most likely, by hour of day and by month. **Farthest reporters** lists the ten longest distances of the period, and the ▶ buttons there and in the storm table open that moment in the History Player. The **Ionosonde day view** plots Juliusruh MUF (and foF2 on days where it was collected) over the stations heard for any chosen day. The **DX outlook** card gives, for the next 12 hours, the chance of a report beyond 6000 km: the history of that hour of the day, adjusted for the present MUF and K-index only if a back-test showed the adjustment helps (the card states the result). It is a description of this station's own history, not a physical forecast, and always uses the whole history. The **Grey line** card tests whether far reports cluster around sunrise or sunset at the far end or at home, with the hour of the day held fixed. Reporters whose distance contradicts their own locator by more than 500 km are excluded from the analysis and the records and listed under **Excluded reports**. Choose 30 days, 90 days or all history; results are computed from the local replay database and cached for 10 minutes (the "Right now" card is always live).
 
 ### WPRS
 
 The **WPRS** page (Whisper Position Reporting System) turns the logged spots into a track of the car. The **left list** has one row per UTC day: the number of squares and fixes, *moved* (the largest distance between two squares used that day), the path length and, in amber, how far from the home square the car got (the home square is the most frequent locator; this also catches days parked far from home). Choose the minimum movement or distance (any change of square, 5, 10, 25, 100 km; default 10 km — an ordinary commute between neighbouring squares is 4.6–6.5 km) and how many days to show from the selected day (1, 2, 3 or 5). The **map** shows the squares visited (darker = more fixes), the track line with one dot per fix (hover for time, locator, reporters and best DX), the start (green), end (red) and home square (red ring). The **drive replay bar** at the bottom plays the fixes in order (1–16 fixes per second) with the trail so far in amber; the slider scrubs, ⏮ goes back to the start, and **History Player** opens the shown moment in the History Player on the live map (needs the replay database). The resolution is one Maidenhead subsquare, about 4.6 × 4.6 km at this latitude, and a fix exists only for transmissions that some station heard.
+
+The **Days / Trips** switch lists consecutive days away from home as trips (dates, duration, squares, path length, farthest point); selecting a trip draws and replays it. **Copy link** gives an address that opens the same day and fix. On the live map the car's tooltip shows the age of the latest fix, and the History / reporter list, histogram and country panels can be dragged by their titles (double-click the title to reset).
+
+### Backfilling earlier seasons
+
+The replay database starts when the logger was first run with replay enabled. Earlier snapshots can be rebuilt from wspr.live, which keeps every spot: `tools/backfill.py` fetches the spots of the station callsign and rebuilds what each 10-minute poll at :08 would have listed (stations heard in the preceding 60 minutes). Run it on the server that holds the databases:
+
+```bash
+python3 tools/backfill.py --test 2025-07-15                      # one day, writes nothing
+python3 tools/backfill.py --from 2025-05-01 --to 2025-09-30      # week by week, with pauses
+```
+
+Options: `--callsign`, `--band`, `--chunk-days` (7), `--pause` (5 s), `--timeout` (300 s), `--yes` (no confirmation). `--to` defaults to the day before the oldest existing snapshot. Existing snapshots are never overwritten, so the command can be repeated after an interruption. Solar and MUF values are not backfilled, so old seasons appear in the heatmaps and DX statistics but not in the space-weather charts. Expect about 100 MB of database growth per season, and `update.sh` backs up both databases.
 
 ### Guides
 
@@ -472,7 +485,11 @@ wspr_logger/
 ├── analysis.py             — propagation analysis computed from the replay database
 ├── changelog.py            — reads CHANGELOG.md for the What's new window
 ├── guides.py               — lists the PDF documents in doc/ for the Guides window
-├── wprs.py                 — drive detector and track building for the WPRS page
+├── wprs.py                 — drive detector, trips and track building for the WPRS page
+├── sun.py                  — solar elevation and sunrise / sunset
+├── greyline.py             — grey-line test for the Analysis page
+├── outlook.py              — DX outlook model and its back-test
+├── tools/backfill.py       — fills the replay database from wspr.live history
 ├── requirements.txt        — Python dependencies (flask)
 ├── update.sh               — server update: pull from GitHub, back up databases, restart, verify
 ├── wspr_data.db            — main SQLite database (created automatically on first run)
@@ -493,10 +510,10 @@ wspr_logger/
 | `/api/latest` | GET | `band` | Most recent spot, cached reporter countries, and `wspr_down` flag indicating whether wspr.live is currently reachable |
 | `/api/positions` | GET | `date`, or `from`+`to`, `band` | List of spots for a date or time range |
 | `/api/stats` | GET | `date`, `band` | Aggregated stats for a date, all-time records and the list of logged dates |
-| `/api/analysis` | GET | `days` (0 = all, default 90), `band` | Heatmap, typical-day profile, MUF / K / SFI bins and storm days computed from the replay database; cached 10 min |
+| `/api/analysis` | GET | `days` (0 = all, default 90), `band` | Heatmap, typical-day profile, MUF / K / SFI bins, storm days, excluded reports, grey-line test and DX outlook computed from the replay database; cached 10 min |
 | `/api/daily_summary` | GET | `band` | Per-day totals (transmissions, best DX, max reporters) for the Statistics chart |
 | `/api/whatsnew` | GET | — | Version label and the last 10 days of changes parsed from `CHANGELOG.md` |
-| `/api/wprs/days` | GET | `band` | Home square and one movement summary per logged UTC day (squares, moved, path, distance from home) |
+| `/api/wprs/days` | GET | `band` | Home square, one movement summary per logged UTC day (squares, moved, path, distance from home) and the trips |
 | `/api/wprs/track` | GET | `from`, `to` (YYYY-MM-DD, up to 7 days), `band` | Fixes, visited squares and statistics for those days |
 | `/api/guides` | GET | — | The PDF documents in `doc/` (file, title, description, date, size) |
 | `/doc/<file>` | GET | — | One PDF from `doc/` (`application/pdf`; only plain `*.pdf` names) |

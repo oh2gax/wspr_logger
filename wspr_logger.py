@@ -22,7 +22,9 @@ from flask import Flask, abort, jsonify, render_template, request, send_from_dir
 import analysis
 import changelog
 import db
+import greyline
 import guides
+import outlook
 import replay_db
 import wprs
 
@@ -1018,7 +1020,7 @@ def api_wprs_days():
     band = request.args.get('band', DEFAULT_BAND, type=int)
     spots = db.get_all_spots(band)
     home = wprs.home_of(spots)
-    return jsonify({"home": home, "days": wprs.summarize_days(spots, home)})
+    return jsonify({"home": home, "days": wprs.summarize_days(spots, home), "trips": wprs.build_trips(spots, home)})
 
 
 @app.route('/api/wprs/track')
@@ -1059,6 +1061,74 @@ def serve_doc(name):
 _analysis_cache: dict = {}          # (days, band) -> (monotonic time, payload)
 _ANALYSIS_TTL = 600                 # seconds
 
+# Reporters whose reported distance contradicts their own grid (a wrong grid or a decoding error)
+# would otherwise show up as the farthest "reporter" or as a long-distance window.
+OUTLIER_TOL_KM = 500
+_outlier_cache: dict = {}           # band -> (monotonic time, [outlier dicts])
+_OUTLIER_TTL = 3600                 # seconds; the scan reads every reporter once, so it is cached longer
+
+
+def find_outliers(band: int) -> list:
+    """(callsign, grid) pairs whose distances differ by more than OUTLIER_TOL_KM from the
+    distance computed from the grid (4 or more characters) to the home square.  The tolerance
+    covers the size of a 4-character square and the car's trips from home (up to ~200 km)."""
+    hit = _outlier_cache.get(band)
+    if hit and time.monotonic() - hit[0] < _OUTLIER_TTL:
+        return hit[1]
+    out = []
+    home = wprs.home_of(db.get_all_spots(band))
+    if home:
+        for p in replay_db.get_reporter_pairs(band):
+            grid = p["grid"] or ""
+            if len(grid) < 4:
+                continue
+            la, lo = _grid_to_latlon(grid)
+            if la is None:
+                continue
+            gd = wprs.hav_km(home["lat"], home["lon"], la, lo)
+            d_far = abs(gd - p["dmax"]) >= abs(gd - p["dmin"])
+            if max(abs(gd - p["dmax"]), abs(gd - p["dmin"])) > OUTLIER_TOL_KM:
+                out.append({"callsign": p["callsign"], "grid": grid, "reports": p["n"],
+                            "reported_km": p["dmax"] if d_far else p["dmin"], "grid_km": round(gd)})
+    _outlier_cache[band] = (time.monotonic(), out)
+    return out
+
+
+def _outlier_keys(outliers: list) -> set:
+    return {f"{o['callsign']}|{o['grid']}" for o in outliers}
+
+
+def _dx_events(dx_rows: list) -> list:
+    """(day, hour, region, lat, lon) for DX reports from outside Europe."""
+    cache, events = {}, []
+    for day, hour, _call, grid, _dist in dx_rows:
+        if grid not in cache:
+            la, lo = _grid_to_latlon(grid or "")
+            zone = _REGION_ZONE.get(_latlon_to_region(la, lo), "other") if la is not None else "other"
+            cache[grid] = (zone, la, lo)
+        zone, la, lo = cache[grid]
+        if zone not in ("other", "europe"):
+            events.append((day, hour, zone, la, lo))
+    return events
+
+
+_outlook_cache: dict = {}           # band -> (monotonic time, {"model", "last_k"})
+
+
+def outlook_state(band: int) -> dict:
+    """The DX outlook model, always fitted on the whole history (the Analysis period buttons do not
+    change it: more days make the hour-of-day tables and the back-test more reliable)."""
+    hit = _outlook_cache.get(band)
+    if hit and time.monotonic() - hit[0] < _ANALYSIS_TTL:
+        return hit[1]
+    excl = _outlier_keys(find_outliers(band))
+    rows = replay_db.get_snapshot_rows(0, band, exclude=excl)
+    events = _dx_events(replay_db.get_dx_reports(0, band, exclude=excl))
+    state = {"model": outlook.fit([(d, h, z) for d, h, z, _la, _lo in events], rows) if rows else None,
+             "last_k": next(((r[0], r[4]) for r in reversed(rows) if r[4] is not None), None)}
+    _outlook_cache[band] = (time.monotonic(), state)
+    return state
+
 
 @app.route('/api/analysis')
 def api_analysis():
@@ -1076,17 +1146,26 @@ def api_analysis():
     if hit and time.monotonic() - hit[0] < _ANALYSIS_TTL:
         payload = hit[1]
     else:
-        rows = replay_db.get_snapshot_rows(days, band)
+        outliers = find_outliers(band)
+        excl = _outlier_keys(outliers)
+        rows = replay_db.get_snapshot_rows(days, band, exclude=excl)
         payload = analysis.build(rows, datetime.utcnow().strftime("%Y-%m-%d"))
         payload["enabled"] = True
+        payload["excluded"] = outliers
         if not payload.get("empty"):
-            records = replay_db.get_top_distances(days, band, limit=10)
+            records = replay_db.get_top_distances(days, band, limit=10, exclude=excl)
             for rec in records:
                 rec["country"] = callsign_to_country(rec["callsign"] or "??", rec["grid"] or "")
             payload["records"] = records
+            events = _dx_events(replay_db.get_dx_reports(days, band, exclude=excl))
+            hour_days = {}
+            for r in rows:
+                hour_days.setdefault(int(r[0][11:13]), set()).add(r[0][:10])
+            home = wprs.home_of(db.get_all_spots(band))
+            payload["greyline"] = greyline.build(events, hour_days, home)
         _analysis_cache[key] = (time.monotonic(), payload)
 
-    out = dict(payload)                  # "right now" is never cached
+    out = {k: v for k, v in payload.items() if not k.startswith("_")}      # "right now" is never cached
     if not out.get("empty"):
         muf_rows = db.get_muf_last_24h(1)
         muf = None
@@ -1102,6 +1181,19 @@ def api_analysis():
         if live_n == 0 and _wspr_live_down:
             live_n = None                 # no usable live data: do not claim "below usual"
         out["now"] = analysis.expectation(out["expect"], datetime.utcnow().hour, muf, live_n)
+        state = outlook_state(band)
+        model = state["model"]
+        if model:
+            out["outlook_model"] = outlook.public(model)
+        k_now = None                      # K from the latest snapshot, if it is less than 3 hours old
+        last_k = state["last_k"]
+        if last_k:
+            try:
+                if datetime.utcnow() - datetime.strptime(last_k[0], "%Y-%m-%d %H:%M:%S") <= timedelta(hours=3):
+                    k_now = float(last_k[1])
+            except ValueError:
+                pass
+        out["outlook"] = outlook.forecast(model, datetime.utcnow(), muf, k_now)
     return jsonify(out)
 
 

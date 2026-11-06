@@ -12,6 +12,7 @@ max_distance); no database or Flask here, so it is easy to test.
 """
 import math
 from collections import Counter
+from datetime import datetime, timedelta
 
 EARTH_KM = 6371.0
 
@@ -116,3 +117,51 @@ def build_track(spots, home=None):
                                  "n": counts[s["tx_loc"]], "first": s["timestamp"]}
     stats = _stats(spots, home)
     return {"home": home, "fixes": fixes, "squares": list(seen.values()), "stats": stats}
+
+
+def build_trips(spots, home=None, away_km=25.0, max_gap_h=36):
+    """Trips: runs of fixes more than away_km from the home square, newest first.
+
+    A trip ends at the first fix back near home; silent gaps (the band is closed at night, the
+    car is parked) of up to max_gap_h hours do not end it. The path includes the leg out of and
+    back to the home area (the fix just before and just after the trip).
+    """
+    spots = sorted(spots, key=lambda r: r["timestamp"])
+    home = home or home_of(spots)
+    if not home or not spots:
+        return []
+    fmt = "%Y-%m-%d %H:%M:%S"
+    when = [datetime.strptime(s["timestamp"], fmt) for s in spots]
+    dist = [hav_km(home["lat"], home["lon"], s["lat"], s["lon"]) for s in spots]
+    runs, cur, last_t = [], None, None
+    for i, s in enumerate(spots):
+        if dist[i] > away_km:
+            if cur is not None and when[i] - last_t <= timedelta(hours=max_gap_h):
+                cur.append(i)
+            else:
+                cur = [i]
+                runs.append(cur)
+            last_t = when[i]
+        else:
+            cur = None
+    trips = []
+    for run in runs:
+        a, b = run[0], run[-1]
+        away = spots[a:b + 1]
+        seg = spots[max(a - 1, 0):b + 2]
+        far_i = max(range(a, b + 1), key=lambda k: dist[k])
+        locs = Counter(x["tx_loc"] for x in away)
+        first, last = when[a], when[b]
+        trips.append({
+            "date_from": first.strftime("%Y-%m-%d"), "date_to": last.strftime("%Y-%m-%d"),
+            "start": spots[a]["timestamp"], "end": spots[b]["timestamp"],
+            "days": (last.date() - first.date()).days + 1,
+            "hours": round((last - first).total_seconds() / 3600, 1),
+            "fixes": len(away), "squares": len(locs),
+            "path_km": round(_path_km(seg), 1),
+            "far_km": round(dist[far_i], 1), "far_loc": spots[far_i]["tx_loc"],
+            "top_loc": locs.most_common(1)[0][0],
+            "best_dx": max((x.get("max_distance") or 0) for x in away),
+        })
+    trips.sort(key=lambda t: t["start"], reverse=True)
+    return trips

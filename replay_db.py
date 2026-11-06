@@ -303,13 +303,54 @@ def get_day_frames(date_str: str, band: int = 14) -> list[dict]:
     return list(frames.values())
 
 
-def get_snapshot_rows(days: int = 90, band: int = 14) -> list[tuple]:
+def _exclusion(exclude) -> tuple:
+    """SQL fragment and arguments that leave out the given 'CALLSIGN|GRID' keys."""
+    if not exclude:
+        return "", []
+    keys = sorted(exclude)
+    return f" AND (callsign || '|' || grid) NOT IN ({','.join('?' for _ in keys)})", keys
+
+
+def get_reporter_pairs(band: int = 14) -> list[dict]:
+    """Every (callsign, grid) pair with its smallest and largest reported distance."""
+    if not _enabled:
+        return []
+    with _connect() as conn:
+        rows = conn.execute("""
+            SELECT callsign, grid, MIN(distance) AS dmin, MAX(distance) AS dmax, COUNT(*) AS n
+            FROM reporters_log WHERE band = ? GROUP BY callsign, grid
+        """, (band,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_dx_reports(days: int = 90, band: int = 14, exclude=None, min_km: int = 6000) -> list[tuple]:
+    """One row per (UTC day, hour, callsign, grid) with a report beyond min_km:
+    (day, hour, callsign, grid, farthest distance).  days = 0 -> all."""
+    if not _enabled:
+        return []
+    where = "WHERE band = ? AND distance > ?"
+    args: list = [band, min_km]
+    if days and days > 0:
+        where += " AND timestamp >= datetime('now', ?)"
+        args.append(f"-{int(days)} days")
+    frag, extra = _exclusion(exclude)
+    with _connect() as conn:
+        rows = conn.execute(f"""
+            SELECT substr(timestamp, 1, 10) AS day, CAST(substr(timestamp, 12, 2) AS INTEGER) AS hr,
+                   callsign, grid, MAX(distance) AS dist
+            FROM reporters_log {where}{frag}
+            GROUP BY day, hr, callsign, grid
+        """, args + extra).fetchall()
+    return [tuple(r) for r in rows]
+
+
+def get_snapshot_rows(days: int = 90, band: int = 14, exclude=None) -> list[tuple]:
     """
     One row per snapshot for the Analysis page:
         (timestamp, reporter_count, max_distance, reporters_over_6000km,
          kindex, muf, sfi)
     days = 0 means the whole history.  Solar fields are None when the
-    snapshot has no matching solar row.
+    snapshot has no matching solar row.  `exclude` = 'CALLSIGN|GRID' keys to leave out.
     """
     if not _enabled:
         return []
@@ -318,6 +359,9 @@ def get_snapshot_rows(days: int = 90, band: int = 14) -> list[tuple]:
     if days and days > 0:
         where += " AND timestamp >= datetime('now', ?)"
         args.append(f"-{int(days)} days")
+    frag, extra = _exclusion(exclude)
+    where += frag
+    args += extra
     with _connect() as conn:
         rows = conn.execute(f"""
             SELECT s.ts, s.n, s.mx, s.dx6, l.kindex, l.muf, l.sfi
@@ -332,7 +376,7 @@ def get_snapshot_rows(days: int = 90, band: int = 14) -> list[tuple]:
     return [tuple(r) for r in rows]
 
 
-def get_top_distances(days: int = 90, band: int = 14, limit: int = 10) -> list[dict]:
+def get_top_distances(days: int = 90, band: int = 14, limit: int = 10, exclude=None) -> list[dict]:
     """
     The farthest reporters: one row per callsign (its longest distance),
     best first.  Each row: callsign, grid, distance, timestamp (the poll at
@@ -345,6 +389,9 @@ def get_top_distances(days: int = 90, band: int = 14, limit: int = 10) -> list[d
     if days and days > 0:
         where += " AND timestamp >= datetime('now', ?)"
         args.append(f"-{int(days)} days")
+    frag, extra = _exclusion(exclude)
+    where += frag
+    args += extra
     with _connect() as conn:
         rows = conn.execute(f"""
             SELECT callsign, grid, distance, timestamp

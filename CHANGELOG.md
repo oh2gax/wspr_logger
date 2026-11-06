@@ -28,6 +28,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `/doc/<file>` (only plain `*.pdf` names inside `doc/` are served). *What's new* and
   *User guides* are two tabs of one window, as on the Mode-S Wind page: both sidebar
   entries open it, on the tab of the entry.
+- **Movable map panels** — the History / reporter list, the histogram and the country
+  overlay can be dragged by their title bar anywhere on the map (kept inside the map; the
+  position is remembered, double-click the title to reset). The date/time card, the
+  Propagation overlay and the MUF D=3000 graph stay where they were.
+- **Fix age on the live map** — the marker tooltip of the car says how old the latest fix is
+  (for example "fix 38 min old"), so a stale position is not mistaken for the present one.
+- **Share links** — the address of the page follows the view: a day, a moment in the
+  History Player or a WPRS day and fix can be copied and opened by someone else
+  (`#...` links; WPRS has a *Copy link* button).
+- **WPRS trip summary cards** — consecutive days away from home (gap of at most 36 h, at
+  least 25 km from home) are grouped into trips with dates, duration, squares, path length
+  and farthest point. A *Days / Trips* switch in the list; selecting a trip draws it on the
+  map and replays it. `wprs.build_trips()`, `trips` in `/api/wprs/days`.
+- **Analysis: outlier filter** — a reporter whose distance contradicts its own locator by
+  more than 500 km (a mistyped or stale grid) is dropped from the analysis and the records,
+  and listed in a collapsible *Excluded reports* card. `excluded` in `/api/analysis`.
+- **Analysis: grey-line card** — whether long-distance reports cluster around the sunrise
+  and sunset at the far end or at home, with the hour of the day held fixed, compared with
+  the share expected by chance (z score). New modules `sun.py` and `greyline.py`;
+  `greyline` in `/api/analysis`.
+- **Analysis: DX outlook card** — for the next 12 hours the chance of a report beyond
+  6000 km, from the hour-of-day history with shrinkage towards the average, adjusted for the
+  present MUF and K only if that adjustment beat the hour of the day alone in a
+  chronological back-test (otherwise the card says so). New module `outlook.py`;
+  `outlook`, `outlook_model` in `/api/analysis`. Always fitted on the whole history.
+- **History backfill from wspr.live** — `tools/backfill.py` fills the replay database with
+  the snapshots of earlier seasons by reconstructing, from the spots wspr.live holds for
+  the callsign, what the :08 poll would have listed. Run it on the server:
+  `python3 tools/backfill.py --test 2025-07-15`, then for example
+  `python3 tools/backfill.py --from 2025-05-01 --to 2025-09-30`. Existing snapshots are
+  never overwritten; solar and MUF data are not backfilled. See README.
 - **Two scientific PDF notes in `doc/`** — *Twenty-metre WSPR propagation study*
   (166 days of replay data: diurnal and seasonal patterns, geography, DX windows,
   space-weather effects, a storm case study) and *WPRS – Whisper Position Reporting
