@@ -260,3 +260,44 @@ def get_available_dates(band: int = 14) -> list[str]:
             ORDER BY d DESC
         """, (band,)).fetchall()
     return [r["d"] for r in rows]
+
+
+def get_day_frames(date_str: str, band: int = 14) -> list[dict]:
+    """
+    Return every stored snapshot of one UTC day (oldest first) for the
+    replay player.  Each frame is
+        {"ts": "YYYY-MM-DD HH:MM:SS",
+         "reporters": [(callsign, grid, snr, distance), ...],
+         "solar": {sfi, kindex, aindex, xray, bz, solarwind, aurora,
+                   protonflux, fof2, muf} or None}
+    Reporter rows and the solar row of one poll share the same timestamp.
+    date_str must be 'YYYY-MM-DD' (the caller validates it).
+    """
+    if not _enabled:
+        return []
+    with _connect() as conn:
+        rep = conn.execute("""
+            SELECT timestamp, callsign, grid, snr, distance
+            FROM reporters_log
+            WHERE band = ?
+              AND timestamp >= ? AND timestamp < datetime(?, '+1 day')
+            ORDER BY timestamp, snr DESC
+        """, (band, date_str, date_str)).fetchall()
+        sol = conn.execute("""
+            SELECT timestamp, sfi, kindex, aindex, xray, bz, solarwind,
+                   aurora, protonflux, fof2, muf
+            FROM solar_log
+            WHERE timestamp >= ? AND timestamp < datetime(?, '+1 day')
+        """, (date_str, date_str)).fetchall()
+
+    solar_by_ts = {r["timestamp"]: dict(r) for r in sol}
+    frames: dict[str, dict] = {}
+    for r in rep:
+        f = frames.get(r["timestamp"])
+        if f is None:
+            s = solar_by_ts.get(r["timestamp"])
+            if s is not None:
+                s.pop("timestamp", None)
+            f = frames[r["timestamp"]] = {"ts": r["timestamp"], "reporters": [], "solar": s}
+        f["reporters"].append((r["callsign"], r["grid"], r["snr"], r["distance"]))
+    return list(frames.values())

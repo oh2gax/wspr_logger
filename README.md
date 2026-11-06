@@ -24,6 +24,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **History view** — map and table of all logged spots for any selected date
 - **Statistics view** — daily and all-time records (spot count, longest DX, max reporters)
 - **1 h / Today stats** — toggle the sidebar mini-stats between the last 60 minutes (default) and the full day
+- **History player** — replay any stored day on the live map from the sidebar **History Player** switch: a player bar (play/pause, time slider, date picker with previous/next day, 1–16 frames per second, **Live ✕** to leave) steps through the snapshots stored every ~10 minutes. The enabled layers show the replayed moment: Reporter List, SNR / Dist Histogram, Reporter Plot arcs, Reporter Countries and the Solar Conditions panel (including foF2 and MUF); the Propagation overlay uses the spot logged at that time. Needs the replay database (`[replay] enabled = true`)
 - **Remembered Map Layers** — the Map Layers switches (Position Trail, Reporter Countries, MUF graph, Solar Conditions, Reporter List, Histogram, Reporter Plot, Day / Night) and their sub-settings (MUF period, histogram SNR/Dist tab, reporter list sort, 1h / Today tab) are saved in the browser and restored on the next visit
 - **Light / Dark theme** — toggle in the sidebar; preference is remembered in the browser
 - **Collapsible sidebar** — fold the panel away for a full-screen map view, handy on mobile
@@ -51,7 +52,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 7. On startup the background thread performs an immediate fetch of the latest spot, reporter countries, reporter list, and MUF value so the UI has data ready the moment the page is opened.
 8. The browser polls `/api/latest` every 60 seconds and updates the map, overlays, and sidebar without a page reload.
 9. **Solar conditions** are fetched on demand from [hamqsl.com](https://www.hamqsl.com/solarxml.php) with a 60-second server-side cache; the frontend polls `/api/solar` every 60 seconds when the panel is visible. Solar data is also fetched in the background poll thread to ensure it is stored even when no browser has the panel open.
-10. At every poll cycle the backend writes a historical snapshot to a separate **replay database** (`wspr_replay.db`) — individual reporter records (callsign, grid, SNR, distance) and a full solar/geomagnetic conditions row (SFI, K, A, X-ray, Bz, solar wind, aurora, proton flux, foF2, MUF). This database is the data foundation for the upcoming replay feature and grows at roughly 50–80 MB per year.
+10. At every poll cycle the backend writes a historical snapshot to a separate **replay database** (`wspr_replay.db`) — individual reporter records (callsign, grid, SNR, distance) and a full solar/geomagnetic conditions row (SFI, K, A, X-ray, Bz, solar wind, aurora, proton flux, foF2, MUF). This database feeds the History Player and grows at roughly 50–80 MB per year.
 
 ---
 
@@ -329,6 +330,7 @@ sudo ufw allow 5008/tcp
 | **SNR / Dist Histogram** | Toggle the reporter distribution line chart on the left side of the map |
 | **Reporter Plot** | Toggle the map layer that plots reporter locations and draws SNR-weighted great-circle arcs from the beacon to each reporter |
 | **Day / Night** | Toggle the day/night overlay showing the current night hemisphere and terminator line; updates every 60 seconds |
+| **History Player** | Open the replay bar at the bottom of the map and step through stored days; the other layer switches decide which panels show the replayed data. Not remembered between visits — the page always starts live |
 | **1h / Today tabs** | Switch the mini-stats cards between the last 60 minutes (default) and the full day |
 
 *The Map Layers switches above and the 1h / Today tab, MUF period, histogram tab and reporter-list sort are remembered per browser (stored in `localStorage` under `wspr_layers`). Each browser or device keeps its own settings; clearing the site data resets them to the defaults (only Position Trail on).*
@@ -465,6 +467,8 @@ wspr_logger/
 | `/api/latest` | GET | `band` | Most recent spot, cached reporter countries, and `wspr_down` flag indicating whether wspr.live is currently reachable |
 | `/api/positions` | GET | `date`, or `from`+`to`, `band` | List of spots for a date or time range |
 | `/api/stats` | GET | `date`, `band` | Aggregated stats for a date plus all-time records |
+| `/api/replay/dates` | GET | `band` | `{enabled, dates}` — UTC dates that have replay snapshots, newest first |
+| `/api/replay/day` | GET | `date` (YYYY-MM-DD), `band` | All replay frames of one day: reporters, country counts and solar indices per snapshot (~300 KB for a full day) |
 | `/api/reporters` | GET | — | Cached reporter countries from the past 60 minutes |
 | `/api/reporter_list` | GET | — | Cached individual reporter details (callsign, grid, SNR, distance) from the past 60 minutes |
 | `/api/muf` | GET | `band` | MUF D=3000 km readings and reporter counts for the last 24 hours |

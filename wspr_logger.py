@@ -946,6 +946,56 @@ def api_solar():
     return jsonify(result)
 
 
+def _tidy_solar(s: dict | None) -> dict | None:
+    """Replay solar rows hold floats; show whole numbers without '.0'."""
+    if not s:
+        return None
+    out = dict(s)
+    for k in ("sfi", "kindex", "aindex", "solarwind", "aurora"):
+        v = out.get(k)
+        if isinstance(v, float) and v.is_integer():
+            out[k] = int(v)
+    return out
+
+
+@app.route('/api/replay/dates')
+def api_replay_dates():
+    """UTC dates that have replay snapshots (newest first)."""
+    band = request.args.get('band', DEFAULT_BAND, type=int)
+    return jsonify({
+        "enabled": replay_db.is_enabled(),
+        "dates":   replay_db.get_available_dates(band),
+    })
+
+
+@app.route('/api/replay/day')
+def api_replay_day():
+    """All replay frames of one UTC day for the history player.
+
+    Query params: date=YYYY-MM-DD (required), band=<int>.
+    Frame: {ts, r: [[callsign, grid, snr, dist], ...],
+            c: [{country, count}, ...], s: {solar indices} | null}
+    """
+    date_str = request.args.get('date', '')
+    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', date_str):
+        return jsonify({"error": "date must be YYYY-MM-DD"}), 400
+    band   = request.args.get('band', DEFAULT_BAND, type=int)
+    frames = []
+    for f in replay_db.get_day_frames(date_str, band):
+        counts: dict = {}
+        for call, grid, _snr, _dist in f["reporters"]:
+            c = callsign_to_country(call or "??", grid or "")
+            counts[c] = counts.get(c, 0) + 1
+        frames.append({
+            "ts": f["ts"],
+            "r":  [list(x) for x in f["reporters"]],
+            "c":  sorted(({"country": c, "count": n} for c, n in counts.items()),
+                         key=lambda x: -x["count"]),
+            "s":  _tidy_solar(f["solar"]),
+        })
+    return jsonify({"date": date_str, "frames": frames})
+
+
 @app.route('/api/stats')
 def api_stats():
     """Daily statistics (spot count, max DX, max reporters)."""

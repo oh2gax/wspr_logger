@@ -19,7 +19,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   stats tab. Missing, corrupt or unavailable storage falls back to the defaults
   (Position Trail on, everything else off). No backend change.
 
-### Fixed (Best DX)
+- **History player on the live map** — new sidebar switch **History Player** opens
+  a player bar at the bottom of the map: play/pause, time slider, date picker with
+  previous/next day that has data, 1/2/4/8/16 frames per second, and **Live ✕** to
+  return to live data. One frame per stored poll snapshot (~every 10 minutes).
+  While replaying, the normal layer switches decide what is shown: Reporter List,
+  SNR / Dist Histogram, Reporter Plot (great-circle arcs from the beacon position
+  logged at that time), Reporter Countries, and the Solar Conditions panel
+  (SFI, K, A, X-ray, Bz, wind, aurora, proton flux, foF2, MUF). The Propagation
+  overlay uses the spot logged at that time, or "No propagation" if none was
+  logged within 25 minutes. Live refreshes are paused during replay and the page
+  repaints from live data on exit. The MUF graph and Day / Night overlay stay live.
+- New endpoints `/api/replay/dates` and `/api/replay/day?date=YYYY-MM-DD` (a whole
+  day in one response, ~300 KB, so playback needs no per-frame requests);
+  `replay_db.get_day_frames()`. Solar panel rendering split into `renderSolar()` so
+  live data and replay frames share it. No new queries to wspr.live.
+
+### Changed
+- **More reliable foF2 source** — foF2 is now read first from the Juliusruh Space
+  Weather Monitor page (`ionosonde.iap-kborn.de/actuellz.htm`, "ION" row, updated
+  every 15 minutes, 10 s timeout) and GIRO DIDBase is only tried if that fails,
+  because GIRO frequently returned nothing. The HTML is reduced to plain text before
+  matching, so the parser does not depend on the table markup. The MUF source is
+  unchanged (GIRO first, Juliusruh page as fallback).
+
+### Fixed
+- **SNR / Dist Histogram was empty when it was the only layer switched on** — the
+  reporter data was only fetched when the Reporter List or Reporter Plot was
+  enabled. The histogram now triggers the fetch itself.
+
 - **Best DX / reporter count under-reported long-distance spots** — each poll only
   queried the single newest transmission slot, six minutes after it was sent.
   Distant reporters (USA, Asia, Pacific) upload to wspr.live later, and by the next
@@ -34,15 +62,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   log shows `Updated: <slot> reporters a->b max_dx x->y km` when a slot improves.
   Days already stored are not corrected retroactively.
 
-### Changed
-- **More reliable foF2 source** — foF2 is now read first from the Juliusruh Space
-  Weather Monitor page (`ionosonde.iap-kborn.de/actuellz.htm`, "ION" row, updated
-  every 15 minutes, 10 s timeout) and GIRO DIDBase is only tried if that fails,
-  because GIRO frequently returned nothing. The HTML is reduced to plain text before
-  matching, so the parser does not depend on the table markup. The MUF source is
-  unchanged (GIRO first, Juliusruh page as fallback).
-
-### Fixed
 - The MUF panel title always said "Last 24 h" at start-up although the default
   period is 2 days; the title now matches the active period button.
 
