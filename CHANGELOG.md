@@ -154,6 +154,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   project structure.
 
 ### Changed
+- **Papers v1.2 — measured rebuild bias** — `tools/backfill.py --compare` on six live-logged
+  days (995 snapshots) gave 41.0 stations per snapshot both stored and rebuilt (ratio 1.001), so
+  the rebuilt seasons are comparable with the live one. Both papers now state the measured
+  numbers instead of a general caveat.
 - **Tighter left pane** — less vertical spacing in the menu, the Locator block, the Map
   Layers switches and the Last 1h / Today cards, so the whole pane (including the stats cards
   at the bottom) fits a 1920 × 1080 screen without scrolling.

@@ -3,7 +3,7 @@
 \input{out/numbers.tex}
 \input{out/wprs_numbers.tex}
 \fancyhead[L]{\small WPRS --- Whisper Position Reporting System}
-\fancyhead[R]{\small v1.1, 6 November 2026}
+\fancyhead[R]{\small v1.2, 6 November 2026}
 \hypersetup{pdftitle={WPRS - Whisper Position Reporting System},pdfauthor={Otso Laakso, OH2GAX}}
 \begin{document}
 \makeheader{WPRS --- Whisper Position Reporting System}{Infrastructure-free position beaconing over HF with a 200\,mW WSPR transmitter and a car-roof 14\,MHz antenna: design and three seasons of measurements}{WSPR Logger project note --- version 1.1 --- 6 November 2026 --- \texttt{github.com/oh2gax/wspr\_logger}}
@@ -64,7 +64,7 @@ The transmitter is powered from a 30\,000\,mAh USB power bank. Two packs are rot
 
 \section{Data and methods}
 \label{sec:meth}
-The logger polls the public WSPR database every ten minutes and stores, for the beacon's callsign, one record per heard transmission (timestamp, six-character locator and its centre coordinates, number of reporting stations, largest distance); the \emph{replay database} also stores each reporting station per poll. The earlier seasons were completed afterwards from \texttt{wspr.live} by the script \texttt{tools/backfill.py}, which downloads every reception of the callsign and rebuilds the transmission records and the poll snapshots; a transmission record built this way can contain late reports that the live poll missed, so it may show slightly more stations. This note uses \wFixes\ transmissions on \wDaysWith\ of the \wSpan\ calendar days from \wFirst\ to \wLast\ (the car is not used in winter), and the \nRows\ station reports of the replay database. A \emph{fix} is a transmission that was heard by at least one station.
+The logger polls the public WSPR database every ten minutes and stores, for the beacon's callsign, one record per heard transmission (timestamp, six-character locator and its centre coordinates, number of reporting stations, largest distance); the \emph{replay database} also stores each reporting station per poll. The earlier seasons were completed afterwards from \texttt{wspr.live} by the script \texttt{tools/backfill.py}, which downloads every reception of the callsign and rebuilds the transmission records and the poll snapshots; a record built this way could contain late reports that the live poll missed. A check on the live-logged days \cmpFrom\ to \cmpTo\ (\cmpSnaps\ snapshots rebuilt and compared with the stored ones) found \cmpStored\ stations per snapshot stored against \cmpRebuilt\ rebuilt (ratio \cmpRatio), so the effect is negligible; a fix needs only one report, which makes the fix counts and positions even less sensitive to it. This note uses \wFixes\ transmissions on \wDaysWith\ of the \wSpan\ calendar days from \wFirst\ to \wLast\ (the car is not used in winter), and the \nRows\ station reports of the replay database. A \emph{fix} is a transmission that was heard by at least one station.
 
 \textbf{Availability} at time $t$ is the probability that the most recent fix is no older than $\tau$ ($\tau=0$: the current slot, 30 and 60 minutes), evaluated on every transmit slot of the \wActiveDays\ days with at least 20 fixes and averaged per UTC hour. A missing fix means either that no receiver heard the transmission or that the transmitter was off; the logger cannot distinguish the two. \textbf{Trips} are runs of fixes more than 25\,km from the home square, merged when separated by less than eight hours. \textbf{Power scaling.} Lowering the output by $\Delta=10\log_{10}(200\,\text{mW}/P)$\,dB lowers every received SNR by the same amount (the receiver noise is unchanged); a station is counted as \emph{still decoding} if the best SNR it ever reported minus $\Delta$ stays at or above the decoding floor of \wFloor\,dB. This is an upper bound for the sustained reach, because a station's best SNR is an extreme value. Reports from one station whose distance contradicted its own grid were removed (see the companion study).
 
@@ -137,7 +137,7 @@ WPRS has a niche: low cost and independence of infrastructure, at the price of c
 
 \subsection{Limitations}
 \begin{itemize}
-\item \emph{One station, one car, three seasons.} All numbers are from one car and one antenna over the seasons 2024, 2025 and 2026; the data cannot show whether equipment or installation changed between them. The older seasons were rebuilt from \texttt{wspr.live} and are subject to the small bias described in Section~\ref{sec:meth}; winter operation was not attempted.
+\item \emph{One station, one car, three seasons.} All numbers are from one car and one antenna over the seasons 2024, 2025 and 2026; the data cannot show whether equipment or installation changed between them. The older seasons were rebuilt from \texttt{wspr.live} and were checked against a live-logged week (Section~\ref{sec:meth}), where the rebuild differed from the stored data by a ratio of only \cmpRatio; winter operation was not attempted.
 \item \emph{No ground truth.} The true track of the car was not recorded, so the position error of the technique is the theoretical quantisation error of the locator, not a measured error against GPS logs.
 \item \emph{Missing fixes are ambiguous.} A gap can be a closed band, a transmitter that lost its GPS fix, a battery swap or a car parked in a garage.
 \item \emph{Public data.} The track is public. Anybody can see where the car is within about five kilometres, with ten-minute resolution, as soon as the transmitter is on; for personal security the transmitter can be switched off at home.
@@ -172,7 +172,8 @@ The figures, tables and numbers of this note are produced from the logger databa
 \section*{Version history}
 \begin{tabular}{@{}llp{9.5cm}@{}}\toprule Version & Date & Changes\\\midrule
 1.0 & 6 November 2026 & First version: concept, station, one season of measurements.\\
-1.1 & 6 November 2026 & Three seasons (2024--2026): earlier seasons rebuilt from \texttt{wspr.live}; all numbers regenerated; new subsection comparing the seasons; trip list extended.\\\bottomrule\end{tabular}
+1.1 & 6 November 2026 & Three seasons (2024--2026): earlier seasons rebuilt from \texttt{wspr.live}; all numbers regenerated; new subsection comparing the seasons; trip list extended.\\
+1.2 & 6 November 2026 & Measured the effect of late reports on the rebuilt seasons: negligible (ratio \cmpRatio).\\\bottomrule\end{tabular}
 
 \begin{thebibliography}{99}\small
 \bibitem{wsprnet} WSPRnet --- the Weak Signal Propagation Reporter Network. \url{https://wsprnet.org}

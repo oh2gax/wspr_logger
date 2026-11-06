@@ -26,6 +26,16 @@
 \fancyhf{}
 \renewcommand{\headrulewidth}{0.3pt}
 \fancyfoot[C]{\small\thepage}
+% Result of `tools/backfill.py --compare 2026-06-01`: six live-logged days rebuilt from wspr.live
+\newcommand{\cmpSnaps}{995}
+\newcommand{\cmpFrom}{1 June 2026}
+\newcommand{\cmpTo}{7 June 2026}
+\newcommand{\cmpStored}{41.0}
+\newcommand{\cmpRebuilt}{41.0}
+\newcommand{\cmpRatio}{1.001}
+\newcommand{\cmpMore}{3}
+\newcommand{\cmpDxStored}{9.8}
+\newcommand{\cmpDxRebuilt}{9.8}
 \newcommand{\figwide}[2]{\begin{figure}[htbp]\centering\includegraphics[width=\textwidth]{#1}\caption{#2}\end{figure}}
 \newcommand{\figw}[3]{\begin{figure}[htbp]\centering\includegraphics[width=#3\textwidth]{#1}\caption{#2}\end{figure}}
 \newcommand{\km}{\,km}
