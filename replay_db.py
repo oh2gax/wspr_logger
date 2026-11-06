@@ -23,6 +23,7 @@ Estimated storage: ~50–80 MB per year of continuous operation.
 """
 from __future__ import annotations
 
+import os
 import sqlite3
 
 _db_path: str | None = None
@@ -41,6 +42,7 @@ def init(path: str, enabled: bool = True) -> None:
         print("[ReplayDB] Disabled in config — skipping initialisation")
         return
     _db_path = path
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     _create_tables()
 
 

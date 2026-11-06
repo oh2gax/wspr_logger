@@ -5,8 +5,8 @@ backfill.py -- fill the databases with the beacon's older seasons from wspr.live
 The live logger only knows what it has seen since it was started. wspr.live (the public WSPR
 spot database) holds every reception of your beacon, so earlier summers can be loaded afterwards:
 
-  * wspr_data.db     one `spots` record per heard transmission (locator, reporters, farthest km)
-  * wspr_replay.db   the reporter snapshots (every 10 minutes: who heard you in the last 60
+  * data/wspr_data.db   one `spots` record per heard transmission (locator, reporters, farthest km)
+  * data/wspr_replay.db the reporter snapshots (every 10 minutes: who heard you in the last 60
                      minutes), built the same way as the live poll builds them
 
 What it does NOT fill: the solar and ionosonde values (SFI, K, A, MUF, foF2). Those were only

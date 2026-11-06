@@ -116,7 +116,13 @@ CARTO_API_KEY = "your-carto-key-here"
 
 ### 4 — Edit the configuration file
 
-Open `config.ini` and set your callsign, preferred band, and server address:
+`config.ini` is a local file that is **not in git**, so updates never touch it. The repository holds a template, `config.ini.example`; copy it (the program also does this by itself on the first start if `config.ini` is missing):
+
+```bash
+cp config.ini.example config.ini
+```
+
+Then open `config.ini` and set your callsign, preferred band, and server address:
 
 ```ini
 [station]
@@ -124,12 +130,12 @@ callsign = OH2GAX
 default_band = 14        ; MHz — 14 = 20 m
 
 [server]
-host = 0.0.0.0           ; listen on all interfaces
+host = 0.0.0.0           ; listen on all interfaces (127.0.0.1 behind a reverse proxy)
 port = 5008
 debug = false
 
 [database]
-path = wspr_data.db      ; relative to the script directory
+path = data/wspr_data.db ; relative to the program folder; data/ is created automatically
 
 [map]
 default_lat = 60.0
@@ -251,7 +257,7 @@ bash ~/wspr_logger/update.sh
 
 It first shows the new commits and changed files and asks `Update to <hash>? [y/N]`. After you answer `y` it:
 
-1. copies both SQLite databases to `<install folder>_backups/pre_update_<timestamp>/` using SQLite's online backup (safe while the service is running; the 7 newest copies are kept);
+1. copies both SQLite databases (in `data/`) to `<install folder>_backups/pre_update_<timestamp>/` using SQLite's online backup (safe while the service is running; the 7 newest copies are kept);
 2. syntax-checks every changed `.py` file and template straight from git **before touching anything** — if one fails, nothing is changed and the old version keeps running;
 3. fast-forwards the checkout (`git merge --ff-only`);
 4. runs `pip install -r requirements.txt` only if that file changed;
@@ -260,10 +266,11 @@ It first shows the new commits and changed files and asks `Update to <hash>? [y/
 | Option | Description |
 |--------|-------------|
 | `-y`, `--yes` | Do not ask for confirmation |
-| `--rollback` | Return to the version that was running before the last update and restart |
+| `--rollback` | Return to the version that was running before the last update and restart (your `config.ini` is kept) |
+| `--migrate-data` | One-time: move the database files from the program folder into `data/` (see below) |
 | `-h`, `--help` | Show usage |
 
-**Local changes are never overwritten.** Files that differ on the server — typically `config.ini` (for example `host = 127.0.0.1` behind an nginx reverse proxy), `api_keys.py`, and the databases — stay as they are, and the script never runs `git reset`, `git stash`, or `git checkout`. If GitHub changes a file that is *also* modified locally, the script stops without changing anything and explains how to proceed. Because `wspr_data.db` is tracked by git as an empty placeholder, avoid committing a populated database from your development machine — the script would refuse to update rather than overwrite the live data on the server.
+**Local changes are never overwritten.** The local files — `config.ini` (for example `host = 127.0.0.1` behind an nginx reverse proxy), `api_keys.py` and the `data/` folder with the databases — are not in git at all, so updates leave them alone, and the script never runs `git reset`, `git stash`, or `git checkout`. If GitHub changes a tracked file that is *also* modified locally, the script stops without changing anything and explains how to proceed.
 
 **Requirements:** the install must be a `git clone` with a `venv/` folder next to `wspr_logger.py`, and the user must be allowed to run `sudo systemctl restart`. The service name defaults to `wspr-logger`; if your unit is named differently, for example `wspr_logger` as in the example above, set it for the run:
 
@@ -274,6 +281,29 @@ SERVICE=wspr_logger bash update.sh
 `VERIFY_SECONDS=60` extends the time the script waits for the page after a restart. If the script finds no `api_keys.py`, it warns on every run, because the map would show the CARTO watermark.
 
 Run it as `bash update.sh` and do not `chmod +x` it — git would count the changed file mode as a local edit and block a later update of `update.sh` itself.
+
+### Moving the databases into `data/` (one time)
+
+Older installations keep `wspr_data.db` and `wspr_replay.db` next to `wspr_logger.py`. The program still finds them there (and says so in the log), so nothing breaks after an update; `update.sh` reminds you with a *Note* line. To tidy up:
+
+```bash
+bash ~/wspr_logger/update.sh --migrate-data
+```
+
+It shows the files, asks, copies both databases to the backup folder, backs up `config.ini` as `config.ini.bak`, stops the service, moves the database files (with their `-wal` and `-shm` files) into `data/`, changes the two `path =` lines of `config.ini` to `data/...`, restarts the service and waits for the page. If the service does not come back healthy, it puts the files and `config.ini` back. Run on a machine whose databases are already in `data/`, it does nothing.
+
+**The update that introduced `config.ini.example`** (this one time) stops with *"GitHub changes file(s) that are also modified on this machine: config.ini"*, because older versions tracked `config.ini`. Keep your copy aside, let the update run, and put it back:
+
+```bash
+cd ~/wspr_logger
+cp config.ini ../config.ini.keep
+git checkout -- config.ini
+bash update.sh
+cp ../config.ini.keep config.ini
+sudo systemctl restart wspr-logger
+```
+
+From then on `config.ini` is a local file and updates no longer mention it. On a development machine, run `git rm --cached config.ini` once before the commit that removes it from the repository.
 
 ### Converting an existing copy into a git checkout
 
@@ -291,11 +321,11 @@ git branch --set-upstream-to=origin/main main
 git status --short             # D = files that were never copied, M = your local edits
 ```
 
-Then restore the missing files from GitHub, skipping the two files that hold local changes (`config.ini` and the live `wspr_data.db` — never run `git checkout` on those):
+Then restore the missing files from GitHub, skipping the file that holds local changes (`config.ini` — never run `git checkout` on it; the databases are ignored by git and not touched):
 
 ```bash
-git ls-files -m -d | sort -u | grep -vx -e config.ini -e wspr_data.db | xargs -r git checkout --
-git status --short             # now only config.ini and wspr_data.db are listed as modified
+git ls-files -m -d | sort -u | grep -vx -e config.ini | xargs -r git checkout --
+git status --short             # now only config.ini is listed as modified
 bash update.sh                 # should report "already up to date"
 ```
 
@@ -459,7 +489,7 @@ port = 5008
 debug = false
 
 [database]
-path = wspr_data.db
+path = data/wspr_data.db
 
 [map]
 default_lat = 60.0
@@ -467,9 +497,11 @@ default_lon = 24.0
 default_zoom = 6
 
 [replay]
-enabled = true           ; set false to disable replay data collection
-path = wspr_replay.db    ; separate file — safe to delete to reclaim space
+enabled = true                 ; set false to disable replay data collection
+path = data/wspr_replay.db     ; separate file — safe to delete to reclaim space
 ```
+
+Relative paths are relative to the program folder. `config.ini` is local (not in git); `config.ini.example` is the template.
 
 ---
 
@@ -477,7 +509,8 @@ path = wspr_replay.db    ; separate file — safe to delete to reclaim space
 
 ```
 wspr_logger/
-├── config.ini              — station, server, map, database, and replay settings
+├── config.ini.example      — template for config.ini (station, server, map, database, replay settings)
+├── config.ini              — your local settings; gitignored, created from the example when missing
 ├── api_keys.py             — local API keys (CARTO, …); gitignored, never committed
 ├── api_keys.py.example     — template for api_keys.py; safe to commit
 ├── wspr_logger.py          — Flask app, background polling thread, REST API
@@ -493,8 +526,9 @@ wspr_logger/
 ├── tools/backfill.py       — fills the replay database from wspr.live history
 ├── requirements.txt        — Python dependencies (flask)
 ├── update.sh               — server update: pull from GitHub, back up databases, restart, verify
-├── wspr_data.db            — main SQLite database (created automatically on first run)
-├── wspr_replay.db          — replay SQLite database (created automatically, safe to delete)
+├── data/                   — the SQLite databases; gitignored, created automatically
+│   ├── wspr_data.db        — main database (spots, MUF readings)
+│   └── wspr_replay.db      — replay database (reporter snapshots, solar log; safe to delete)
 ├── doc/                    — PDF guides shown under Guides (guides.json = titles and descriptions)
 │   └── src/                — LaTeX sources and analysis scripts of those PDFs (not served)
 ├── tmp_files/              — scratch folder, gitignored

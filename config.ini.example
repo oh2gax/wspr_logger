@@ -1,0 +1,29 @@
+; WSPR Logger settings.
+; Copy this file to config.ini and edit config.ini. config.ini is a local file: it is not in git,
+; so updates never touch it. If it is missing, the program creates it from this example.
+
+[station]
+callsign = OH2GAX
+; MHz: 3, 7, 10, 14, 18, 21, 24 or 28
+default_band = 14
+
+[server]
+; 127.0.0.1 = only this machine (use it behind an nginx reverse proxy); 0.0.0.0 = all interfaces
+host = 127.0.0.1
+port = 5008
+debug = false
+
+[database]
+; Relative paths are relative to the program folder. The databases live in data/ (created automatically).
+path = data/wspr_data.db
+
+[map]
+default_lat = 60.0
+default_lon = 24.0
+default_zoom = 6
+
+[replay]
+; Set enabled = false to disable replay data collection entirely.
+; The replay database can be deleted at any time without affecting live logging.
+enabled = true
+path = data/wspr_replay.db

@@ -12,6 +12,11 @@ wspr_replay.db*
 # Scratch folder
 tmp_files/
 
+# Local settings (copy config.ini.example to config.ini) and the databases folder
+config.ini
+config.ini.bak
+data/
+
 # The live database is never committed (it holds the live data and would overwrite the server's)
 wspr_data.db
 # SQLite sidecar files of the live database

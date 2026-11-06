@@ -13,6 +13,7 @@ def init(path: str):
     """Set the database path and create tables if needed."""
     global _db_path
     _db_path = path
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     _create_tables()
 
 

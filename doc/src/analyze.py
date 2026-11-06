@@ -2,7 +2,7 @@
 """
 analyze.py -- data analysis and figures for the WSPR Logger propagation study.
 
-Reads the two SQLite databases of the WSPR Logger (wspr_replay.db, wspr_data.db),
+Reads the two SQLite databases of the WSPR Logger (data/wspr_replay.db, data/wspr_data.db),
 applies the quality control described in the paper and writes
     out/numbers.tex   LaTeX macros with every number quoted in the text
     out/tables.tex    the tables
@@ -33,13 +33,23 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = sys.argv[1] if len(sys.argv) > 1 else os.path.abspath(os.path.join(HERE, "..", ".."))
+
+
+def dbfile(name):
+    """The database lives in data/; installations from before that folder existed keep it in REPO."""
+    for p in (os.path.join(REPO, "data", name), os.path.join(REPO, name)):
+        if os.path.exists(p):
+            return p
+    return os.path.join(REPO, "data", name)
+
+
 OUT = os.path.join(HERE, "out")
 os.makedirs(OUT, exist_ok=True)
 sys.path.insert(0, REPO)
 import wspr_logger as w                       # grid / region helpers of the logger
 
-REPLAY = sqlite3.connect(f"file:{os.path.join(REPO, 'wspr_replay.db')}?mode=ro&immutable=1", uri=True)
-DATA = sqlite3.connect(f"file:{os.path.join(REPO, 'wspr_data.db')}?mode=ro&immutable=1", uri=True)
+REPLAY = sqlite3.connect(f"file:{dbfile('wspr_replay.db')}?mode=ro&immutable=1", uri=True)
+DATA = sqlite3.connect(f"file:{dbfile('wspr_data.db')}?mode=ro&immutable=1", uri=True)
 
 # ------------------------------------------------------------------ style
 plt.rcParams.update({

@@ -5,13 +5,14 @@
 #   bash update.sh              show what is new, ask, update, restart, verify
 #   bash update.sh -y           the same without asking
 #   bash update.sh --rollback   go back to the version that ran before the last update
+#   bash update.sh --migrate-data   one-time: move the databases into the data/ folder
 #
 # Put this file in the wspr_logger folder (next to wspr_logger.py) and run it
 # from anywhere:   bash ~/wspr_logger/update.sh
 #
 # Safe by design
 #   * only fast-forwards (git merge --ff-only); never resets, stashes or discards
-#   * local files stay as they are: config.ini edits, api_keys.py, the databases
+#   * local files stay as they are: config.ini (a local file, not in git), api_keys.py, the databases
 #   * if GitHub changed a file that is also modified here, it stops and tells you
 #   * new .py files and templates are syntax-checked BEFORE anything is changed
 #   * both SQLite databases are copied to <folder>_backups/ before every update
@@ -28,10 +29,12 @@ short() { git rev-parse --short "$1"; }
 
 usage() {
   cat <<'EOF'
-Usage: bash update.sh [-y|--yes] [--rollback] [-h|--help]
+Usage: bash update.sh [-y|--yes] [--rollback] [--migrate-data] [-h|--help]
   (no option)   show what is new on GitHub, ask, update, restart, verify
   -y, --yes     do not ask for confirmation
   --rollback    return to the version that was running before the last update
+  --migrate-data  one-time: move the database files into the data/ folder (stops the
+                service for a moment, backs up first, changes config.ini, restarts)
   -h, --help    this text
 EOF
 }
@@ -44,31 +47,53 @@ confirm() {
 }
 
 # --- settings from config.ini (port, host, database paths) --------------------
+# The database paths are worked out like the program does: data/ is the place, but a file that
+# still sits next to wspr_logger.py (an installation from before data/ existed) is found there.
 read_config() {
   local out
-  out=$("$PY" - <<'PY'
-import configparser
-c = configparser.ConfigParser()
-c.read("config.ini")
+  out=$("$PY" - "$APP_DIR" <<'PY'
+import configparser, os, sys
+app = sys.argv[1]
+c = configparser.ConfigParser(inline_comment_prefixes=(";",))
+c.read(os.path.join(app, "config.ini"))
 def g(sec, key, default):
     try:
         return c.get(sec, key)
     except Exception:
         return default
+def dbpath(sec, name):
+    v = g(sec, "path", "data/" + name)
+    p = v if os.path.isabs(v) else os.path.join(app, v)
+    legacy = os.path.join(app, os.path.basename(p))
+    if not os.path.exists(p) and os.path.dirname(p) == os.path.join(app, "data") and os.path.exists(legacy):
+        p = legacy
+    return p
 print(g("server", "host", "127.0.0.1"))
 print(g("server", "port", "5008"))
-print(g("database", "path", "wspr_data.db"))
-print(g("replay", "path", "wspr_replay.db"))
+print(dbpath("database", "wspr_data.db"))
+print(dbpath("replay", "wspr_replay.db"))
 PY
   ) || die "could not read config.ini"
   { read -r CFG_HOST; read -r CFG_PORT; read -r CFG_DB; read -r CFG_RDB; } <<< "$out"
   CFG_PORT="${CFG_PORT%%[!0-9]*}"; : "${CFG_PORT:=5008}"
   case "$CFG_HOST" in ""|0.0.0.0) CFG_HOST=127.0.0.1 ;; esac
-  case "$CFG_DB"  in /*) ;; *) CFG_DB="$APP_DIR/$CFG_DB" ;; esac
-  case "$CFG_RDB" in /*) ;; *) CFG_RDB="$APP_DIR/$CFG_RDB" ;; esac
+}
+
+# the databases still next to wspr_logger.py instead of in data/ ?
+legacy_db_files() {
+  local db
+  for db in "$CFG_DB" "$CFG_RDB"; do
+    [ "$(dirname "$db")" = "$APP_DIR" ] && [ -e "$db" ] && printf '%s\n' "$db"
+  done
+}
+
+hint_migrate() {
+  [ -n "$(legacy_db_files)" ] || return 0
+  say "Note    : the databases are still in the program folder. To move them into data/ (one time):  bash update.sh --migrate-data"
 }
 
 warn_environment() {
+  [ -f config.ini ] || warn "config.ini is missing - the defaults are used (copy config.ini.example to config.ini and edit it)"
   [ -f api_keys.py ] || warn "api_keys.py is missing - map tiles will show the CARTO watermark (copy api_keys.py.example to api_keys.py and add the key)"
 }
 
@@ -201,7 +226,7 @@ restart_and_verify() {
 }
 
 do_rollback() {
-  local prev cur keep
+  local prev cur keep cfgkeep
   [ -f "$BACKUP_ROOT/previous_commit" ] || die "no earlier version recorded - there is nothing to roll back to"
   prev=$(cat "$BACKUP_ROOT/previous_commit")
   git cat-file -e "${prev}^{commit}" 2>/dev/null || die "the recorded version ($prev) no longer exists in this checkout"
@@ -217,9 +242,20 @@ do_rollback() {
   # an older version may not contain update.sh: keep a copy so it can still be run
   keep=$(mktemp) || die "cannot create a temporary file"
   cp -- "$SELF" "$keep"
+  # config.ini is a local file now; an older version tracked its own copy of it, which git would
+  # silently write over the local one. Keep the local one and put it back afterwards.
+  cfgkeep=""
+  if [ -f config.ini ]; then
+    cfgkeep=$(mktemp) || die "cannot create a temporary file"
+    cp -p -- config.ini "$cfgkeep"
+  fi
   if ! git reset --keep --quiet "$prev"; then
-    rm -f "$keep"
+    rm -f "$keep" "$cfgkeep"
     die "git could not roll back without touching your local changes. Nothing was changed."
+  fi
+  if [ -n "$cfgkeep" ]; then
+    cp -p -- "$cfgkeep" config.ini
+    rm -f "$cfgkeep"
   fi
   if [ ! -e "$SELF" ]; then
     cp -- "$keep" "$SELF"
@@ -234,6 +270,87 @@ do_rollback() {
   fi
   show_logs 25
   return 1
+}
+
+# --- one-time move of the database files into data/ ------------------------------
+do_migrate_data() {
+  local dest="$APP_DIR/data" db f bn list
+  list=$(legacy_db_files)
+  if [ -z "$list" ]; then
+    say "Nothing to move: the databases are not in the program folder (already in data/, or not created yet)."
+    return 0
+  fi
+  [ -f config.ini ] || die "config.ini not found in $APP_DIR - cannot change the database paths"
+  say "Database files to move into $dest/ (with their -wal and -shm files):"
+  printf '%s\n' "$list" | sed 's/^/    /'
+  while IFS= read -r db; do
+    [ ! -e "$dest/$(basename "$db")" ] || die "$dest/$(basename "$db") already exists - refusing to overwrite it. Nothing was changed."
+  done <<< "$list"
+  say "The service is stopped for a few seconds; a copy is made first, config.ini is backed up as config.ini.bak."
+  confirm "Move the databases now?" || { say "Cancelled - nothing was changed."; return 0; }
+
+  mkdir -p "$BACKUP_ROOT" "$dest" || die "cannot create the folders"
+  backup_databases
+  cp -p config.ini config.ini.bak || die "cannot back up config.ini - nothing was changed"
+  say "Stopping $SERVICE"
+  sudo systemctl stop "$SERVICE" || die "could not stop $SERVICE - nothing was changed"
+
+  local moved=()
+  while IFS= read -r db; do
+    for f in "$db" "$db-wal" "$db-shm"; do
+      [ -e "$f" ] || continue
+      bn=$(basename "$f")
+      if mv -n -- "$f" "$dest/$bn" && [ ! -e "$f" ] && [ -e "$dest/$bn" ]; then
+        moved+=("$bn")
+      else
+        warn "could not move $f - putting everything back"
+        for bn in "${moved[@]}"; do mv -n -- "$dest/$bn" "$APP_DIR/$bn"; done
+        sudo systemctl start "$SERVICE" || true
+        die "migration cancelled, the databases are where they were"
+      fi
+    done
+  done <<< "$list"
+
+  "$PY" - "$APP_DIR/config.ini" <<'PY' || { warn "could not edit config.ini"; migrate_undo "${moved[@]}"; die "migration undone"; }
+import configparser, os, re, sys
+path = sys.argv[1]
+lines = open(path, encoding="utf-8").read().split("\n")
+section = None
+out = []
+for ln in lines:
+    m = re.match(r"\s*\[([^\]]+)\]", ln)
+    if m:
+        section = m.group(1).strip().lower()
+    km = re.match(r"(\s*path\s*=\s*)([^;#\s][^;#]*?)(\s*(?:[;#].*)?)$", ln)
+    if km and section in ("database", "replay"):
+        val = km.group(2).strip()
+        if not os.path.isabs(val) and "/" not in val and "\\" not in val:
+            ln = km.group(1) + "data/" + val + km.group(3)
+    out.append(ln)
+open(path, "w", encoding="utf-8", newline="").write("\n".join(out))
+c = configparser.ConfigParser(); c.read(path)          # still valid?
+PY
+  read_config
+  if restart_and_verify; then
+    say
+    say "Done - the databases are in $dest"
+    say "  config.ini now points there (the old file is config.ini.bak)."
+    return 0
+  fi
+  warn "the service did not come back healthy - undoing the move"
+  sudo systemctl stop "$SERVICE" || true
+  migrate_undo "${moved[@]}"
+  restart_and_verify || show_logs 25
+  die "migration undone: databases and config.ini are as before"
+}
+
+migrate_undo() {
+  local bn
+  [ -f "$APP_DIR/config.ini.bak" ] && cp -p "$APP_DIR/config.ini.bak" "$APP_DIR/config.ini"
+  for bn in "$@"; do
+    [ -e "$APP_DIR/data/$bn" ] && mv -n -- "$APP_DIR/data/$bn" "$APP_DIR/$bn"
+  done
+  read_config
 }
 
 do_update() {
@@ -261,6 +378,7 @@ do_update() {
       say "GitHub  : already up to date"
     fi
     show_service_state
+    hint_migrate
     return 0
   fi
   [ "$ahead" -eq 0 ] || die "diverged: this checkout has $ahead commit(s) that are not on GitHub and GitHub has $behind new one(s). Nothing was changed. See: git log --oneline $UPSTREAM..HEAD"
@@ -320,6 +438,7 @@ do_update() {
     say "Updated to $(git log -1 --date=iso --format='%h %ad  %s' HEAD) - OK"
     [ -z "$BACKUP_DIR" ] || say "  Database copy before the update: $BACKUP_DIR"
     say "  Undo: bash update.sh --rollback"
+    hint_migrate
     return 0
   fi
   show_logs 25
@@ -331,11 +450,12 @@ do_update() {
 
 main() {
   ASSUME_YES=0
-  local do_rollback=0
+  local do_rollback=0 do_migrate=0
   while [ $# -gt 0 ]; do
     case "$1" in
       -y|--yes)   ASSUME_YES=1 ;;
       --rollback) do_rollback=1 ;;
+      --migrate-data) do_migrate=1 ;;
       -h|--help)  usage; return 0 ;;
       *)          usage; return 2 ;;
     esac
@@ -361,6 +481,8 @@ main() {
 
   if [ "$do_rollback" = 1 ]; then
     do_rollback
+  elif [ "$do_migrate" = 1 ]; then
+    do_migrate_data
   else
     do_update
   fi

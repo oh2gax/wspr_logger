@@ -14,12 +14,22 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = sys.argv[1] if len(sys.argv) > 1 else os.path.abspath(os.path.join(HERE, "..", ".."))
+
+
+def dbfile(name):
+    """The database lives in data/; installations from before that folder existed keep it in REPO."""
+    for p in (os.path.join(REPO, "data", name), os.path.join(REPO, name)):
+        if os.path.exists(p):
+            return p
+    return os.path.join(REPO, "data", name)
+
+
 OUT = os.path.join(HERE, "out")
 sys.path.insert(0, REPO)
 import wspr_logger as w
 
-DATA = sqlite3.connect(f"file:{os.path.join(REPO, 'wspr_data.db')}?mode=ro&immutable=1", uri=True)
-REPLAY = sqlite3.connect(f"file:{os.path.join(REPO, 'wspr_replay.db')}?mode=ro&immutable=1", uri=True)
+DATA = sqlite3.connect(f"file:{dbfile('wspr_data.db')}?mode=ro&immutable=1", uri=True)
+REPLAY = sqlite3.connect(f"file:{dbfile('wspr_replay.db')}?mode=ro&immutable=1", uri=True)
 plt.rcParams.update({"font.family": "serif", "font.serif": ["DejaVu Serif"], "font.size": 8, "axes.titlesize": 8.5,
                      "axes.labelsize": 8, "legend.fontsize": 7, "xtick.labelsize": 7, "ytick.labelsize": 7,
                      "axes.spines.top": False, "axes.spines.right": False, "axes.grid": True, "grid.alpha": 0.25,

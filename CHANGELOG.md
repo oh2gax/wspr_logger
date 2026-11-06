@@ -147,6 +147,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   project structure.
 
 ### Changed
+- **Databases in a `data/` folder** — `wspr_data.db` and `wspr_replay.db` now live in
+  `data/` (created automatically; the folder is gitignored). Installations that still have
+  the files next to `wspr_logger.py` keep working: the program finds them there and logs a
+  note. `bash update.sh --migrate-data` moves them in one step (backup first, service
+  stopped for a moment, `config.ini` paths updated, automatic undo if the service does not
+  come back). The analysis scripts in `doc/src` look in `data/` first.
+- **`config.ini` is a local file** — it is no longer in git; the repository has
+  `config.ini.example` and the program creates `config.ini` from it when it is missing.
+  Updates therefore never conflict with server settings such as `host = 127.0.0.1`, and
+  `update.sh --rollback` keeps the local `config.ini`. Inline `; comments` after a value are
+  now accepted. The one update that introduces this needs a short manual step, described
+  in the README.
 - **Theme selector: Auto / Dark / Light** — the *Dark Mode / Light Mode* entry of the
   left menu is replaced by one icon button (🌓 / 🌙 / ☀️) beside the sidebar title, next to the
   collapse arrow. Each click cycles Auto, Dark and Light. *Auto* follows the system setting and

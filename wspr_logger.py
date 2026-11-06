@@ -13,6 +13,7 @@ import time
 import urllib.parse
 import urllib.request
 import configparser
+import shutil
 import xml.etree.ElementTree as ET
 from html import unescape
 from datetime import datetime, timedelta
@@ -41,8 +42,17 @@ except ImportError:
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.ini")
 
+# config.ini is a local file (not in git). A fresh checkout only has config.ini.example:
+# copy it on the first start so the program runs with sensible defaults.
+if not os.path.exists(CONFIG_FILE) and os.path.exists(CONFIG_FILE + ".example"):
+    try:
+        shutil.copyfile(CONFIG_FILE + ".example", CONFIG_FILE)
+        print("[Config] config.ini was missing - created from config.ini.example (edit it and restart)")
+    except OSError as e:
+        print(f"[Config] could not create config.ini: {e}")
+
 def load_config():
-    cfg = configparser.ConfigParser()
+    cfg = configparser.ConfigParser(inline_comment_prefixes=(";",))      # "key = value   ; comment" works
     cfg.read(CONFIG_FILE)
     return cfg
 
@@ -53,19 +63,34 @@ DEFAULT_BAND = cfg.getint("station", "default_band", fallback=14)
 HOST         = cfg.get("server",   "host",          fallback="0.0.0.0")
 PORT         = cfg.getint("server", "port",          fallback=5008)
 DEBUG        = cfg.getboolean("server", "debug",     fallback=False)
-DB_PATH          = cfg.get("database", "path",          fallback="wspr_data.db")
+DB_PATH          = cfg.get("database", "path",          fallback="data/wspr_data.db")
 MAP_DEFAULT_LAT  = cfg.getfloat("map", "default_lat", fallback=60.0)
 MAP_DEFAULT_LON  = cfg.getfloat("map", "default_lon", fallback=24.0)
 MAP_DEFAULT_ZOOM = cfg.getint("map",   "default_zoom", fallback=6)
 REPLAY_ENABLED   = cfg.getboolean("replay", "enabled", fallback=True)
-REPLAY_DB_PATH   = cfg.get("replay",   "path",          fallback="wspr_replay.db")
+REPLAY_DB_PATH   = cfg.get("replay",   "path",          fallback="data/wspr_replay.db")
 
 # Make DB paths relative to the script directory if not absolute
 _script_dir = os.path.dirname(os.path.abspath(__file__))
-if not os.path.isabs(DB_PATH):
-    DB_PATH = os.path.join(_script_dir, DB_PATH)
-if not os.path.isabs(REPLAY_DB_PATH):
-    REPLAY_DB_PATH = os.path.join(_script_dir, REPLAY_DB_PATH)
+
+
+def _db_file(path: str) -> str:
+    """Absolute path of a database file. The databases live in data/. Installations from before
+    that folder existed keep them next to this script: when the file is not in data/ but is found
+    there, use it (and say so), so that an update never silently starts an empty database.
+    `bash update.sh --migrate-data` moves the files."""
+    p = path if os.path.isabs(path) else os.path.join(_script_dir, path)
+    legacy = os.path.join(_script_dir, os.path.basename(p))
+    if (not os.path.exists(p) and os.path.dirname(p) == os.path.join(_script_dir, "data")
+            and os.path.exists(legacy)):
+        print(f"[Config] {os.path.basename(p)} is not in data/ - using the old location {legacy}. "
+              "Move it with:  bash update.sh --migrate-data")
+        return legacy
+    return p
+
+
+DB_PATH = _db_file(DB_PATH)
+REPLAY_DB_PATH = _db_file(REPLAY_DB_PATH)
 
 # ---------------------------------------------------------------------------
 # Flask app
