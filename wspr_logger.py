@@ -14,6 +14,7 @@ import urllib.parse
 import urllib.request
 import configparser
 import xml.etree.ElementTree as ET
+from html import unescape
 from datetime import datetime, timedelta
 
 from flask import Flask, jsonify, render_template, request
@@ -649,6 +650,56 @@ def _parse_giro_latest(text: str) -> float | None:
     return latest
 
 
+def _parse_juliusruh_fof2(html: str) -> float | None:
+    """
+    Parse the latest autoscaled foF2 (MHz) from the Juliusruh Space Weather
+    Monitor page.  The "ION" row reads: yesterday's foF2 vs. prediction (%),
+    latest foF2 (MHz), latest vs. prediction (%), quality letter, e.g.
+        ION | 100% | 9.8 | 113% | F
+    The HTML is reduced to plain text first so the match does not depend on the
+    exact table markup.  Returns None when the row is missing or has no value.
+    """
+    text = re.sub(r'<[^>]+>', ' ', html)
+    text = unescape(text).replace('\xa0', ' ')
+    text = re.sub(r'\s+', ' ', text)
+    m = re.search(r'\bION\b[\s|]*\d+\s*%[\s|]*(\d{1,2}\.\d+)[\s|]*\d+\s*%', text)
+    if m:
+        val = float(m.group(1))
+        if 0.5 < val < 20.0:
+            return val
+    return None
+
+
+def fetch_fof2_juliusruh() -> float | None:
+    """foF2 from the Juliusruh Space Weather Monitor page (updated every 15 min)."""
+    url = "https://www.ionosonde.iap-kborn.de/actuellz.htm"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read().decode("utf-8", errors="replace")
+        val = _parse_juliusruh_fof2(html)
+        if val is not None:
+            print(f"[foF2] {val:.1f} MHz (Juliusruh monitor page)")
+        else:
+            print("[foF2] Juliusruh page: no foF2 value found")
+        return val
+    except Exception as e:
+        print(f"[foF2] Juliusruh page fetch failed: {e}")
+        return None
+
+
+def fetch_fof2() -> float | None:
+    """
+    Latest foF2 in MHz.  The Juliusruh monitor page is tried first because it
+    answers reliably; GIRO DIDBase (which often returns nothing) is only the
+    second choice.  Returns None if both fail.
+    """
+    val = fetch_fof2_juliusruh()
+    if val is None:
+        val = fetch_giro_fof2()
+    return val
+
+
 def fetch_giro_fof2() -> float | None:
     """
     Fetch the latest foF2 from Juliusruh (JR055) via GIRO DIDBase.
@@ -719,11 +770,21 @@ def fetch_solar_data() -> dict:
         return _solar_cache   # return stale cache on error
 
 
-def fetch_latest_spot(callsign: str, band: int):
+# How far back each poll looks for transmission slots.  Distant reporters
+# (USA, Asia, Pacific) upload to wspr.live minutes after the nearby ones, so
+# one poll 6 minutes after a slot sees only part of its final reporter list.
+# Re-reading the last few slots on every poll (still ONE query) lets later
+# polls complete the earlier slots; db.insert_spot() keeps the maximum values.
+SPOT_LOOKBACK_MIN = 45
+SPOT_LOOKBACK_ROWS = 5
+
+
+def fetch_recent_spots(callsign: str, band: int) -> list:
     """
-    Fetch the most recent WSPR transmission for callsign/band.
-    Returns a dict with tx_loc, time, reporter_count, max_distance — or None.
-    Groups by (tx_loc, time) so each unique TX is one row with aggregated stats.
+    Fetch the most recent WSPR transmission slots (newest first) for
+    callsign/band from the last SPOT_LOOKBACK_MIN minutes.
+    Each row is {tx_loc, time, reporter_count, max_distance}; groups by
+    (tx_loc, time) so each unique TX is one row with aggregated stats.
     """
     sql = f"""
         SELECT
@@ -732,15 +793,55 @@ def fetch_latest_spot(callsign: str, band: int):
             count()       AS reporter_count,
             max(distance) AS max_distance
         FROM wspr.rx
-        WHERE time > subtractMinutes(now(), 20)
+        WHERE time > subtractMinutes(now(), {SPOT_LOOKBACK_MIN})
           AND tx_sign = '{callsign}'
           AND band    = {band}
         GROUP BY tx_loc, time
         ORDER BY time DESC
-        LIMIT 1
+        LIMIT {SPOT_LOOKBACK_ROWS}
     """
-    data = wsprlive_query(sql)
-    return data[0] if data else None
+    return wsprlive_query(sql) or []
+
+
+def store_spots(rows: list) -> int:
+    """
+    Store/refresh every valid TX slot in rows.  New slots are inserted;
+    existing slots are raised to the larger reporter_count / max_distance.
+    Returns the number of slots that were added or improved.
+    """
+    changed = 0
+    for row in rows:
+        timestamp_str = row.get("time", "")
+        try:
+            ts = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            print(f"[WARN] Unparseable timestamp: {timestamp_str}")
+            continue
+        # Only accept WSPR cycle timestamps (minute ends in :02, :12, :22, ...)
+        if ts.minute % 10 != 2:
+            continue
+        tx_loc = row.get("tx_loc", "")
+        lat, lon = maidenhead_to_latlon(tx_loc)
+        if lat is None:
+            print(f"[WARN] Could not convert locator: {tx_loc}")
+            continue
+        reporter_count = int(row.get("reporter_count") or 0)
+        max_distance   = int(row.get("max_distance")   or 0)
+
+        old = db.get_spot_at(timestamp_str)
+        if not db.insert_spot(timestamp_str, tx_loc, lat, lon, DEFAULT_BAND,
+                              reporter_count, max_distance):
+            continue
+        if old is None:
+            changed += 1
+            print(f"[INFO] Logged: {tx_loc} @ {timestamp_str}  reporters={reporter_count}  max_dx={max_distance} km")
+        elif (max_distance > old["max_distance"]
+              or reporter_count > old["reporter_count"]):
+            changed += 1
+            print(f"[INFO] Updated: {timestamp_str}  reporters {old['reporter_count']}->"
+                  f"{max(reporter_count, old['reporter_count'])}  max_dx {old['max_distance']}->"
+                  f"{max(max_distance, old['max_distance'])} km")
+    return changed
 
 
 # ---------------------------------------------------------------------------
@@ -865,20 +966,7 @@ def update_thread():
     # Populate caches immediately on startup so the UI has data before the
     # first scheduled poll cycle (minutes ending in :08).
     print(f"[INFO] Initial fetch on startup...")
-    initial_spot = fetch_latest_spot(CALLSIGN, DEFAULT_BAND)
-    if initial_spot:
-        ts = initial_spot.get("time", "")
-        try:
-            ts_dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
-            if ts_dt.minute % 10 == 2:
-                lat, lon = maidenhead_to_latlon(initial_spot["tx_loc"])
-                if lat is not None:
-                    db.insert_spot(ts, initial_spot["tx_loc"], lat, lon,
-                                   DEFAULT_BAND,
-                                   int(initial_spot.get("reporter_count") or 0),
-                                   int(initial_spot.get("max_distance")   or 0))
-        except ValueError:
-            pass
+    store_spots(fetch_recent_spots(CALLSIGN, DEFAULT_BAND))
     init_reporters = fetch_reporter_list(CALLSIGN, DEFAULT_BAND)
     with _state_lock:
         _cached_countries     = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
@@ -887,7 +975,7 @@ def update_thread():
     muf_init = fetch_giro_mufd()
     if muf_init:
         db.insert_muf(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), muf_init)
-    fof2_init = fetch_giro_fof2()
+    fof2_init = fetch_fof2()
     with _state_lock:
         _cached_fof2 = fof2_init
 
@@ -908,7 +996,7 @@ def update_thread():
         if now.minute % 10 == 8:
             print(f"[INFO] Polling WSPR.live at {now.strftime('%H:%M:%S')} UTC")
             try:
-                row           = fetch_latest_spot(CALLSIGN, DEFAULT_BAND)
+                rows          = fetch_recent_spots(CALLSIGN, DEFAULT_BAND)
                 countries     = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
                 reporter_list = fetch_reporter_list(CALLSIGN, DEFAULT_BAND)
                 check_wsprlive_health()
@@ -916,12 +1004,12 @@ def update_thread():
                     _cached_countries     = countries
                     _cached_reporter_list = reporter_list
 
-                # MUF and foF2 both from GIRO DIDBase (JR055, ~5 min lag)
+                # MUF: GIRO DIDBase (JR055) with Juliusruh page fallback; foF2: Juliusruh page first, GIRO second
                 muf = fetch_giro_mufd()
                 if muf:
                     db.insert_muf(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), muf)
                     print(f"[INFO] MUF D=3000: {muf} MHz")
-                fof2 = fetch_giro_fof2()
+                fof2 = fetch_fof2()
                 with _state_lock:
                     _cached_fof2 = fof2   # None when GIRO unavailable
 
@@ -931,39 +1019,11 @@ def update_thread():
                 solar_poll = fetch_solar_data()
                 replay_db.insert_solar(_ts_poll, solar_poll, fof2, muf)
 
-                if row:
-                    tx_loc         = row["tx_loc"]
-                    timestamp_str  = row["time"]
-                    reporter_count = int(row.get("reporter_count") or 0)
-                    max_distance   = int(row.get("max_distance")   or 0)
-
-                    try:
-                        ts = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
-                    except ValueError:
-                        print(f"[WARN] Unparseable timestamp: {timestamp_str}")
-                        time.sleep(60)
-                        continue
-
-                    # Only accept WSPR cycle timestamps (minute ends in :02, :12, :22, ...)
-                    if ts.minute % 10 != 2:
-                        print(f"[INFO] Skipping -- not a TX slot")
-                    else:
-                        lat, lon = maidenhead_to_latlon(tx_loc)
-
-                        if lat is not None:
-                            inserted = db.insert_spot(
-                                timestamp_str, tx_loc, lat, lon,
-                                DEFAULT_BAND, reporter_count, max_distance
-                            )
-                            if inserted:
-                                with _state_lock:
-                                    _last_update_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-                                    _update_error    = None
-                                print(f"[INFO] Logged: {tx_loc} @ {timestamp_str}  reporters={reporter_count}  max_dx={max_distance} km")
-                            else:
-                                print(f"[INFO] Duplicate, skipped: {timestamp_str}")
-                        else:
-                            print(f"[WARN] Could not convert locator: {tx_loc}")
+                if rows:
+                    if store_spots(rows):
+                        with _state_lock:
+                            _last_update_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                            _update_error    = None
                 else:
                     print("[INFO] No data returned from WSPR.live")
                     with _state_lock:

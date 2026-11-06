@@ -92,6 +92,13 @@ def insert_spot(timestamp: str, tx_loc: str, lat: float, lon: float,
 # Read — single spot
 # ---------------------------------------------------------------------------
 
+def get_spot_at(timestamp: str) -> dict | None:
+    """Return the stored spot with exactly this timestamp, or None."""
+    with _connect() as conn:
+        row = conn.execute("SELECT * FROM spots WHERE timestamp = ?", (timestamp,)).fetchone()
+    return dict(row) if row else None
+
+
 def get_latest_spot(band: int = None) -> dict | None:
     with _connect() as conn:
         if band:

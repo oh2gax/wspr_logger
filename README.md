@@ -24,6 +24,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **History view** — map and table of all logged spots for any selected date
 - **Statistics view** — daily and all-time records (spot count, longest DX, max reporters)
 - **1 h / Today stats** — toggle the sidebar mini-stats between the last 60 minutes (default) and the full day
+- **Remembered Map Layers** — the Map Layers switches (Position Trail, Reporter Countries, MUF graph, Solar Conditions, Reporter List, Histogram, Reporter Plot, Day / Night) and their sub-settings (MUF period, histogram SNR/Dist tab, reporter list sort, 1h / Today tab) are saved in the browser and restored on the next visit
 - **Light / Dark theme** — toggle in the sidebar; preference is remembered in the browser
 - **Collapsible sidebar** — fold the panel away for a full-screen map view, handy on mobile
 - **Config-file driven** — all settings managed in `config.ini`; no settings UI exposed to the browser
@@ -42,9 +43,9 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 ## How It Works
 
 1. A background thread polls **wspr.live** (a public ClickHouse database) at minutes `:08`, `:18`, `:28`, `:38`, `:48`, `:58` — six minutes after each 10-minute WSPR transmission cycle, giving reporters time to upload their data.
-2. The query groups all received spots for the latest transmission by `(tx_loc, time)` and returns the Maidenhead locator, UTC timestamp, reporter count, and maximum reported distance.
-3. Valid new spots are inserted into the local SQLite database; duplicates are silently ignored.
-4. At each poll cycle the backend fetches both the **MUF D=3000 km** (MUFD) and **foF2** values from the [GIRO DIDBase](https://lgdc.uml.edu/) (station JR055, Juliusruh) using the `DIDBGetValues` API with a 24-hour rolling window and the `YYYY/MM/DD HH:MM:SS` date format required by the endpoint (~5 minute data lag). Both use the same parser that requires a decimal point in the value token to avoid misreading integer quality-score fields. MUF is stored in the `muf_data` table; foF2 is cached in memory and served via `/api/solar`.
+2. One query looks at the last 45 minutes (up to 5 transmission slots), groups the received spots by `(tx_loc, time)` and returns the Maidenhead locator, UTC timestamp, reporter count, and maximum reported distance for each slot. Re-reading recent slots matters because distant reporters (USA, Asia, Pacific) upload to wspr.live several minutes after the nearby ones.
+3. New slots are inserted into the local SQLite database. Slots that are already stored are *updated* when a later poll reports more reporters or a longer distance (the larger value always wins and values are never lowered), so late-arriving DX is captured and **Best DX** stays correct.
+4. At each poll cycle the backend fetches the **MUF D=3000 km** (MUFD) from the [GIRO DIDBase](https://lgdc.uml.edu/) (station JR055, Juliusruh; the Juliusruh monitor page is the fallback) using the `DIDBGetValues` API with a 24-hour rolling window and the `YYYY/MM/DD HH:MM:SS` date format required by the endpoint (~5 minute data lag). The GIRO parser requires a decimal point in the value token to avoid misreading integer quality-score fields. MUF is stored in the `muf_data` table; **foF2** is read first from the Juliusruh Space Weather Monitor page (`ionosonde.iap-kborn.de`, "ION" row, updated every 15 min) and only if that fails from GIRO; it is cached in memory and served via `/api/solar`.
 5. Reporter country data is derived from individual reporter callsigns, cached in memory, and bundled into every `/api/latest` response — no extra wspr.live queries are ever triggered from the browser.
 6. Individual reporter details (callsign, grid, SNR, distance) are also fetched and cached at each poll cycle, available via `/api/reporter_list` for the Reporter List panel.
 7. On startup the background thread performs an immediate fetch of the latest spot, reporter countries, reporter list, and MUF value so the UI has data ready the moment the page is opened.
@@ -267,6 +268,34 @@ SERVICE=wspr_logger bash update.sh
 
 `VERIFY_SECONDS=60` extends the time the script waits for the page after a restart. If the script finds no `api_keys.py`, it warns on every run, because the map would show the CARTO watermark.
 
+Run it as `bash update.sh` and do not `chmod +x` it — git would count the changed file mode as a local edit and block a later update of `update.sh` itself.
+
+### Converting an existing copy into a git checkout
+
+If the folder was created by copying files (for example from another server) instead of `git clone`, `update.sh` stops with *"is not a git checkout"*. You can attach the folder to the repository without touching your local files: `git reset` without `--hard` only moves git's bookkeeping, so `config.ini`, `api_keys.py`, the databases and `venv/` stay exactly as they are.
+
+```bash
+cd ~/wspr_logger
+git status 2>&1 | head -1      # expect: fatal: not a git repository
+mkdir -p ~/wspr_pre_git && cp -a config.ini api_keys.py wspr_logger.py db.py replay_db.py requirements.txt templates ~/wspr_pre_git/   # small safety copy
+git init -q -b main
+git remote add origin https://github.com/oh2gax/wspr_logger.git      # or your own fork
+git fetch -q origin
+git reset -q origin/main
+git branch --set-upstream-to=origin/main main
+git status --short             # D = files that were never copied, M = your local edits
+```
+
+Then restore the missing files from GitHub, skipping the two files that hold local changes (`config.ini` and the live `wspr_data.db` — never run `git checkout` on those):
+
+```bash
+git ls-files -m -d | sort -u | grep -vx -e config.ini -e wspr_data.db | xargs -r git checkout --
+git status --short             # now only config.ini and wspr_data.db are listed as modified
+bash update.sh                 # should report "already up to date"
+```
+
+The second command replaces every other tracked file with GitHub's version, so if you had edited code inside the copy, keep the safety copy in `~/wspr_pre_git`. Because the checkout now equals GitHub, `update.sh` will not restart the service; if the copied code was older than GitHub's, restart it once yourself with `sudo systemctl restart wspr-logger`.
+
 ---
 
 ## Firewall
@@ -301,6 +330,8 @@ sudo ufw allow 5008/tcp
 | **Reporter Plot** | Toggle the map layer that plots reporter locations and draws SNR-weighted great-circle arcs from the beacon to each reporter |
 | **Day / Night** | Toggle the day/night overlay showing the current night hemisphere and terminator line; updates every 60 seconds |
 | **1h / Today tabs** | Switch the mini-stats cards between the last 60 minutes (default) and the full day |
+
+*The Map Layers switches above and the 1h / Today tab, MUF period, histogram tab and reporter-list sort are remembered per browser (stored in `localStorage` under `wspr_layers`). Each browser or device keeps its own settings; clearing the site data resets them to the defaults (only Position Trail on).*
 | **🌙 / ☀️ Dark / Light Mode** | Toggle the colour theme; saved across sessions |
 
 ### Live Map
@@ -345,12 +376,12 @@ When the Juliusruh ionosonde MUF D=3000 km exceeds 28 MHz, a **⚡ HIGH MUF** la
 | X-ray | X-ray flux class (e.g. B9.3, C2.1); yellow for C-class, orange for M-class, red for X-class |
 | Bz    | Interplanetary magnetic field Z-component (nT); diverging scale: green to purple as value goes negative, default accent for northward (≥ 0) |
 | J-MUF | Juliusruh ionosonde MUF D=3000 km (MHz); colour tied to band openings: gray < 8, default accent 8–12, green 12–15, lime 15–18, yellow-green 18–22, yellow 22–25, orange 25–30, red 30–35, purple > 35 |
-| foF2  | F2-layer critical frequency from Juliusruh (JR055) via [GIRO DIDBase](https://lgdc.uml.edu/) (MHz); displayed in the default accent colour |
+| foF2  | F2-layer critical frequency from Juliusruh (JR055), read from the [Juliusruh monitor page](https://www.ionosonde.iap-kborn.de/actuellz.htm) with [GIRO DIDBase](https://lgdc.uml.edu/) as backup (MHz); displayed in the default accent colour |
 | SW    | Solar wind speed (km/s); default accent below 450, then yellow-green, yellow, orange, red, purple as speed increases |
 | AU    | Aurora activity (0–9 Kp-like scale); lime at 3, yellow at 4, orange at 5, red-orange at 6, red at 7–8, purple at 9 |
 | PF    | Proton flux (pfu, NOAA S-scale); default accent below 50 pfu, yellow ≥ 50, orange S2 (≥ 100), red S3 (≥ 1000), dark-red S4 (≥ 10000), purple S5 (≥ 100000) |
 
-All colour thresholds follow standard NOAA / space weather classifications or practical amateur radio conventions. Default accent colour is used for quiet / background conditions in every field. Solar and geomagnetic data sourced from [hamqsl.com](https://www.hamqsl.com/solarxml.php); foF2 sourced from the [GIRO DIDBase](https://lgdc.uml.edu/); both refreshed every 60 seconds while the panel is visible.
+All colour thresholds follow standard NOAA / space weather classifications or practical amateur radio conventions. Default accent colour is used for quiet / background conditions in every field. Solar and geomagnetic data sourced from [hamqsl.com](https://www.hamqsl.com/solarxml.php); foF2 sourced from the Juliusruh monitor page (GIRO DIDBase as backup); both refreshed every 60 seconds while the panel is visible.
 
 **Reporter List** (left side, below Solar Conditions when visible) *(optional)* — scrollable table of individual stations that received the beacon in the past 60 minutes, one row per unique reporter:
 

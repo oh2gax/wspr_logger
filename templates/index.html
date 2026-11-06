@@ -1191,6 +1191,54 @@ function initTheme() {
     }
 }
 
+// ── Remembered Map Layer settings (per browser) ────────────────────────────
+const LAYER_PREFS_KEY = 'wspr_layers';
+let _layerPrefsReady = false;   // stays false until restore has run, so startup never overwrites saved prefs
+
+function saveLayerPrefs() {
+    if (!_layerPrefsReady) return;
+    try {
+        localStorage.setItem(LAYER_PREFS_KEY, JSON.stringify({
+            trail: showTrail, countries: showCountries, muf: showMuf, solar: showSolar,
+            reporterList: showReporterList, histogram: showHistogram,
+            reporterPlot: showReporterPlot, dayNight: showDayNight,
+            mufDays: mufDays, hgramMode: _hgramMode,
+            rlSortKey: _rlSortKey, statsWindow: statsWindow,
+        }));
+    } catch(e) { /* storage unavailable (private mode / quota) — ignore */ }
+}
+
+function restoreLayerPrefs() {
+    let p = null;
+    try { p = JSON.parse(localStorage.getItem(LAYER_PREFS_KEY) || 'null'); } catch(e) { p = null; }
+    if (!p || typeof p !== 'object') p = {};
+
+    // Sub-settings first so panels open with the remembered view.
+    // setMufDays is always called so the panel title matches the active period button.
+    setMufDays([1,2,3,7].includes(p.mufDays) ? p.mufDays : mufDays);
+    if (p.hgramMode === 'snr' || p.hgramMode === 'dist') setHgramMode(p.hgramMode);
+    if (p.rlSortKey === 'snr' || p.rlSortKey === 'dist') sortReporterList(p.rlSortKey);
+    if (p.statsWindow === '1h' || p.statsWindow === 'today') setStatsWindow(p.statsWindow);
+
+    // Layer switches: call the normal toggle only when the saved value differs
+    // from the current (default) state, so all side effects run exactly as on a click.
+    const layers = [
+        ['trail',        () => showTrail,        toggleTrail],
+        ['countries',    () => showCountries,    toggleCountries],
+        ['muf',          () => showMuf,          toggleMuf],
+        ['solar',        () => showSolar,        toggleSolar],
+        ['reporterList', () => showReporterList, toggleReporterList],
+        ['histogram',    () => showHistogram,    toggleHistogram],
+        ['reporterPlot', () => showReporterPlot, toggleReporterPlot],
+        ['dayNight',     () => showDayNight,     toggleDayNight],
+    ];
+    for (const [key, get, toggle] of layers) {
+        if (typeof p[key] === 'boolean' && p[key] !== get()) toggle();
+    }
+    _layerPrefsReady = true;
+    saveLayerPrefs();
+}
+
 // ── Fetch latest spot and update live map ──────────────────────────────────
 async function fetchLatest() {
     try {
@@ -1397,6 +1445,7 @@ function toggleCountries() {
             .then(data => updateCountryOverlay(data.countries || []))
             .catch(() => {});
     }
+    saveLayerPrefs();
 }
 
 function updateCountryOverlay(list) {
@@ -1476,6 +1525,7 @@ function toggleMuf() {
     document.getElementById('mufPanel').style.display = showMuf ? 'block' : 'none';
     if (showMuf) fetchMufData();
     updateSolarPosition();          // also chains → updateReporterListPosition
+    saveLayerPrefs();
 }
 
 function setMufDays(d) {
@@ -1492,6 +1542,7 @@ function setMufDays(d) {
     // Destroy chart so it's rebuilt with correct label format
     if (mufChart) { mufChart.destroy(); mufChart = null; }
     fetchMufData();
+    saveLayerPrefs();
 }
 
 async function fetchMufData() {
@@ -1702,6 +1753,7 @@ function toggleReporterPlot() {
     } else {
         fetchReporterList();   // fetches & renders; guard inside handles dual-use
     }
+    saveLayerPrefs();
 }
 
 function clearReporterPlot() {
@@ -1906,6 +1958,7 @@ function toggleDayNight() {
         _dayNightTimer = null;
         clearDayNight();
     }
+    saveLayerPrefs();
 }
 
 // ── Solar conditions ────────────────────────────────────────────────────────
@@ -1922,6 +1975,7 @@ function toggleSolar() {
         _solarTimer = null;
         updateReporterListPosition();   // re-stack without solar
     }
+    saveLayerPrefs();
 }
 
 async function fetchSolarData() {
@@ -2029,6 +2083,7 @@ function toggleReporterList() {
     } else {
         updateHistogramPosition();
     }
+    saveLayerPrefs();
 }
 
 async function fetchReporterList() {
@@ -2051,6 +2106,7 @@ function sortReporterList(key) {
     document.getElementById('thSnr').textContent  = 'SNR'  + (key === 'snr'  ? ' ▾' : '');
     document.getElementById('thDist').textContent = 'Dist' + (key === 'dist' ? ' ▾' : '');
     renderReporterList();
+    saveLayerPrefs();
 }
 
 function renderReporterList() {
@@ -2083,6 +2139,7 @@ function toggleHistogram() {
     } else {
         if (hgramChart) { hgramChart.destroy(); hgramChart = null; }
     }
+    saveLayerPrefs();
 }
 
 function setHgramMode(mode) {
@@ -2090,6 +2147,7 @@ function setHgramMode(mode) {
     document.getElementById('htSnr').classList.toggle('active',  mode === 'snr');
     document.getElementById('htDist').classList.toggle('active', mode === 'dist');
     renderHistogram();
+    saveLayerPrefs();
 }
 
 function renderHistogram() {
@@ -2194,6 +2252,7 @@ function toggleTrail() {
     document.getElementById('swTrail').className = 'sw' + (showTrail ? ' on' : '');
     if (showTrail) { refreshTrail(); }
     else if (liveTrail) { liveMap.removeLayer(liveTrail); liveTrail = null; }
+    saveLayerPrefs();
 }
 
 // ── View switching ─────────────────────────────────────────────────────────
@@ -2221,6 +2280,7 @@ function setStatsWindow(w) {
     document.getElementById('tab1h').classList.toggle('active',    w === '1h');
     document.getElementById('miniStatsTitle').textContent = w === '1h' ? 'Last 1h' : 'Today';
     fetchTodayStats();
+    saveLayerPrefs();
 }
 
 // ── Today / 1h stats sidebar ───────────────────────────────────────────────
@@ -2382,6 +2442,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setHistDate(0);
     setStatsDate(0);
     initLiveMap();
+    restoreLayerPrefs();    // after the map exists (Day/Night needs it), before the first fetch
     fetchLatest();
     setInterval(fetchLatest, 60_000);
 

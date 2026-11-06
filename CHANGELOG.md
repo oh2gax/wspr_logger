@@ -5,6 +5,49 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2026-11-06b]
+
+### Added
+- **Map Layer toggles are remembered per browser** — the sidebar switches
+  (Position Trail, Reporter Countries, MUF / Reports Graph, Solar Conditions,
+  Reporter List, SNR / Dist Histogram, Reporter Plot, Day / Night) are saved to
+  `localStorage` (key `wspr_layers`) on every change and restored on page load,
+  after the map is created and before the first data fetch. Restoring calls the
+  normal toggle functions, so panels, timers and panel stacking behave exactly as
+  after a click. Related sub-settings are saved too: MUF period (1d / 2d / 3d /
+  1wk), histogram SNR / Dist tab, reporter-list sort column, and the 1h / Today
+  stats tab. Missing, corrupt or unavailable storage falls back to the defaults
+  (Position Trail on, everything else off). No backend change.
+
+### Fixed (Best DX)
+- **Best DX / reporter count under-reported long-distance spots** — each poll only
+  queried the single newest transmission slot, six minutes after it was sent.
+  Distant reporters (USA, Asia, Pacific) upload to wspr.live later, and by the next
+  poll the newest slot was a different one, so the earlier slot was never refreshed;
+  the `ON CONFLICT` update added earlier only helped after a backend restart.
+  Comparing the databases showed that on 67 of 163 days the farthest reporter in the
+  replay data was farther than the stored Best DX (e.g. 15,614 km vs 4,553 km on
+  2026-10-07). The poll query now covers the last 45 minutes / 5 slots (still one
+  query per cycle, no extra wspr.live load), and every poll raises the stored
+  `max_distance` / `reporter_count` of the recent slots (values are never lowered).
+  New helpers: `fetch_recent_spots()`, `store_spots()`, `db.get_spot_at()`; the
+  log shows `Updated: <slot> reporters a->b max_dx x->y km` when a slot improves.
+  Days already stored are not corrected retroactively.
+
+### Changed
+- **More reliable foF2 source** — foF2 is now read first from the Juliusruh Space
+  Weather Monitor page (`ionosonde.iap-kborn.de/actuellz.htm`, "ION" row, updated
+  every 15 minutes, 10 s timeout) and GIRO DIDBase is only tried if that fails,
+  because GIRO frequently returned nothing. The HTML is reduced to plain text before
+  matching, so the parser does not depend on the table markup. The MUF source is
+  unchanged (GIRO first, Juliusruh page as fallback).
+
+### Fixed
+- The MUF panel title always said "Last 24 h" at start-up although the default
+  period is 2 days; the title now matches the active period button.
+
+---
+
 ## [2026-11-06]
 
 ### Added
@@ -24,8 +67,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   copied to `<install folder>_backups/` with SQLite's online backup before every
   update (the 7 newest copies are kept), and `pip install -r requirements.txt`
   runs only when `requirements.txt` changed.
-- README: new "Updating on a Server" section; `update.sh` added to the project
-  structure.
+- README: new "Updating on a Server" section, including a step-by-step recipe for
+  converting a folder that was copied rather than cloned into a git checkout
+  without touching `config.ini`, `api_keys.py`, the databases or `venv/`;
+  `update.sh` added to the project structure.
 
 ---
 
