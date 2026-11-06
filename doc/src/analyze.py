@@ -9,6 +9,10 @@ applies the quality control described in the paper and writes
     out/fig_*.pdf     the figures
     out/stats.json    the same numbers for reference
 
+The databases cover three summer seasons (2024, 2025, 2026). The first two were rebuilt from
+wspr.live with tools/backfill.py and carry no solar or MUF readings; the space-weather statistics
+therefore use only the snapshots that have them (the live-logged window).
+
 Usage:  python3 analyze.py [path-to-wspr_logger-folder]
 """
 from __future__ import annotations
@@ -106,7 +110,9 @@ for call, grid, dist, n in pairs_all:
         continue
     if abs(hav(HOME_LAT, HOME_LON, lat, lon) - dist) > QC_TOL_KM:
         flagged.append((call, grid, dist, n))
+json.dump([[c, g] for c, g, _, _ in flagged], open(os.path.join(OUT, "qc_bad.json"), "w"))
 macro("qcFlagged", len(flagged))
+macro("qcRowsAll", fmt(sum(n for _, _, _, n in flagged)))
 macro("qcPairs", len(pairs_all))
 macro("qcTol", QC_TOL_KM)
 bad_keys = {f"{c}|{g}" for c, g, _, _ in flagged}
@@ -142,8 +148,15 @@ aidx = np.array([np.nan if r[6] is None else r[6] for r in rows], float)
 muf = np.array([np.nan if (r[7] is None or r[7] <= 0) else r[7] for r in rows], float)
 sfi = np.array([np.nan if (r[8] is None or r[8] <= 0) else r[8] for r in rows], float)
 fof2 = np.array([np.nan if (r[9] is None or r[9] <= 0) else r[9] for r in rows], float)
+has_sw = np.isfinite(kidx) | np.isfinite(muf) | np.isfinite(sfi)       # snapshots with solar / MUF readings
+sw_days = sorted(set(day[has_sw]))
 days = sorted(set(day))
 D = len(days)
+Dsw = len(sw_days)
+sw_ix = {d: i for i, d in enumerate(sw_days)}
+didx_sw = np.array([sw_ix.get(d, -1) for d in day])
+macro("swFrom", sw_days[0]); macro("swTo", sw_days[-1]); macro("swDays", Dsw); macro("swSnap", fmt(int(has_sw.sum())))
+macro("nSeasons", len({d[:4] for d in days}))
 dix = {d: i for i, d in enumerate(days)}
 didx = np.array([dix[d] for d in day])
 
@@ -162,7 +175,7 @@ macro("daysDXten", len(dayDX10))
 macro("pctDaysDXten", f"{100 * len(dayDX10) / D:.0f}")
 macro("solarZeroSFI", int(sum(1 for r in rows if r[8] is not None and r[8] <= 0)))
 macro("nFof2", fmt(int(np.isfinite(fof2).sum())))
-macro("pctFof2", f"{100 * np.isfinite(fof2).mean():.0f}")
+macro("pctFof2", f"{100 * np.isfinite(fof2).sum() / max(int(has_sw.sum()), 1):.0f}")
 
 # gaps in the snapshot series
 tt = [np.datetime64(t.replace(" ", "T")) for t in ts]
@@ -221,19 +234,23 @@ for h in (5, 8, 12, 19):
     macro(f"dxAt{h}", f"{dx_h[h]:.0f}")
     macro(f"dxThreeAt{h}", f"{dx3_h[h]:.0f}")
 
-# Fig 1: heatmap
-grid_n = np.full((24, D), np.nan)
+# Fig 1: heatmap on a calendar axis (white = logger / season off)
+import datetime as dtm
+d0 = dtm.date.fromisoformat(days[0]); d1 = dtm.date.fromisoformat(days[-1])
+ncal = (d1 - d0).days + 1
+grid_n = np.full((24, ncal), np.nan)
 cnt = collections.defaultdict(list)
 for i in range(N):
-    cnt[(hour[i], didx[i])].append(n_rep[i])
+    cnt[(hour[i], (dtm.date.fromisoformat(day[i]) - d0).days)].append(n_rep[i])
 for (h, d), v in cnt.items():
     grid_n[h, d] = np.mean(v)
-fig, ax = plt.subplots(figsize=(W, 2.9))
+fig, ax = plt.subplots(figsize=(W, 3.0))
 im = ax.imshow(grid_n, aspect="auto", origin="upper", cmap="viridis", interpolation="nearest",
                vmax=np.nanpercentile(grid_n, 97))
-ticks = [i for i, d in enumerate(days) if d.endswith("-01")]
+tick_days = [d0 + dtm.timedelta(days=k) for k in range(ncal)]
+ticks = [k for k, dd_ in enumerate(tick_days) if dd_.day == 1 and dd_.month in (1, 4, 7, 10)]
 ax.set_xticks(ticks)
-ax.set_xticklabels([days[i][:7] for i in ticks])
+ax.set_xticklabels([tick_days[k].strftime("%Y-%m") for k in ticks], fontsize=6.5)
 ax.set_yticks(range(0, 24, 3))
 ax.set_yticklabels([f"{h:02d}" for h in range(0, 24, 3)])
 ax.set_ylabel("UTC hour")
@@ -272,6 +289,10 @@ for (call, grid), (dl, sl) in pair.items():
     pairs.append({"call": call, "grid": grid, "dist": float(np.median(dl)), "maxd": max(dl), "snr": float(np.median(sl)),
                   "bestsnr": max(sl), "n": len(dl), "bearing": br, "zone": zone_of(call, grid)})
 macro("nPairs", fmt(len(pairs)))
+macro("nBeyond12", sum(1 for p in pairs if p["maxd"] > 12000))
+macro("nBeyond12Oc", sum(1 for p in pairs if p["maxd"] > 12000 and p["zone"] == "pacific"))
+macro("nBeyond12Other", sum(1 for p in pairs if p["maxd"] > 12000 and p["zone"] != "pacific"))
+macro("qcList", "; ".join(f"\\callsign{{{c.replace('/', chr(92) + 'slash ')}}} (grid {g}, listed at {fmt(d)}\\km, grid {fmt(round(hav(HOME_LAT, HOME_LON, *w._grid_to_latlon(g))))}\\km away)" for c, g, d, _ in flagged))
 zrows = []
 tot = len(pairs)
 for z in ["europe", "n_america", "africa", "pacific", "s_america", "asia", "other"]:
@@ -312,6 +333,11 @@ for lo, hi, lab in bands:
     sn = [p["snr"] for p in g]
     brows.append((lab, len(g), np.median(sn) if sn else np.nan, np.percentile(sn, 25) if sn else np.nan,
                   np.percentile(sn, 75) if sn else np.nan, max(p["bestsnr"] for p in g) if g else np.nan))
+for i_, (lab_, n_, m_, q1_, q3_, b_) in enumerate(brows):
+    macro(f"snrBand{i_}", f"{m_:.0f}"); macro(f"snrIqr{i_}", f"{q3_ - q1_:.0f}")
+top_snr = REPLAY.execute(f"SELECT callsign, snr, distance, substr(timestamp,1,10) FROM reporters_log WHERE {WHERE_OK} ORDER BY snr DESC, timestamp LIMIT 1", bad_args).fetchone()
+macro("snrTopCall", top_snr[0]); macro("snrTopDB", f"{top_snr[1]:+d}"); macro("snrTopDist", fmt(top_snr[2])); macro("snrTopDate", top_snr[3])
+macro("snrLowest", REPLAY.execute(f"SELECT MIN(snr) FROM reporters_log WHERE {WHERE_OK}", bad_args).fetchone()[0])
 d_s = np.array([p["dist"] for p in pairs]); s_s = np.array([p["snr"] for p in pairs])
 macro("corrDistSNR", f"{np.corrcoef(np.log10(d_s + 1), s_s)[0, 1]:.2f}")
 macro("snrMed", f"{np.median(s_s):.0f}")
@@ -358,6 +384,12 @@ for d, h in zip(day, hour):
     days_with_hour[h].add(d)
 prob = {z: np.array([len({dd for dd, hh in ev[z] if hh == h}) / max(len(days_with_hour[h]), 1) * 100 for h in range(24)])
         for z in ("n_america", "africa", "pacific")}
+naA = prob["n_america"]; paA = prob["pacific"]
+macro("naEarlyH", int(np.argmax(naA[3:8])) + 3); macro("naEarlyPct", f"{naA[3:8].max():.0f}")
+macro("naDipH", int(np.argmin(naA[6:10])) + 6); macro("naDipPct", f"{naA[6:10].min():.0f}")
+macro("naLatePct", f"{naA[14:24].max():.0f}")
+macro("paMornH", int(np.argmax(paA[3:11])) + 3); macro("paMornPct", f"{paA[3:11].max():.0f}")
+macro("paEveH", int(np.argmax(paA[14:21])) + 14); macro("paEvePct", f"{paA[14:21].max():.0f}")
 macro("daysNA", len(evdays["n_america"])); macro("daysAF", len(evdays["africa"])); macro("daysPA", len(evdays["pacific"]))
 macro("daysSA", len(evdays["s_america"]))
 zone_peaks = {}
@@ -377,55 +409,141 @@ fig.tight_layout()
 fig.savefig(os.path.join(OUT, "fig_zonehours.pdf"))
 plt.close(fig)
 
-# ------------------------------------------------------------------ 6. months
+# ------------------------------------------------------------------ 6. months and seasons
 months = sorted({d[:7] for d in days})
 mrows = []
 uniq_m = dict(REPLAY.execute(f"SELECT substr(timestamp,1,7), COUNT(DISTINCT callsign) FROM reporters_log WHERE {WHERE_OK} GROUP BY 1", bad_args).fetchall())
 dmask = (hour >= 8) & (hour <= 16)
 mon = np.array([d[:7] for d in day])
+
+
+def nanstat(f, a):
+    a = a[np.isfinite(a)]
+    return float(f(a)) if len(a) else float("nan")
+
+
+def f1(x, nd=1):
+    return "--" if x != x else f"{x:.{nd}f}"
+
+
 for m in months:
     sel = mon == m
     sd = sel & dmask
     mrows.append({"m": m, "snaps": int(sel.sum()), "days": len({d for d in day[sel]}), "uniq": uniq_m.get(m, 0),
-                  "medday": float(np.median(n_rep[sd])), "mufday": float(np.nanmedian(muf[sd])), "sfi": float(np.nanmean(sfi[sel])),
-                  "dx": 100 * float(dx6[sel].mean())})
+                  "medday": float(np.median(n_rep[sd])), "mufday": nanstat(np.median, muf[sd]),
+                  "sfi": nanstat(np.mean, sfi[sel]), "dx": 100 * float(dx6[sel].mean())})
 full = [r for r in mrows if r["days"] >= 20]
 macro("monBestName", max(full, key=lambda r: r["medday"])["m"]); macro("monBest", f"{max(full, key=lambda r: r['medday'])['medday']:.0f}")
 macro("monWorstName", min(full, key=lambda r: r["medday"])["m"]); macro("monWorst", f"{min(full, key=lambda r: r['medday'])['medday']:.0f}")
 for r in mrows:
-    macro("mon" + r["m"].replace("-", ""), f"{r['medday']:.0f}")
-    macro("monuniq" + r["m"].replace("-", ""), r["uniq"])
-    macro("monmuf" + r["m"].replace("-", ""), f"{r['mufday']:.1f}")
-    macro("monsfi" + r["m"].replace("-", ""), f"{r['sfi']:.0f}")
-sfi_m = [r["sfi"] for r in full]; med_m = [r["medday"] for r in full]; muf_m = [r["mufday"] for r in full]
-macro("corrMonSFI", f"{np.corrcoef(sfi_m, med_m)[0, 1]:.2f}")
-macro("corrMonMUF", f"{np.corrcoef(muf_m, med_m)[0, 1]:.2f}")
-fig, ax = plt.subplots(figsize=(W, 2.5))
-x = np.arange(len(mrows))
-ax.bar(x, [r["medday"] for r in mrows], color=BLUE, alpha=0.75, label="median stations heard, 08–16 UTC")
-ax.set_ylabel("stations heard"); ax.set_xticks(x); ax.set_xticklabels([r["m"] for r in mrows])
+    k_ = r["m"].replace("-", "")
+    macro("mon" + k_, f"{r['medday']:.0f}")
+    macro("monuniq" + k_, r["uniq"])
+    macro("monmuf" + k_, f1(r["mufday"]))
+    macro("monsfi" + k_, "--" if r["sfi"] != r["sfi"] else f"{r['sfi']:.0f}")
+    macro("mondx" + k_, f"{r['dx']:.0f}")
+fsw = [r for r in full if r["sfi"] == r["sfi"] and r["mufday"] == r["mufday"]]
+macro("nFullSw", len(fsw))
+macro("corrMonSFI", f"{np.corrcoef([r['sfi'] for r in fsw], [r['medday'] for r in fsw])[0, 1]:.2f}")
+macro("corrMonMUF", f"{np.corrcoef([r['mufday'] for r in fsw], [r['medday'] for r in fsw])[0, 1]:.2f}")
+
+fig, ax = plt.subplots(figsize=(W, 2.6))
+allm = []
+y_, m_ = int(months[0][:4]), int(months[0][5:])
+while (y_, m_) <= (int(months[-1][:4]), int(months[-1][5:])):
+    allm.append(f"{y_}-{m_:02d}")
+    m_ += 1
+    if m_ > 12:
+        y_, m_ = y_ + 1, 1
+pos_ = {m: i for i, m in enumerate(allm)}
+x = np.array([pos_[r["m"]] for r in mrows])
+cols_ = [{"2024": GREY, "2025": GREEN, "2026": BLUE}[r["m"][:4]] for r in mrows]
+ax.bar(x, [r["medday"] for r in mrows], color=cols_, alpha=0.8, width=0.8)
+ax.set_ylabel("median stations heard, 08–16 UTC")
+ax.set_xticks([pos_[m] for m in allm if m.endswith(("-01", "-04", "-07", "-10"))])
+ax.set_xticklabels([m for m in allm if m.endswith(("-01", "-04", "-07", "-10"))], fontsize=6.5)
+ax.set_xlim(-0.7, len(allm) - 0.3)
 axr = ax.twinx(); axr.spines["right"].set_visible(True); axr.grid(False)
-axr.plot(x, [r["mufday"] for r in mrows], color=AMBER, marker="o", lw=1.5, label="median Juliusruh MUF, 08–16 UTC (MHz)")
+xm = [pos_[r["m"]] for r in mrows if r["mufday"] == r["mufday"]]
+axr.plot(xm, [r["mufday"] for r in mrows if r["mufday"] == r["mufday"]], color=AMBER, marker="o", lw=1.5, label="median Juliusruh MUF, 08–16 UTC (MHz)")
 axr2 = ax.twinx(); axr2.spines["right"].set_position(("outward", 38)); axr2.spines["right"].set_visible(True); axr2.grid(False)
-axr2.plot(x, [r["sfi"] for r in mrows], color=GREEN, marker="s", lw=1.2, ls="--", label="mean SFI")
+axr2.plot(xm, [r["sfi"] for r in mrows if r["sfi"] == r["sfi"]], color=GREEN, marker="s", lw=1.2, ls="--", label="mean SFI")
 axr.set_ylabel("MUF (MHz)", color=AMBER); axr2.set_ylabel("SFI", color=GREEN)
-h1, l1 = ax.get_legend_handles_labels(); h2, l2 = axr.get_legend_handles_labels(); h3, l3 = axr2.get_legend_handles_labels()
-ax.legend(h1 + h2 + h3, l1 + l2 + l3, loc="upper center", fontsize=6.2, frameon=False, ncol=1, bbox_to_anchor=(0.5, 1.28))
-ax.set_title("November: 6 days only", fontsize=7, loc="right", color=GREY)
+from matplotlib.patches import Patch
+h2, l2 = axr.get_legend_handles_labels(); h3, l3 = axr2.get_legend_handles_labels()
+ax.legend([Patch(color=GREY), Patch(color=GREEN), Patch(color=BLUE)] + h2 + h3,
+          ["2024", "2025", "2026", "MUF (2026 only)", "SFI (2026 only)"], loc="upper center", fontsize=6.2, frameon=False, ncol=5, bbox_to_anchor=(0.5, 1.2))
 fig.savefig(os.path.join(OUT, "fig_monthly.pdf"))
 plt.close(fig)
+
+# ---- seasons (calendar years) and like-for-like months
+years = sorted({d[:4] for d in days})
+yr = np.array([d[:4] for d in day])
+uniq_y = dict(REPLAY.execute(f"SELECT substr(timestamp,1,4), COUNT(DISTINCT callsign) FROM reporters_log WHERE {WHERE_OK} GROUP BY 1", bad_args).fetchall())
+maxd_y = dict(REPLAY.execute(f"SELECT substr(timestamp,1,4), MAX(distance) FROM reporters_log WHERE {WHERE_OK} GROUP BY 1", bad_args).fetchall())
+yrows = []
+for y in years:
+    sel = yr == y
+    sd = sel & dmask
+    dd_y = sorted({d for d in day[sel]})
+    dx_days = len({d for d, f in zip(day[sel], dx6[sel]) if f})
+    yrows.append({"y": y, "days": len(dd_y), "from": dd_y[0], "to": dd_y[-1], "snaps": int(sel.sum()), "uniq": uniq_y.get(y, 0),
+                  "medday": float(np.median(n_rep[sd])), "dx": 100 * float(dx6[sel].mean()), "dxdays": 100 * dx_days / len(dd_y),
+                  "maxd": maxd_y.get(y, 0)})
+    macro(f"yr{y}Days", len(dd_y)); macro(f"yr{y}Uniq", fmt(uniq_y.get(y, 0))); macro(f"yr{y}Med", f"{yrows[-1]['medday']:.0f}")
+    macro(f"yr{y}Dx", f"{yrows[-1]['dx']:.1f}"); macro(f"yr{y}DxDays", f"{yrows[-1]['dxdays']:.0f}"); macro(f"yr{y}Max", fmt(maxd_y.get(y, 0)))
+    macro(f"yr{y}Snap", fmt(int(sel.sum())))
+
+
+def month_stat(y, mo, what):
+    sel = (yr == y) & (np.array([d[5:7] for d in day]) == f"{mo:02d}")
+    if len({d for d in day[sel]}) < 10:
+        return np.nan
+    return float(np.median(n_rep[sel & dmask])) if what == "med" else 100 * float(dx6[sel].mean())
+
+
+# months with at least 10 days in every season that has data in them
+mo_list = [mo for mo in range(1, 13) if any(month_stat(y, mo, "med") == month_stat(y, mo, "med") for y in years)]
+common = [mo for mo in mo_list if all(month_stat(y, mo, "med") == month_stat(y, mo, "med") for y in years)]
+macro("nCommon", len(common))
+macro("commonNames", ", ".join(["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][mo - 1] for mo in common))
+for y in years:
+    sel = (yr == y) & np.isin(np.array([int(d[5:7]) for d in day]), common)
+    macro(f"co{y}Med", f"{np.median(n_rep[sel & dmask]):.0f}"); macro(f"co{y}Dx", f"{100 * dx6[sel].mean():.1f}")
+    macro(f"co{y}Days", len({d for d in day[sel]}))
+fig, (a1, a2) = plt.subplots(1, 2, figsize=(W, 2.5))
+for y, col in zip(years, (GREY, GREEN, BLUE)):
+    xs_ = [mo for mo in mo_list if month_stat(y, mo, "med") == month_stat(y, mo, "med")]
+    a1.plot(xs_, [month_stat(y, mo, "med") for mo in xs_], color=col, marker="o", ms=3, lw=1.4, label=y)
+    a2.plot(xs_, [month_stat(y, mo, "dx") for mo in xs_], color=col, marker="o", ms=3, lw=1.4, label=y)
+for a_, yl, t_ in ((a1, "median stations heard, 08–16 UTC", "(a) Daytime reporting"), (a2, "% of snapshots with a station > 6000 km", "(b) Long-distance windows")):
+    a_.set_xticks(range(3, 12)); a_.set_xticklabels(list("MAMJJASON")); a_.set_xlabel("month"); a_.set_ylabel(yl); a_.set_title(t_)
+a1.legend(frameon=False, fontsize=6.5)
+fig.tight_layout(); fig.savefig(os.path.join(OUT, "fig_seasons.pdf")); plt.close(fig)
+
+MN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+yoy_rows = []
+for mo in mo_list:
+    cells = []
+    for y in years:
+        a_, b_ = month_stat(y, mo, "med"), month_stat(y, mo, "dx")
+        cells.append("--" if a_ != a_ else f"{a_:.0f} ({b_:.0f})")
+    yoy_rows.append((MN[mo - 1], *cells))
+for y in years:
+    macro(f"nMon{y}", sum(1 for mo in mo_list if month_stat(y, mo, "med") == month_stat(y, mo, "med")))
 
 # ------------------------------------------------------------------ 7. space weather (index with day-block bootstrap)
 rng = np.random.default_rng(20261106)
 B = 2000
-exp_snap = exp_hour[hour]
+exp_hour_sw = np.array([n_rep[(hour == h) & has_sw].mean() for h in range(24)])
+exp_snap = exp_hour_sw[hour]
 
 
 def day_sums(mask, *arrays):
     out = []
     for arr in arrays:
-        s = np.zeros(D)
-        np.add.at(s, didx[mask], arr[mask])
+        s = np.zeros(Dsw)
+        np.add.at(s, didx_sw[mask], arr[mask])
         out.append(s)
     return out
 
@@ -433,11 +551,11 @@ def day_sums(mask, *arrays):
 def binned(values, edges, labels):
     res = []
     for (lo, hi), lab in zip(zip(edges[:-1], edges[1:]), labels):
-        m = np.isfinite(values) & (values >= lo) & (values < hi)
+        m = has_sw & np.isfinite(values) & (values >= lo) & (values < hi)
         if m.sum() < 30:
             continue
         num, den, cnt_, dxs = day_sums(m, n_rep, exp_snap, np.ones(N), dx6.astype(float))
-        idx = rng.integers(0, D, (B, D))
+        idx = rng.integers(0, Dsw, (B, Dsw))
         i_b = 100 * num[idx].sum(1) / np.maximum(den[idx].sum(1), 1e-9)
         d_b = 100 * dxs[idx].sum(1) / np.maximum(cnt_[idx].sum(1), 1)
         res.append({"lab": lab, "n": int(m.sum()), "mean": float(n_rep[m].mean()),
@@ -462,10 +580,10 @@ macro("mufDxLow", f"{mb[0]['dx']:.0f}"); macro("mufDxMid", f"{mb[3]['dx']:.0f}")
 
 
 def corr_ci(x, y):
-    ok = np.isfinite(x) & np.isfinite(y)
+    ok = has_sw & np.isfinite(x) & np.isfinite(y)
     xs, ys = x[ok], y[ok]
-    dd = didx[ok]
-    S = {k: np.zeros(D) for k in ("n", "x", "y", "xx", "yy", "xy")}
+    dd = didx_sw[ok]
+    S = {k: np.zeros(Dsw) for k in ("n", "x", "y", "xx", "yy", "xy")}
     for k, v in (("n", np.ones(len(xs))), ("x", xs), ("y", ys), ("xx", xs * xs), ("yy", ys * ys), ("xy", xs * ys)):
         np.add.at(S[k], dd, v)
 
@@ -477,7 +595,7 @@ def corr_ci(x, y):
     r0 = pearson(slice(None))
     bs = []
     for _ in range(1000):
-        sel = rng.integers(0, D, D)
+        sel = rng.integers(0, Dsw, Dsw)
         n = S["n"][sel].sum(); sx = S["x"][sel].sum(); sy = S["y"][sel].sum()
         sxx = S["xx"][sel].sum(); syy = S["yy"][sel].sum(); sxy = S["xy"][sel].sum()
         bs.append((sxy - sx * sy / n) / math.sqrt((sxx - sx * sx / n) * (syy - sy * sy / n)))
@@ -547,15 +665,19 @@ macro("caseWorstDay", worst_case["d"]); macro("caseWorstRep", f"{worst_case['rep
 cw = [c for c in cs if c["d"] == "2026-07-04"]
 if cw:
     macro("caseJulyK", f"{cw[0]['k']:.0f}"); macro("caseJulyA", f"{cw[0]['a']:.0f}"); macro("caseJulyRep", f"{cw[0]['rep']:.0f}")
-macro("caseTypRep", f"{np.median([float(np.mean(n_rep[(day == d) & dmask])) for d in days if ((day == d) & dmask).sum() > 20]):.0f}")
+macro("caseTypRep", f"{np.median([float(np.mean(n_rep[(day == d) & dmask])) for d in sw_days if ((day == d) & dmask).sum() > 20]):.0f}")
 macro("sfiMax", f"{np.nanmax(sfi):.0f}")
+sd_all = [(d, float(np.mean(n_rep[(day == d) & dmask]))) for d in days if ((day == d) & dmask).sum() > 20]
+w_ = min(sd_all, key=lambda t: t[1]); macro("worstAllDay", w_[0]); macro("worstAllRep", f"{w_[1]:.0f}")
+sd_sw = [t for t in sd_all if t[0] in sw_ix]; w2_ = min(sd_sw, key=lambda t: t[1]); macro("worstSwDay", w2_[0]); macro("worstSwRep", f"{w2_[1]:.0f}")
 macro("sfiMin", f"{np.nanmin(sfi):.0f}")
 macro("covDays", f"{N * 10 / 1440:.0f}")
 macro("covPct", f"{100 * N * 10 / 1440 / D:.0f}")
+macro("covDaysSw", f"{int(has_sw.sum()) * 10 / 1440:.0f}"); macro("covPctSw", f"{100 * int(has_sw.sum()) * 10 / 1440 / Dsw:.0f}")
 
 # ------------------------------------------------------------------ 9. records
 top = {}
-for call, grid, dist, t in REPLAY.execute(f"SELECT callsign, grid, distance, timestamp FROM reporters_log WHERE {WHERE_OK} ORDER BY distance DESC, timestamp ASC LIMIT 400", bad_args):
+for call, grid, dist, t in REPLAY.execute(f"SELECT callsign, grid, distance, timestamp FROM reporters_log WHERE {WHERE_OK} ORDER BY distance DESC, timestamp ASC LIMIT 40000", bad_args):
     if call not in top:
         top[call] = (grid, dist, t)
     if len(top) >= 8:
@@ -567,7 +689,7 @@ macro("nOceania", sum(1 for p in pairs if p["zone"] == "pacific"))
 # ------------------------------------------------------------------ 10. stored Best DX vs replay data
 sp_day = dict(DATA.execute("SELECT substr(timestamp,1,10), MAX(max_distance) FROM spots GROUP BY 1").fetchall())
 rp_day = dict(REPLAY.execute(f"SELECT substr(timestamp,1,10), MAX(distance) FROM reporters_log WHERE {WHERE_OK} GROUP BY 1", bad_args).fetchall())
-cmp_days = [d for d in sp_day if d in rp_day]
+cmp_days = [d for d in sp_day if d in rp_day and d >= sw_days[0]]      # live-logged days only (older days were rebuilt)
 under = [d for d in cmp_days if rp_day[d] > sp_day[d]]
 macro("cmpDays", len(cmp_days)); macro("underDays", len(under)); macro("underPct", f"{100 * len(under) / len(cmp_days):.0f}")
 ex = max(under, key=lambda d: rp_day[d] - sp_day[d])
@@ -606,9 +728,16 @@ tabular("lrrrrl", ["Region", "Days", "Best 3-h window (UTC)", "Peak share (\\%)"
         zl, "Days with at least one station beyond 6\\,000 km, by region.", "tab:dxzones",
         notes="Share = percentage of days with data in that UTC hour on which at least one station of the region beyond 6\\,000 km was heard.")
 
-tabular("lrrrrrr", ["Month", "Days", "Snapshots", "Stations", "Median stations 08--16 UTC", "Median MUF (MHz)", "Mean SFI"],
-        [(r["m"], r["days"], fmt(r["snaps"]), r["uniq"], f"{r['medday']:.0f}", f"{r['mufday']:.1f}", f"{r['sfi']:.0f}") for r in mrows],
-        "Monthly summary. Stations = distinct callsigns heard in the month.", "tab:months")
+tabular("lrrrrrrr", ["Month", "Days", "Snapshots", "Stations", "Daytime median", "DX share (\\%)", "Median MUF (MHz)", "Mean SFI"],
+        [(r["m"], r["days"], fmt(r["snaps"]), r["uniq"], f"{r['medday']:.0f}", f"{r['dx']:.0f}", f1(r["mufday"]), "--" if r["sfi"] != r["sfi"] else f"{r['sfi']:.0f}") for r in mrows if r["days"] >= 5],
+        "Monthly summary (months with at least five days of data). Daytime median = median number of stations heard between 08 and 16~UTC; stations = distinct callsigns heard in the month; DX share = snapshots with a station beyond 6\\,000\\km. MUF and SFI exist only for the live-logged part of 2026 (from " + sw_days[0] + ").", "tab:months")
+
+tabular("lrrrrrrr", ["Season", "Days", "Snapshots", "Stations", "Daytime median", "DX share (\\%)", "Days with DX (\\%)", "Farthest (km)"],
+        [(r["y"], r["days"], fmt(r["snaps"]), fmt(r["uniq"]), f"{r['medday']:.0f}", f"{r['dx']:.1f}", f"{r['dxdays']:.0f}", fmt(r["maxd"])) for r in yrows],
+        "The three seasons. Daytime median = median number of stations heard between 08 and 16~UTC; stations = distinct callsigns heard in the season; DX share = snapshots with a station beyond 6\\,000\\km; days with DX = days with at least one such station. The seasons cover different months (Table~\\ref{tab:yoy}).", "tab:seasons")
+
+tabular("l" + "r" * len(years), ["Month"] + list(years), yoy_rows,
+        "Month-by-month comparison of the seasons: median number of stations heard between 08 and 16~UTC, with the DX share in per cent in parentheses. Months with fewer than ten days of data are left out (--).", "tab:yoy")
 
 
 def swtab(res, name, label, cap):

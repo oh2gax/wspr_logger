@@ -29,7 +29,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **WPRS page** — the car's movements from the logged 6-character locators: a drive detector lists the days on which the car moved (squares used, distance moved, path length, distance from the home square) with a distance filter, a map shows the visited squares and the track line for the chosen day(s), and a drive replay plays the fixes in order or opens a moment in the History Player
 - **Guides** — sidebar entry that lists the PDF documents in the `doc/` folder (technical notes and studies about the station and its data) with *Open* and *Download* links (a tab of the same window as *What's new*); titles and descriptions come from `doc/guides.json`
 - **What's new and About** — sidebar entries: *What's new* lists the last 10 days of changes straight from `CHANGELOG.md` with a version label `v.DDMMYYYY` (NEW marker until opened); *About* describes the station (operator, transmitter, antenna, home locator)
-- **Remembered Map Layers** — the Map Layers switches (Position Trail, Reporter Countries, MUF graph, Solar Conditions, Reporter List, Histogram, Reporter Plot, Day / Night) and their sub-settings (MUF period, histogram SNR/Dist tab, reporter list sort, 1h / Today tab) are saved in the browser and restored on the next visit
+- **Remembered Map Layers** — the Map Layers switches (Position Trail, Last Fix Label, Reporter Countries, MUF graph, Solar Conditions, Reporter List, Histogram, Reporter Plot, Day / Night) and their sub-settings (MUF period, histogram SNR/Dist tab, reporter list sort, 1h / Today tab) are saved in the browser and restored on the next visit
 - **Light / Dark theme** — toggle in the sidebar; preference is remembered in the browser
 - **Collapsible sidebar** — fold the panel away for a full-screen map view, handy on mobile
 - **Config-file driven** — all settings managed in `config.ini`; no settings UI exposed to the browser
@@ -326,6 +326,7 @@ sudo ufw allow 5008/tcp
 | **Reporters / Max DX** | How many stations received the last transmission and the farthest one; turn red when data is stale |
 | **Last Spot (UTC)** | Timestamp of the most recent logged transmission |
 | **Position Trail** | Toggle the dashed trail connecting today's positions on the live map |
+| **Last Fix Label** | Show or hide the "last fix N min ago" label beside the car marker (colour: green up to 25 min, amber to 60 min, red beyond) |
 | **Reporter Countries** | Toggle the country breakdown overlay on the live map |
 | **MUF / Reports Graph** | Toggle the MUF and reporter count chart at the top of the map; use the 1d / 2d / 3d / 1wk buttons on the panel to change the time range |
 | **Solar Conditions** | Toggle the solar indices panel on the left side of the map |
@@ -336,7 +337,7 @@ sudo ufw allow 5008/tcp
 | **History Player** | Open the replay bar at the bottom of the map and step through stored days; the other layer switches decide which panels show the replayed data. Not remembered between visits — the page always starts live |
 | **1h / Today tabs** | Switch the mini-stats cards between the last 60 minutes (default) and the full day |
 
-*The Map Layers switches above and the 1h / Today tab, MUF period, histogram tab and reporter-list sort are remembered per browser (stored in `localStorage` under `wspr_layers`). Each browser or device keeps its own settings; clearing the site data resets them to the defaults (only Position Trail on).*
+*The Map Layers switches above and the 1h / Today tab, MUF period, histogram tab and reporter-list sort are remembered per browser (stored in `localStorage` under `wspr_layers`). Each browser or device keeps its own settings; clearing the site data resets them to the defaults (only Position Trail and Last Fix Label on).*
 | **🌙 / ☀️ Dark / Light Mode** | Toggle the colour theme; saved across sessions |
 
 ### Live Map
@@ -429,11 +430,11 @@ The **Days / Trips** switch lists consecutive days away from home as trips (date
 The replay database starts when the logger was first run with replay enabled. Earlier snapshots can be rebuilt from wspr.live, which keeps every spot: `tools/backfill.py` fetches the spots of the station callsign and rebuilds what each 10-minute poll at :08 would have listed (stations heard in the preceding 60 minutes). Run it on the server that holds the databases, with the project's virtual environment (`venv/bin/python`, as the service uses; plain `python3` fails with *No module named 'flask'*):
 
 ```bash
-venv/bin/python tools/backfill.py --test 2025-07-15              # one day, writes nothing
-venv/bin/python tools/backfill.py --from 2025-05-01 --to 2025-09-30  # week by week, with pauses
+venv/bin/python tools/backfill.py --test 2025-08-15              # one day, writes nothing
+venv/bin/python tools/backfill.py --from 2024-07-01                # up to the oldest snapshot, week by week
 ```
 
-Options: `--callsign`, `--band`, `--chunk-days` (7), `--pause` (5 s), `--timeout` (300 s), `--yes` (no confirmation). `--to` defaults to the day before the oldest existing snapshot. Existing snapshots are never overwritten, so the command can be repeated after an interruption. Solar and MUF values are not backfilled, so old seasons appear in the heatmaps and DX statistics but not in the space-weather charts. Expect about 100 MB of database growth per season, and `update.sh` backs up both databases.
+Choose `--from` so that it does not reach back to a time when the callsign was sent from another place (for OH2GAX, spots before July 2024 come from home stations and would pollute the track and the statistics). `--compare DATE` rebuilds the 7 days from DATE and compares them with the snapshots the live logger stored for the same days (writes nothing). Use it on a live period, for example `venv/bin/python tools/backfill.py --compare 2026-06-01`, to see whether backfilled and live data are alike: the live poll cannot see reports that reach wspr.live after it ran, so rebuilt snapshots may list slightly more stations. Options: `--callsign`, `--band`, `--chunk-days` (7), `--pause` (5 s), `--timeout` (300 s), `--yes` (no confirmation). `--to` defaults to the day before the oldest existing snapshot. Existing snapshots are never overwritten, so the command can be repeated after an interruption. Solar and MUF values are not backfilled, so old seasons appear in the heatmaps and DX statistics but not in the space-weather charts. Expect about 100 MB of database growth per season, and `update.sh` backs up both databases.
 
 ### Guides
 

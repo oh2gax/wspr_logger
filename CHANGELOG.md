@@ -32,8 +32,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   overlay can be dragged by their title bar anywhere on the map (kept inside the map; the
   position is remembered, double-click the title to reset). The date/time card, the
   Propagation overlay and the MUF D=3000 graph stay where they were.
-- **Fix age on the live map** — the marker tooltip of the car says how old the latest fix is
-  (for example "fix 38 min old"), so a stale position is not mistaken for the present one.
+- **Fix age on the live map** — a label beside the car marker and a line in the Current
+  Position card say how old the latest fix is (for example "last fix 38 min ago"), so a stale
+  position is not mistaken for the present one. The new **Last Fix Label** switch in Map Layers
+  hides the label on the map (remembered; the line in the card stays).
 - **Share links** — the address of the page follows the view: a day, a moment in the
   History Player or a WPRS day and fix can be copied and opened by someone else
   (`#...` links; WPRS has a *Copy link* button).
@@ -56,11 +58,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **History backfill from wspr.live** — `tools/backfill.py` fills the replay database with
   the snapshots of earlier seasons by reconstructing, from the spots wspr.live holds for
   the callsign, what the :08 poll would have listed. Run it on the server:
-  `venv/bin/python tools/backfill.py --test 2025-07-15`, then for example
-  `venv/bin/python tools/backfill.py --from 2025-05-01 --to 2025-09-30`. Existing snapshots are
-  never overwritten; solar and MUF data are not backfilled. See README.
+  `venv/bin/python tools/backfill.py --test 2025-08-15`, then for example
+  `venv/bin/python tools/backfill.py --from 2024-07-01`. Existing snapshots are
+  never overwritten; solar and MUF data are not backfilled. `--compare DATE` checks rebuilt snapshots against the live ones of the same days. See README.
 - **Two scientific PDF notes in `doc/`** — *Twenty-metre WSPR propagation study*
-  (166 days of replay data: diurnal and seasonal patterns, geography, DX windows,
+  (three seasons, 2024–2026, 495 days with data, the first two rebuilt from wspr.live: diurnal and seasonal patterns, season comparison, geography, DX windows,
   space-weather effects, a storm case study) and *WPRS – Whisper Position Reporting
   System* (position beaconing over HF with the 200 mW GPS transmitter and the
   car-roof antenna: locator resolution, fix availability, tracks, power reach, battery
@@ -158,6 +160,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   endings were normalised.
 
 ### Fixed
+- **Reporter Countries window hidden after a reload** — a window that had been moved lost
+  its stacking order when its saved place was restored and went behind the map. Moved
+  windows now always stay above the map.
+- **MUF graph under the Date/Time card** — the "last fix … ago" text had widened the card on
+  the right; it now has its own line and the right-hand column keeps a fixed width.
 - **Best DX / reporter count under-reported long-distance spots** — each poll only
   queried the single newest transmission slot, six minutes after it was sent.
   Distant reporters (USA, Asia, Pacific) upload to wspr.live later, and by the next

@@ -343,6 +343,7 @@ select:focus, input:focus { border-color: var(--accent); }
     display: flex;
     flex-direction: column;
     gap: 8px;
+    width: 238px;
     pointer-events: none;
 }
 .map-overlay {
@@ -351,8 +352,10 @@ select:focus, input:focus { border-color: var(--accent); }
     border-radius: 8px;
     padding: 12px 14px;
     min-width: 210px;
+    box-sizing: border-box;
     backdrop-filter: blur(6px);
 }
+.ov-age { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
 .ov-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: var(--text-muted); margin-bottom: 4px; }
 .ov-locator { font-size: 28px; font-weight: 700; color: var(--accent); font-family: monospace; letter-spacing: 4px; }
 .ov-time { font-size: 14px; color: var(--text); margin-top: 2px; font-family: monospace; }
@@ -779,7 +782,7 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
 /* ── Movable map panels ── */
 .drag-handle { pointer-events: auto; cursor: grab; user-select: none; touch-action: none; }
 body.panel-dragging, body.panel-dragging .drag-handle { cursor: grabbing; user-select: none; }
-.pinned { position: absolute; transition: none !important; }
+.pinned { position: absolute; z-index: 500; transition: none !important; }
 .panel-reset { cursor: pointer; font-size: 11px; color: var(--text-muted); }
 .panel-reset:hover { color: var(--accent); }
 
@@ -1003,6 +1006,10 @@ html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1,
                 <div class="sw on" id="swTrail" onclick="toggleTrail()"></div>
             </div>
             <div class="toggle-row">
+                <span>Last Fix Label</span>
+                <div class="sw on" id="swFixAge" onclick="toggleFixAge()"></div>
+            </div>
+            <div class="toggle-row">
                 <span>Reporter Countries</span>
                 <div class="sw" id="swCountries" onclick="toggleCountries()"></div>
             </div>
@@ -1137,6 +1144,7 @@ html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1,
                 <div class="ov-lbl">Current Position</div>
                 <div class="ov-locator" id="ovLocator">——</div>
                 <div class="ov-time"    id="ovTime">No data yet</div>
+                <div class="ov-age"     id="ovAge"></div>
                 <div class="ov-stats">
                     <div class="ov-stat">
                         <div class="ov-stat-lbl">Reporters</div>
@@ -1535,6 +1543,7 @@ let currentBand  = {{ default_band }};
 let showTrail    = true;
 let isDark       = true;
 let statsWindow  = 'today';   // 'today' | '1h'
+let showFixAge       = true;     // the "last fix N min ago" label next to the car marker
 let showCountries    = false;
 let showMuf          = false;
 let showSolar        = false;
@@ -1652,7 +1661,7 @@ function saveLayerPrefs() {
     if (!_layerPrefsReady) return;
     try {
         localStorage.setItem(LAYER_PREFS_KEY, JSON.stringify({
-            trail: showTrail, countries: showCountries, muf: showMuf, solar: showSolar,
+            trail: showTrail, fixAge: showFixAge, countries: showCountries, muf: showMuf, solar: showSolar,
             reporterList: showReporterList, histogram: showHistogram,
             reporterPlot: showReporterPlot, dayNight: showDayNight,
             mufDays: mufDays, hgramMode: _hgramMode,
@@ -1677,6 +1686,7 @@ function restoreLayerPrefs() {
     // from the current (default) state, so all side effects run exactly as on a click.
     const layers = [
         ['trail',        () => showTrail,        toggleTrail],
+        ['fixAge',       () => showFixAge,       toggleFixAge],
         ['countries',    () => showCountries,    toggleCountries],
         ['muf',          () => showMuf,          toggleMuf],
         ['solar',        () => showSolar,        toggleSolar],
@@ -1813,10 +1823,17 @@ function updateFixAge() {
         if (el) {
             el.classList.toggle('warn', min > 25 && min <= 60);
             el.classList.toggle('old', min > 60);
-            el.style.display = _replayActive ? 'none' : '';
+            el.style.display = (_replayActive || !showFixAge) ? 'none' : '';
         }
     }
-    if (!_replayActive) document.getElementById('ovTime').textContent = latestSpot.timestamp + ' UTC · ' + txt;
+    document.getElementById('ovAge').textContent = _replayActive ? '' : 'last fix ' + txt;
+}
+
+function toggleFixAge() {
+    showFixAge = !showFixAge;
+    document.getElementById('swFixAge').className = 'sw' + (showFixAge ? ' on' : '');
+    updateFixAge();
+    saveLayerPrefs();
 }
 
 async function refreshTrail() {

@@ -11,3 +11,14 @@ wspr_replay.db*
 
 # Scratch folder
 tmp_files/
+
+# SQLite sidecar files of the live database
+wspr_data.db-shm
+wspr_data.db-wal
+
+# LaTeX build files of the papers (the finished PDFs are in doc/)
+doc/src/*.aux
+doc/src/*.log
+doc/src/*.out
+doc/src/*.toc
+doc/src/*.pdf

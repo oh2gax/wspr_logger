@@ -2,13 +2,13 @@
   {
     "file": "WPRS_Whisper_Position_Reporting_System.pdf",
     "title": "WPRS – Whisper Position Reporting System",
-    "description": "How a 200 mW WSPR transmitter with GPS and a car-roof 14 MHz antenna reports its position over HF without any mobile or VHF coverage; design, position accuracy, availability, power and battery measurements.",
+    "description": "How a 200 mW WSPR transmitter with GPS and a car-roof 14 MHz antenna reports its position over HF without any mobile or VHF coverage; design, position accuracy, availability, power and battery measurements, and a comparison of the 2024, 2025 and 2026 seasons.",
     "date": "2026-11-06"
   },
   {
     "file": "WSPR_Propagation_Study_OH2GAX.pdf",
     "title": "Twenty-metre WSPR propagation study",
-    "description": "Scientific analysis of 166 days of logged WSPR data: diurnal and seasonal patterns, geography, long-distance windows and the effect of MUF, K-index and solar flux.",
+    "description": "Scientific analysis of three summer seasons (2024–2026, 495 days) of WSPR data: diurnal and seasonal patterns, geography, long-distance windows, season-to-season comparison and the effect of MUF, K-index and solar flux (2026).",
     "date": "2026-11-06"
   }
 ]

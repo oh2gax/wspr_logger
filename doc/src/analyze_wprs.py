@@ -59,6 +59,7 @@ macro("wFixes", fmt(N)); macro("wFirst", T[0].date().isoformat()); macro("wLast"
 macro("wSpan", D_all); macro("wDaysWith", len(days))
 macro("wLocs", len(set(loc)))
 
+homeflag_all = np.array([l == HOME for l in loc])
 # ---- Maidenhead geometry at home latitude
 dlat_km = 2.5 / 60 * 111.19
 dlon_km = 5.0 / 60 * 111.19 * math.cos(math.radians(hlat))
@@ -187,9 +188,24 @@ for tr in trips:
     tr["n"] = len(ii); tr["maxd"] = dist_home[ii].max(); tr["far"] = loc[ii[int(np.argmax(dist_home[ii]))]]
     tr["locs"] = len({loc[i] for i in ii}); tr["hours"] = (tr["end"] - tr["start"]).total_seconds() / 3600
 macro("wTrips", len(trips))
-big = sorted(trips, key=lambda t: -t["n"])[:8]
-big = sorted(big, key=lambda t: t["start"])
+big = sorted(trips, key=lambda t: t["start"])[:14]
 macro("wTripDays", sum(1 for _ in {T[i].date() for tr in trips for i in tr["idx"]}))
+
+# ---- the seasons side by side
+yrs = sorted({t.year for t in T})
+yr_arr = np.array([t.year for t in T])
+srows = []
+for y in yrs:
+    sel = yr_arr == y
+    dys = collections.Counter(t.date().isoformat() for t, k in zip(T, sel) if k)
+    v = np.array(list(dys.values()))
+    act = sum(1 for n_ in v if n_ >= 20)
+    ntr = [tr for tr in trips if tr["start"].year == y]
+    srows.append((str(y), len(dys), fmt(int(sel.sum())), f"{np.median(v):.0f}", act, f"{100 * np.mean(nrep[sel] >= 3):.0f}",
+                  f"{np.median(nrep[sel]):.0f}", len(ntr), fmt(dist_home[sel].max()), f"{100 * np.mean(homeflag_all[sel]):.0f}"))
+    macro(f"s{y}Fixes", fmt(int(sel.sum()))); macro(f"s{y}Days", len(dys)); macro(f"s{y}PerDay", f"{np.median(v):.0f}")
+    macro(f"s{y}Trips", len(ntr)); macro(f"s{y}Max", fmt(dist_home[sel].max())); macro(f"s{y}Rep3", f"{100 * np.mean(nrep[sel] >= 3):.0f}")
+    macro(f"s{y}Home", f"{100 * np.mean(homeflag_all[sel]):.0f}")
 
 # speed estimate between consecutive fixes (10-min apart) -> bounds on movement
 mv = []
@@ -283,8 +299,8 @@ else:
 macro("wRelHome", "100")
 
 # ------------------------------------------------------------------ power reach (from per-report SNR)
-bad = ("G8LZI/2", "JO02gl")
-rep = REPLAY.execute("SELECT callsign, grid, snr, distance FROM reporters_log WHERE NOT (callsign=? AND grid=?)", bad).fetchall()
+bad = {tuple(x) for x in json.load(open(os.path.join(OUT, "qc_bad.json")))}      # written by analyze.py
+rep = [r for r in REPLAY.execute("SELECT callsign, grid, snr, distance FROM reporters_log").fetchall() if (r[0], r[1]) not in bad]
 snr = np.array([r[2] for r in rep]); dist = np.array([r[3] for r in rep])
 FLOOR = -34
 macro("wFloor", FLOOR); macro("wSnrMin", int(snr.min())); macro("wSnrMax", int(snr.max()))
@@ -355,7 +371,7 @@ tab("lrr", ["Distance from home square", "Fixes", "Share (\\%)"], [(a, fmt(b), f
     "Where the position fixes were: distance of the reported square centre from the home square KP20jg.", "tab:wdist")
 tab("lllrrr", ["Start (UTC)", "End (UTC)", "Hours", "Fixes", "Squares", "Max.\\ dist.\\ (km)"],
     [(t["start"].strftime("%Y-%m-%d %H:%M"), t["end"].strftime("%m-%d %H:%M"), f"{t['hours']:.0f}", t["n"], t["locs"], fmt(t["maxd"])) for t in big],
-    "Trips beyond 25 km from home as seen through WPRS fixes alone (fixes less than eight hours apart are merged into one trip).", "tab:wtrips")
+    "All trips beyond 25 km from home as seen through WPRS fixes alone (fixes less than eight hours apart are merged into one trip; consecutive days of one journey can appear as separate trips).", "tab:wtrips")
 tab("lrrrrr", ["Transmit power", "dBm", "$\\Delta$ (dB)", "All reports (\\%)", "Stations (\\%)", "Stations $>$ 6000 km (\\%)"],
     [(a, f"{b:.0f}", f"{c:.1f}", f"{d:.0f}", f"{e:.0f}", f"{g:.0f}") for a, b, c, d, e, g in [(r[0], r[1], r[2], r[3], r[4], r[6]) for r in prow]],
     "Emulated power reduction: share of the actual reports and of the receiving stations that would still lie above the decoding floor of $-34$\\,dB if the output were lowered by $\\Delta$.", "tab:wpower")
@@ -364,6 +380,11 @@ tab("lrrr", ["Load case", "Current (mA)", "Power (W)", "Runtime (days)"],
      ("Transmitting continuously", "250", "1.25", f"{cap_wh * eff / 1.25 / 24:.1f}"),
      ("WPRS duty cycle (18.4\\,\\% transmitting)", f"{i_avg * 1000:.0f}", f"{p_avg:.2f}", f"{days_pred:.1f}")],
     "Energy budget of the 30\\,000\\,mAh battery pack (nominal 3.7\\,V, 111\\,Wh; 85\\,\\% assumed conversion efficiency to 5\\,V).", "tab:wenergy")
+heads_ = ["Days with fixes", "Fixes", "Median fixes per day", "Days with $\\geq$ 20 fixes", "Fixes heard by $\\geq$ 3 stations (\\%)", "Median stations per fix",
+          "Trips beyond 25 km", "Farthest fix from home (km)", "Fixes in the home square (\\%)"]
+tab("l" + "r" * len(srows), ["Quantity"] + [r[0] for r in srows],
+    [(h_, *[r[k + 1] for r in srows]) for k, h_ in enumerate(heads_)],
+    "The three seasons side by side.", "tab:wseasons")
 for t_ in Tt:
     lab_ = re.search(r"\\label\{tab:(\w+)\}", t_).group(1)
     open(os.path.join(OUT, f"tab_{lab_}.tex"), "w").write(t_ + "\n")

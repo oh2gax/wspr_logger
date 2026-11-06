@@ -181,6 +181,43 @@ def write_chunk(db, replay_db, maidenhead_to_latlon, band, spots, snapshots, exi
     return n_spots, n_snap, n_skip
 
 
+def compare_with_live(replay_db, snaps, start, end, tol_min=SKIP_NEAR_MIN):
+    """Compares rebuilt snapshots with the ones the live poll stored for the same time span.
+    Returns a dict of summary numbers (None when nothing could be matched)."""
+    lo = (start - timedelta(minutes=tol_min)).strftime(FMT)
+    hi = (end + timedelta(minutes=tol_min)).strftime(FMT)
+    with replay_db._connect() as conn:
+        live_rows = conn.execute("SELECT timestamp, COUNT(*), MAX(distance) FROM reporters_log "
+                                 "WHERE timestamp >= ? AND timestamp < ? GROUP BY timestamp", (lo, hi)).fetchall()
+    live = sorted((datetime.strptime(r[0][:19], FMT), r[1], r[2] or 0) for r in live_rows)
+    times = [x[0] for x in live]
+    pairs, only_rebuilt = [], 0
+    used = set()
+    for ts, reporters in snaps:
+        T = datetime.strptime(ts, FMT)
+        i = bisect.bisect_left(times, T - timedelta(minutes=tol_min))
+        if i < len(times) and times[i] <= T + timedelta(minutes=tol_min) and i not in used:
+            used.add(i)
+            n_re = len(reporters)
+            d_re = max(r["distance"] for r in reporters)
+            pairs.append((live[i][1], n_re, live[i][2], d_re))
+        else:
+            only_rebuilt += 1
+    only_live = len(live) - len(used)
+    if not pairs:
+        return None
+    n = len(pairs)
+    live_n = sum(p[0] for p in pairs) / n
+    re_n = sum(p[1] for p in pairs) / n
+    return {"matched": n, "only_rebuilt": only_rebuilt, "only_live": only_live,
+            "mean_live": live_n, "mean_rebuilt": re_n,
+            "ratio": re_n / live_n if live_n else None,
+            "rebuilt_more": sum(1 for p in pairs if p[1] > p[0]) / n,
+            "rebuilt_fewer": sum(1 for p in pairs if p[1] < p[0]) / n,
+            "dx6_live": sum(1 for p in pairs if p[2] > 6000) / n,
+            "dx6_rebuilt": sum(1 for p in pairs if p[3] > 6000) / n}
+
+
 def run(args, fetch=fetch_chunk):
     import wspr_logger as w            # reads config.ini; nothing is started on import
     import db
@@ -189,6 +226,26 @@ def run(args, fetch=fetch_chunk):
     band = args.band or w.DEFAULT_BAND
     db.init(w.DB_PATH)
     replay_db.init(w.REPLAY_DB_PATH, enabled=True)
+
+    if args.compare:
+        a = datetime.strptime(args.compare, "%Y-%m-%d")
+        b = a + timedelta(days=args.chunk_days)
+        print(f"Compare: {callsign} {band} MHz, {a.date()} .. {(b - timedelta(days=1)).date()} "
+              f"(rebuilt from wspr.live against the stored snapshots; nothing is written)")
+        rows = fetch(callsign, band, a - timedelta(minutes=WINDOW_MIN), b, args.timeout)
+        snaps = build_snapshots(rows, a, b)
+        res = compare_with_live(replay_db, snaps, a, b)
+        if not res:
+            print("  No stored snapshot in that span matches; choose days the live logger was running.")
+            return 1
+        print(f"  {res['matched']} snapshots matched ({res['only_rebuilt']} only rebuilt, {res['only_live']} only stored)")
+        print(f"  stations per snapshot: stored {res['mean_live']:.1f}, rebuilt {res['mean_rebuilt']:.1f} "
+              f"(ratio {res['ratio']:.3f})")
+        print(f"  rebuilt has more stations in {100 * res['rebuilt_more']:.0f} % of snapshots, fewer in "
+              f"{100 * res['rebuilt_fewer']:.0f} %")
+        print(f"  snapshots with a station beyond 6000 km: stored {100 * res['dx6_live']:.1f} %, "
+              f"rebuilt {100 * res['dx6_rebuilt']:.1f} %")
+        return 0
 
     if args.test:
         day = datetime.strptime(args.test, "%Y-%m-%d")
@@ -251,6 +308,8 @@ def main(argv=None):
     ap.add_argument("--from", dest="date_from", help="first day, YYYY-MM-DD")
     ap.add_argument("--to", dest="date_to", help="last day (default: the day before the oldest replay snapshot)")
     ap.add_argument("--test", metavar="DATE", help="fetch just this day and print a summary; writes nothing")
+    ap.add_argument("--compare", metavar="DATE", help="rebuild --chunk-days days from DATE and compare with the stored "
+                    "live snapshots of the same days (checks that old and new data are alike); writes nothing")
     ap.add_argument("--callsign", help="default: from config.ini")
     ap.add_argument("--band", type=int, help="default: from config.ini")
     ap.add_argument("--chunk-days", type=int, default=7, help="days per wspr.live query (default 7)")
@@ -258,8 +317,8 @@ def main(argv=None):
     ap.add_argument("--timeout", type=int, default=300, help="seconds to wait for one query (default 300)")
     ap.add_argument("--yes", action="store_true", help="do not ask for confirmation")
     args = ap.parse_args(argv)
-    if not args.test and not args.date_from:
-        ap.error("give --from (and optionally --to), or --test DATE")
+    if not args.test and not args.compare and not args.date_from:
+        ap.error("give --from (and optionally --to), --test DATE or --compare DATE")
     return run(args)
 
 
