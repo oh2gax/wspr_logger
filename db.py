@@ -157,6 +157,17 @@ def get_spots_range(from_dt: str, to_dt: str, band: int = None) -> list[dict]:
 # Read — statistics
 # ---------------------------------------------------------------------------
 
+def get_all_spots(band: int = None) -> list[dict]:
+    """Every spot with just the columns the WPRS page needs, oldest first."""
+    cols = "timestamp, tx_loc, lat, lon, reporter_count, max_distance"
+    with _connect() as conn:
+        if band:
+            rows = conn.execute(f"SELECT {cols} FROM spots WHERE band = ? ORDER BY timestamp ASC", (band,)).fetchall()
+        else:
+            rows = conn.execute(f"SELECT {cols} FROM spots ORDER BY timestamp ASC").fetchall()
+        return [dict(r) for r in rows]
+
+
 def get_stats_by_date(date_str: str, band: int = None) -> dict | None:
     with _connect() as conn:
         if band:

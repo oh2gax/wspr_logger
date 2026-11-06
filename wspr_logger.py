@@ -24,6 +24,7 @@ import changelog
 import db
 import guides
 import replay_db
+import wprs
 
 try:
     from api_keys import CARTO_API_KEY
@@ -1009,6 +1010,33 @@ def api_whatsnew():
     except OSError:
         text = ""
     return jsonify(changelog.whats_new(text, datetime.utcnow().date(), days=10))
+
+
+@app.route('/api/wprs/days')
+def api_wprs_days():
+    """Home square and one movement summary per logged UTC day (newest first)."""
+    band = request.args.get('band', DEFAULT_BAND, type=int)
+    spots = db.get_all_spots(band)
+    home = wprs.home_of(spots)
+    return jsonify({"home": home, "days": wprs.summarize_days(spots, home)})
+
+
+@app.route('/api/wprs/track')
+def api_wprs_track():
+    """Position track for a range of UTC days: ?from=YYYY-MM-DD&to=YYYY-MM-DD (inclusive, max 7 days)."""
+    band = request.args.get('band', DEFAULT_BAND, type=int)
+    d_from = request.args.get('from', '')
+    d_to = request.args.get('to', d_from)
+    try:
+        a = datetime.strptime(d_from, "%Y-%m-%d")
+        b = datetime.strptime(d_to, "%Y-%m-%d")
+    except ValueError:
+        return jsonify({"error": "from/to must be YYYY-MM-DD"}), 400
+    if b < a or (b - a).days > 6:
+        return jsonify({"error": "range must be 1 to 7 days"}), 400
+    home = wprs.home_of(db.get_all_spots(band))
+    rows = db.get_spots_range(a.strftime("%Y-%m-%d 00:00:00"), b.strftime("%Y-%m-%d 23:59:59"), band)
+    return jsonify(wprs.build_track(rows, home))
 
 
 DOC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "doc")

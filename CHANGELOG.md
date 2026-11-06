@@ -8,11 +8,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [2026-11-06]
 
 ### Added
+- **WPRS page — the car's movements** — new sidebar page **WPRS** (Whisper Position
+  Reporting System). Every transmission carries the locator the transmitter computed from
+  its GPS fix, so the logged spots are a position track. A *drive detector* lists the days
+  on which the car moved: per day the squares used, the largest distance between two squares
+  (moved), the path length and the farthest distance from the home square (the most
+  frequent locator), so days parked far from home are caught too. A filter (any change of
+  square, 5, 10 — the default —, 25 or 100 km) and a 1 / 2 / 3 / 5-day span select what is
+  shown. The map draws the visited Maidenhead squares (shaded by number of fixes), the
+  track line with a dot per fix (hover for time, locator, reporters and best DX), start,
+  end and home. A *drive replay* bar plays the fixes in order (1–16 fixes per second, slider,
+  to start) with the trail so far, and **History Player** opens the shown moment in the
+  History Player on the live map. New module `wprs.py`, endpoints `/api/wprs/days` and
+  `/api/wprs/track?from=&to=` (up to 7 days), `db.get_all_spots()`.
 - **Guides — PDF documents on the page** — new sidebar entry **Guides** opens a window
   that lists the PDF files of the new `doc/` folder with *Open* and *Download* links.
   Titles, descriptions and dates come from `doc/guides.json` (a PDF without an entry is
   listed under its file name). New module `guides.py`, endpoints `/api/guides` and
-  `/doc/<file>` (only plain `*.pdf` names inside `doc/` are served).
+  `/doc/<file>` (only plain `*.pdf` names inside `doc/` are served). *What's new* and
+  *User guides* are two tabs of one window, as on the Mode-S Wind page: both sidebar
+  entries open it, on the tab of the entry.
 - **Two scientific PDF notes in `doc/`** — *Twenty-metre WSPR propagation study*
   (166 days of replay data: diurnal and seasonal patterns, geography, DX windows,
   space-weather effects, a storm case study) and *WPRS – Whisper Position Reporting

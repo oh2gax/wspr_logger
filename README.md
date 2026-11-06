@@ -26,7 +26,8 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **1 h / Today stats** — toggle the sidebar mini-stats between the last 60 minutes (default) and the full day
 - **History player** — replay any stored day on the live map from the sidebar **History Player** switch: a player bar (play/pause, time slider, date picker with previous/next day, 1–16 frames per second, **Live ✕** to leave) steps through the snapshots stored every ~10 minutes. The enabled layers show the replayed moment: Reporter List, SNR / Dist Histogram, Reporter Plot arcs, Reporter Countries and the Solar Conditions panel (including foF2 and MUF); the Propagation overlay uses the spot logged at that time. Needs the replay database (`[replay] enabled = true`)
 - **Propagation Analysis page** — built from the replay history: a band-open heatmap (UTC hour by date, reporters or farthest distance), a typical-day chart with today overlaid, reporters versus Juliusruh MUF, K-index and SFI (shown as an index against the typical value for the same hour, so the day/night cycle does not distort the comparison), a list of geomagnetic storm days, DX windows by hour and month, the farthest reporters with links into the History Player, a "right now" comparison with history, and an ionosonde (MUF / foF2) day view; 30 d / 90 d / All
-- **Guides** — sidebar entry that lists the PDF documents in the `doc/` folder (technical notes and studies about the station and its data) with *Open* and *Download* links; titles and descriptions come from `doc/guides.json`
+- **WPRS page** — the car's movements from the logged 6-character locators: a drive detector lists the days on which the car moved (squares used, distance moved, path length, distance from the home square) with a distance filter, a map shows the visited squares and the track line for the chosen day(s), and a drive replay plays the fixes in order or opens a moment in the History Player
+- **Guides** — sidebar entry that lists the PDF documents in the `doc/` folder (technical notes and studies about the station and its data) with *Open* and *Download* links (a tab of the same window as *What's new*); titles and descriptions come from `doc/guides.json`
 - **What's new and About** — sidebar entries: *What's new* lists the last 10 days of changes straight from `CHANGELOG.md` with a version label `v.DDMMYYYY` (NEW marker until opened); *About* describes the station (operator, transmitter, antenna, home locator)
 - **Remembered Map Layers** — the Map Layers switches (Position Trail, Reporter Countries, MUF graph, Solar Conditions, Reporter List, Histogram, Reporter Plot, Day / Night) and their sub-settings (MUF period, histogram SNR/Dist tab, reporter list sort, 1h / Today tab) are saved in the browser and restored on the next visit
 - **Light / Dark theme** — toggle in the sidebar; preference is remembered in the browser
@@ -417,9 +418,13 @@ Shows the selected day at a glance — total spots, max and average reporters, l
 
 Needs the replay database. The **band-open heatmap** shows for every UTC hour and date how many stations heard you (or the farthest distance) — switch with the Reporters / Farthest km buttons and hover for details. **Typical day** shows the median and 25–75 % range of stations heard per UTC hour with the latest day drawn over it. The three **space weather** charts compare your reporter count with the Juliusruh MUF, the K-index and the solar flux: bars are an index where 100 means "as many reporters as usual at that hour", the line is the share of snapshots with a reporter beyond 6000 km. The **storm days** table lists days when K reached 5 or more and how your reporters compared with a typical day. **Right now** (top) compares the live number of stations heard with what is usual for this UTC hour and for a similar MUF. **DX windows** show when reporters beyond 6000 km are most likely, by hour of day and by month. **Farthest reporters** lists the ten longest distances of the period, and the ▶ buttons there and in the storm table open that moment in the History Player. The **Ionosonde day view** plots Juliusruh MUF (and foF2 on days where it was collected) over the stations heard for any chosen day. Choose 30 days, 90 days or all history; results are computed from the local replay database and cached for 10 minutes (the "Right now" card is always live).
 
+### WPRS
+
+The **WPRS** page (Whisper Position Reporting System) turns the logged spots into a track of the car. The **left list** has one row per UTC day: the number of squares and fixes, *moved* (the largest distance between two squares used that day), the path length and, in amber, how far from the home square the car got (the home square is the most frequent locator; this also catches days parked far from home). Choose the minimum movement or distance (any change of square, 5, 10, 25, 100 km; default 10 km — an ordinary commute between neighbouring squares is 4.6–6.5 km) and how many days to show from the selected day (1, 2, 3 or 5). The **map** shows the squares visited (darker = more fixes), the track line with one dot per fix (hover for time, locator, reporters and best DX), the start (green), end (red) and home square (red ring). The **drive replay bar** at the bottom plays the fixes in order (1–16 fixes per second) with the trail so far in amber; the slider scrubs, ⏮ goes back to the start, and **History Player** opens the shown moment in the History Player on the live map (needs the replay database). The resolution is one Maidenhead subsquare, about 4.6 × 4.6 km at this latitude, and a fix exists only for transmissions that some station heard.
+
 ### Guides
 
-*Guides* (sidebar) opens a window that lists the PDF files in the `doc/` folder. To add a document, copy the PDF into `doc/` and, optionally, add an entry (`file`, `title`, `description`, `date`) to `doc/guides.json`; a PDF without an entry is still listed with a title made from its file name. Only plain `*.pdf` names inside `doc/` are served (`/doc/<file>`); the LaTeX sources and figure scripts of the two bundled papers are in `doc/src/` and are not served.
+*Guides* and *What's new* (sidebar) open one window with two tabs, *What's new* and *User guides*, each entry on its own tab. The *User guides* tab lists the PDF files in the `doc/` folder. To add a document, copy the PDF into `doc/` and, optionally, add an entry (`file`, `title`, `description`, `date`) to `doc/guides.json`; a PDF without an entry is still listed with a title made from its file name. Only plain `*.pdf` names inside `doc/` are served (`/doc/<file>`); the LaTeX sources and figure scripts of the two bundled papers are in `doc/src/` and are not served.
 
 ### What's new and About
 
@@ -467,6 +472,7 @@ wspr_logger/
 ├── analysis.py             — propagation analysis computed from the replay database
 ├── changelog.py            — reads CHANGELOG.md for the What's new window
 ├── guides.py               — lists the PDF documents in doc/ for the Guides window
+├── wprs.py                 — drive detector and track building for the WPRS page
 ├── requirements.txt        — Python dependencies (flask)
 ├── update.sh               — server update: pull from GitHub, back up databases, restart, verify
 ├── wspr_data.db            — main SQLite database (created automatically on first run)
@@ -490,6 +496,8 @@ wspr_logger/
 | `/api/analysis` | GET | `days` (0 = all, default 90), `band` | Heatmap, typical-day profile, MUF / K / SFI bins and storm days computed from the replay database; cached 10 min |
 | `/api/daily_summary` | GET | `band` | Per-day totals (transmissions, best DX, max reporters) for the Statistics chart |
 | `/api/whatsnew` | GET | — | Version label and the last 10 days of changes parsed from `CHANGELOG.md` |
+| `/api/wprs/days` | GET | `band` | Home square and one movement summary per logged UTC day (squares, moved, path, distance from home) |
+| `/api/wprs/track` | GET | `from`, `to` (YYYY-MM-DD, up to 7 days), `band` | Fixes, visited squares and statistics for those days |
 | `/api/guides` | GET | — | The PDF documents in `doc/` (file, title, description, date, size) |
 | `/doc/<file>` | GET | — | One PDF from `doc/` (`application/pdf`; only plain `*.pdf` names) |
 | `/api/replay/dates` | GET | `band` | `{enabled, dates}` — UTC dates that have replay snapshots, newest first |
