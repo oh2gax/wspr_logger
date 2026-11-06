@@ -745,6 +745,11 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
 .wn-sec.other   { color: var(--text-muted); border: 1px solid var(--border); }
 .wn-list { margin: 0 0 0 18px; padding: 0; }
 .wn-list li { margin: 2px 0; font-size: 12px; color: var(--text-secondary); }
+.gd-item { border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin: 0 0 10px; }
+.gd-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.gd-desc { font-size: 12px; color: var(--text-secondary); margin: 4px 0 8px; line-height: 1.45; }
+.gd-meta { font-size: 11px; color: var(--text-muted); }
+.gd-links a { font-size: 12px; margin-right: 14px; }
 .wn-foot { font-size: 11px; color: var(--text-muted); margin-top: 14px; }
 .about-row { display: grid; grid-template-columns: 110px 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .about-row:last-child { border-bottom: none; }
@@ -896,6 +901,7 @@ html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1,
         <div class="nav-item"        id="nav-stats"   onclick="showView('stats')">   <span class="nav-icon">📊</span> Statistics</div>
         <div class="nav-item"        id="nav-analysis" onclick="showView('analysis')"> <span class="nav-icon">🔬</span> Analysis</div>
         <div class="nav-item"        id="nav-theme"   onclick="toggleTheme()">       <span class="nav-icon" id="themeIcon">🌙</span> <span id="themeLabel">Dark Mode</span></div>
+        <div class="nav-item"        id="nav-guides"  onclick="openGuides()">         <span class="nav-icon">📄</span> Guides</div>
         <div class="nav-item"        id="nav-whatsnew" onclick="openWhatsNew()">      <span class="nav-icon">✨</span> What's new <span class="nav-badge" id="navVersion"></span></div>
         <div class="nav-item"        id="nav-about"   onclick="openAbout()">          <span class="nav-icon">ℹ️</span> About</div>
     </nav>
@@ -3422,6 +3428,33 @@ async function openWhatsNew() {
         try { localStorage.setItem('wspr_seen_version', d.version); } catch(e) {}
         document.getElementById('navVersion').classList.remove('new');
     }
+}
+
+async function openGuides() {
+    openModal('Guides', '<div class="wn-ver">Loading&hellip;</div>');
+    let list = [];
+    try {
+        const r = await fetch('/api/guides');
+        list = (await r.json()).guides || [];
+    } catch(e) {
+        openModal('Guides', '<div class="wn-ver">The guides could not be loaded.</div>');
+        return;
+    }
+    if (!list.length) {
+        openModal('Guides', '<div class="wn-ver">No guides yet. PDF documents placed in the doc folder appear here.</div>');
+        return;
+    }
+    let html = '<div class="wn-ver">Technical notes and studies written about this station and its data</div>';
+    for (const g of list) {
+        const url = '/doc/' + encodeURIComponent(g.file);
+        const meta = [g.date, 'PDF', g.size_kb + ' kB'].filter(Boolean).join(' · ');
+        html += `<div class="gd-item"><div class="gd-title">${escHtml(g.title)}</div>` +
+                (g.description ? `<div class="gd-desc">${escHtml(g.description)}</div>` : '') +
+                `<div class="gd-meta">${escHtml(meta)}</div>` +
+                `<div class="gd-links" style="margin-top:6px"><a href="${url}" target="_blank" rel="noopener">Open</a>` +
+                `<a href="${url}" download>Download</a></div></div>`;
+    }
+    openModal('Guides', html);
 }
 
 function openAbout() {

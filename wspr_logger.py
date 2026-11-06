@@ -17,11 +17,12 @@ import xml.etree.ElementTree as ET
 from html import unescape
 from datetime import datetime, timedelta
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, abort, jsonify, render_template, request, send_from_directory
 
 import analysis
 import changelog
 import db
+import guides
 import replay_db
 
 try:
@@ -1008,6 +1009,23 @@ def api_whatsnew():
     except OSError:
         text = ""
     return jsonify(changelog.whats_new(text, datetime.utcnow().date(), days=10))
+
+
+DOC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "doc")
+
+
+@app.route('/api/guides')
+def api_guides():
+    """The PDF documents in doc/ (titles and descriptions from doc/guides.json)."""
+    return jsonify({"guides": guides.list_guides(DOC_DIR)})
+
+
+@app.route('/doc/<name>')
+def serve_doc(name):
+    """Serve one PDF from doc/ (plain *.pdf file names only)."""
+    if not guides.is_safe_name(name):
+        abort(404)
+    return send_from_directory(DOC_DIR, name, mimetype='application/pdf')
 
 
 _analysis_cache: dict = {}          # (days, band) -> (monotonic time, payload)

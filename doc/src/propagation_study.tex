@@ -1,0 +1,177 @@
+\documentclass[10pt,a4paper]{article}
+\input{common.tex}
+\input{out/numbers.tex}
+\input{out/wprs_numbers.tex}
+\fancyhead[L]{\small WSPR propagation study --- OH2GAX}
+\fancyhead[R]{\small v1.0, 6 November 2026}
+\hypersetup{pdftitle={Twenty-metre WSPR propagation observed from a mobile 200 mW beacon},pdfauthor={Otso Laakso, OH2GAX}}
+\begin{document}
+\makeheader{Twenty-Metre WSPR Propagation Observed from a Mobile 200\,mW Beacon in Southern Finland}{Diurnal, geographic, seasonal and space-weather patterns, \dateFrom\ to \dateTo}{WSPR Logger project note --- version 1.0 --- 6 November 2026 --- \texttt{github.com/oh2gax/wspr\_logger}}
+
+\begin{abstract}\noindent
+A 200\,mW WSPR beacon on 14\,MHz (callsign OH2GAX, Diamond monoband whip on a car roof, home locator KP20jg) has been logged continuously by the WSPR Logger software. This note analyses \nDays\ calendar days (\dateFrom\ to \dateTo): \nSnap\ poll snapshots, \nRows\ individual reception reports from \nStations\ distinct receiving stations, together with the solar and ionospheric indices recorded at every poll (SFI, K and A index, X-ray class, Juliusruh MUF and foF2). The band is effectively closed between about 00 and 04~UTC (median \quietMedMax\ stations or fewer) and carries a median of about \busyMedAvg\ stations between 08 and 16~UTC. \zpeurope\,\% of the receiving stations are in Europe and \swPct\,\% lie between south and west-south-west of the transmitter. At least one station farther than 6\,000\km\ was heard on \daysDXsix\ of \nDays\ days (\pctDaysDXsix\,\%), and one farther than 10\,000\km\ on \daysDXten\ days; the record is \recBest\km\ (\recBestCall, \recBestDate), i.e.\ \wKmW\,km per watt. Long-distance windows are concentrated to the early morning (North America around \peakhnamerica~UTC, \peaknamerica\ UTC) and late afternoon (Africa and Oceania, \peakafrica\ UTC). After removing the diurnal rhythm, reporting is strongly tied to the Juliusruh MUF (index \mufIdxLow\ for MUF $<$ 12\MHz\ versus \mufIdxMid\ at 20--24\MHz) and weakly and negatively to the geomagnetic K-index (correlation \rKRel); the 10.7\,cm solar flux alone explains nothing ($r=\rSfiRel$). Across the six complete months the median daytime reporting rose from \monCACGAH\ stations in July to \monBest\ in October while SFI fell, so season and MUF, not SFI, dominate. The worst day of the record (4~July, K\,=\,\caseJulyK, A\,=\,\caseJulyA, \caseJulyRep\ stations against a typical \caseTypRep) followed an M-class flare period with SFI above 195.
+\end{abstract}
+\vspace{-4pt}
+{\small\tableofcontents}
+
+
+\section{Introduction}
+The Weak Signal Propagation Reporter (WSPR) protocol turns every amateur transmitter into a propagation probe: a two-minute, 6\,Hz-wide signal is decoded by volunteer receivers around the world and each decode is stored with the receiver position, signal-to-noise ratio (SNR) and distance~\cite{wsprnet,wsjtx}. A 200\,mW beacon is a modest probe, but because the same transmitter transmits on the same schedule every day, the stream of receptions is a long, homogeneous time series of the 20\,m band as seen from one place.
+
+The WSPR Logger started as a live dashboard for such a beacon: it polls the public WSPR database \texttt{wspr.live}~\cite{wsprlive} every ten minutes, draws the reporters on a map, keeps a log of the farthest reporter per transmission and records the solar conditions at the time. A second database, the \emph{replay database}, stores every poll snapshot in full. The present note is the first systematic analysis of that archive. It asks four questions:
+\begin{enumerate}[label=(\alph*)]
+\item When is the band open, and when are long-distance paths available?
+\item In which directions and at which distances does a mobile 200\,mW beacon in Finland actually get heard?
+\item How does reporting change over the season?
+\item How much of the variation is explained by the space-weather indices the logger records?
+\end{enumerate}
+The note is deliberately descriptive. Where a number can be given with a confidence interval it is; where the design of the data collection limits what can be concluded, this is stated (Section~\ref{sec:limits}).
+
+\section{Station, data and definitions}
+\subsection{Transmitting station}
+The transmitter is a ZachTek WSPR desktop transmitter~\cite{zachtek} with built-in GPS (used for timing and for the position), producing about 200\,mW (23\,dBm) into 50\,$\Omega$. The antenna is a Diamond monoband 14\,MHz whip on a magnetic mount on the roof of a VW Touran. The home locator is KP20jg (60.27\textdegree N, 24.79\textdegree E), but the car moves; \homeShare\,\% of the \nSpots\ logged transmissions carry the home locator and \nTxLoc\ different six-character locators occur in total (the mobile aspect is the subject of a companion paper on position reporting). One WSPR transmission is made every ten minutes.
+
+\subsection{Reception data}
+Every ten minutes (at :08, :18, \dots) the logger queries \texttt{wspr.live} for the receptions of the last 45 minutes and stores, for the current \emph{snapshot}, every station that has reported the beacon within the preceding 60 minutes: callsign, Maidenhead grid, SNR (dB, 2\,500\,Hz reference bandwidth) and great-circle distance to the transmitter. This gives \nSnap\ snapshots on \nDays\ calendar days; because the logger was occasionally offline the snapshots cover about \covDays\ days of 24 hours (\covPct\,\% of the period). The replay database holds \nRows\ rows. A second, older database stores one record per heard transmission (\nSpots\ records on \nSpotDays\ days) with the number of reporters and the largest distance.
+
+\subsection{Solar-terrestrial data}
+At every poll the logger stores the 10.7\,cm solar flux (SFI), the planetary K and A indices, the GOES X-ray class, and the maximum usable frequency (MUF, 3\,000\km\ reference) and critical frequency foF2 of the Juliusruh ionosonde (54.6\textdegree N, 13.4\textdegree E)~\cite{giro,juliusruh}. Indices come from NOAA SWPC-derived feeds~\cite{swpc,hamqsl}. Readings of zero in SFI or MUF are feed failures (\solarZeroSFI\ snapshots) and are treated as missing. foF2 is available for only \pctFofC\,\% of the snapshots (\nFofC) because the earlier foF2 source was unreliable; it is not used quantitatively here.
+
+\subsection{Definitions}
+\begin{description}[leftmargin=1.2em,style=nextline]
+\item[Reporters $n_t$] number of distinct stations that reported the beacon in the 60 minutes before snapshot $t$.
+\item[Expected reporters $\bar n_h$] mean of $n_t$ over all snapshots in UTC hour $h$ (the typical value for that hour).
+\item[Index] $100\sum n_t/\sum\bar n_{h(t)}$ over a set of snapshots. A value of 100 means ``typical for that hour of the day''; this removes the strong day--night rhythm, which would otherwise masquerade as a solar effect.
+\item[DX window] snapshot in which at least one reporter was farther than 6\,000\km. DX share is the percentage of snapshots that are DX windows.
+\item[Daytime] 08--16~UTC (10--18 or 11--19 local time, depending on daylight saving).
+\end{description}
+
+\subsection{Quality control}\label{sec:qc}
+Each (callsign, grid) pair was compared with the distance the logger stored: a pair is rejected if the distance computed from the receiver's grid differs from the reported distance by more than \qcTol\km. Of \qcPairs\ pairs, \qcFlagged\ was rejected: \callsign{\qcCall} (grid \qcGrid) is listed at \qcDist\km\ although its grid lies \qcGridDist\km\ from the transmitter; its \qcRows\ rows were dropped from every statistic below. Without this step the farthest ``reporter'' of the whole record would have been spurious. All station and distance results use the cleaned data.
+
+\section{Methods}
+\textbf{Confidence intervals.} Proportions of snapshots (DX shares) carry 95\,\% Wilson intervals. Indices and correlations carry 95\,\% day-block bootstrap intervals (2\,000 resamples of whole days with replacement), because consecutive snapshots share 50 of their 60 minutes and are strongly autocorrelated; treating them as independent would make every interval far too narrow.
+
+\textbf{Regions.} Receiving stations were assigned to a region from the centre of their four-character grid. \textbf{Sectors.} Bearing from the transmitter home locator is divided into eight 45\textdegree\ sectors. \textbf{Distance bands.} 0--1\,500, 1\,500--3\,000, 3\,000--6\,000, 6\,000--10\,000 and $>$10\,000\km. A \emph{station} statistic uses the median over the snapshots in which that station appears.
+
+\textbf{Space-weather bins.} MUF, K and A are binned and, within each bin, the index and DX share are computed over all snapshots in the bin. Bins with fewer than 30 snapshots are omitted. Correlations use the per-snapshot index $n_t/\bar n_{h(t)}$ (relative reporting) and the raw $n_t$ for comparison.
+
+\textbf{Reproducibility.} All figures and numbers in this note are generated by \texttt{analyze.py} from the two databases; the \LaTeX\ macros in the text are written by the script, so no value is typed by hand (Appendix~\ref{app:repro}).
+
+\section{Results}
+\subsection{Overview}
+The record contains \nSnap\ snapshots from \dateFrom\ to \dateTo, with a mean of \meanRep\ and a median of \medRep\ reporters per snapshot; \nStations\ distinct callsigns appear (\nPairs\ callsign--grid pairs). \pctDaysDXsix\,\% of days (\daysDXsix\ of \nDays) had at least one reporter beyond 6\,000\km, \daysDXten\ days ( \pctDaysDXten\,\%) beyond 10\,000\km. \shareDXsix\,\% of all snapshots are DX windows. Figure~\ref{fig:heat} shows the structure at a glance: a regular daytime band of strong reporting, a dead band in the small hours, week-long dropouts of the logger, and a clear brightening in September--October.
+
+\figwide{out/fig_heatmap.pdf}{Band-open heatmap for 20\,m: mean number of stations heard per UTC hour for each day (colour clipped at the 97th percentile). White columns are periods when the logger was not running.\label{fig:heat}}
+
+\subsection{Diurnal pattern}
+Figure~\ref{fig:diurnal}a shows the typical day. Between 00 and 04~UTC the median is $\le$\quietMedMax\ stations; reporting rises steeply after 05 and the median is at least 50 stations from \busyFrom\ to \busyTo~UTC; from 08 to 16 UTC it is about \busyMedAvg\ (maximum hourly median \hourMaxMed). The interquartile range is wide, on average \qLoMid\ to \qHiMid\ stations between 08 and 16~UTC, so day-to-day variability is large compared with the typical value.
+
+The probability of a long-distance window is \emph{not} highest when the band is busiest (Figure~\ref{fig:diurnal}b). The share of snapshots with a reporter beyond 6\,000\km\ peaks at \dxPeakPct\,\% around \dxPeakHour~UTC but is only \dxLowPct\,\% at \dxLowHour~UTC; \dxAtF\,\% at 05~UTC and \dxAtBJ\,\% at 19~UTC. A reporter beyond 3\,000\km\ is available in up to \peakThreePct\,\% of snapshots at \peakThreeHour~UTC and in only \lowThreePct\,\% at \lowThreeHour~UTC. A plausible reading is that around noon the F2 layer carries the short and medium paths into Europe while the long paths, which need the layer to be illuminated at both ends or along a grey line, are least likely; the morning and evening maxima coincide with the periods when the path to North America (morning) and to Africa and Oceania (afternoon and evening) passes through twilight. The logger data cannot test this mechanism; they only document the timing.
+
+\figwide{out/fig_diurnal.pdf}{(a) Typical day: median and interquartile range of the stations heard in 60 minutes by UTC hour. (b) Share of snapshots with at least one station beyond 6\,000\km\ (bars, 95\,\% Wilson intervals) and beyond 3\,000\km\ (line).\label{fig:diurnal}}
+
+\subsection{Geography: where the beacon is heard}
+Table~\ref{tab:zones} and Figure~\ref{fig:geo} show that the footprint is overwhelmingly European: \zneurope\ of \nPairs\ stations (\zpeurope\,\%). North America contributes \znnamerica\ stations (\zpnamerica\,\%), Africa \znafrica, Oceania \znpacific\ and South America \znsamerica; Asia only \znasia. Measured by bearing, \secSW\ stations lie in the south-west sector (225--270\textdegree), \secS\ in the south sector (180--225\textdegree), \secW\ to the west and \secSE\ to the south-east; the east and north together hold only about \eastPct\,\% and \northPct\,\% of the stations. The receiver network is densest in Central and Western Europe, which are also the directions of the best 20\,m paths from Finland, so this is a joint property of propagation and receiver density, not of propagation alone.
+
+The reporting is also concentrated on a few stations: \halfStations\ stations account for half of all reports (the three most frequent are \topStations; the top station appears in \topStationSnaps\ snapshots). These are mostly continuously running receivers, so the network response to a change in propagation is dominated by a small set of fixed receivers.
+
+\input{out/tab_zones.tex}
+\figwide{out/fig_geography.pdf}{(a) Position of every receiving station by bearing from the transmitter and distance (dot size grows with the number of snapshots in which the station was heard; colour = region). (b) Median SNR per station by distance band (boxes: quartiles; whiskers: 1.5 interquartile ranges).\label{fig:geo}}
+
+\subsection{Distance and signal strength}
+Over all reports the median SNR is \wSnrMed\dB\ with quartiles at \wSnrQB\ and \wSnrQD\dB\ (5th percentile \wSnrPF\dB); the lowest value in the archive is \wSnrMin\dB\ and the highest +\wSnrMax\dB, measured at \callsign{DK6UG} at 1\,592\km\ (Table~\ref{tab:snr}). SNR falls with the logarithm of distance, but weakly (correlation \corrDistSNR\ between $\log_{10}d$ and the station median SNR): the median is $-$19\dB\ below 1\,500\km, $-$22\dB\ for 1\,500--6\,000\km\ and only $-$24 to $-$25\dB\ beyond 6\,000\km. The long-distance stations are also the most uniform (interquartile range of 3\dB\ or less) and lie close to the lower decoding limit of the archive, about $-$33\dB, so the long paths operate with little margin and a few dB of extra attenuation removes them. The weak distance dependence is what one expects for a single F2 hop whose loss is dominated by absorption and focusing rather than by free-space spreading; the logger data do not test this explanation.
+
+\input{out/tab_snr.tex}
+
+\subsection{Long-distance windows by region}
+Long-distance reports ($>$6\,000\km) come from three regions. North America reported on \daysNA\ days, with a morning maximum around \peakhnamerica~UTC (up to \peakpctnamerica\,\% of days at that hour) and a secondary peak in the early hours. Africa reported on \daysAF\ days, concentrated in the afternoon and evening (\peakafrica~UTC; maximum \peakpctafrica\,\% of days at \peakhafrica~UTC). Oceania reported on \daysPA\ days, mainly in the late afternoon and with a smaller early-morning window (\peakpctpacific\,\% maximum at \peakhpacific~UTC). South America contributed on \daysSA\ day only. The farthest of each region is in Table~\ref{tab:dxzones}.
+
+\figwide{out/fig_zonehours.pdf}{Percentage of days with at least one station of the region beyond 6\,000\km\ in each UTC hour, for the three regions that produced long-distance reports.}
+\input{out/tab_dxzones.tex}
+
+\subsection{Seasonal variation}
+Monthly daytime reporting (Table~\ref{tab:months}, Figure~\ref{fig:months}) shows a pronounced seasonal pattern that is \emph{not} the one the solar flux alone would predict. The median daytime count fell from \monCACGAF\ in May to \monCACGAH\ in July, then rose to \monBest\ in October (\monCACGBB\ in November so far, from six days). The mean SFI went the other way: \monsfiCACGAF\ in May, \monsfiCACGAG\ in June and \monsfiCACGAH\ in July, down to \monsfiCACGBA\ in October. The correlation of the monthly median reporting with monthly mean SFI is \corrMonSFI\ and with the monthly median Juliusruh MUF \corrMonMUF\ (six complete months only, so these are descriptive, not statistical, values).
+
+Two effects probably contribute and cannot be separated in this record. First, the mid-latitude F2 layer has a well-known seasonal anomaly: for the same solar activity the daytime critical frequency is higher in the winter half-year than in summer, which raises the MUF in autumn (here from a daytime median of \monmufCACGAF\MHz\ in May and \monmufCACGAH\MHz\ in July to \monmufCACGBA\MHz\ in October and \monmufCACGBB\MHz\ in November). Second, the receiving network itself changes: the number of distinct stations that heard the beacon fell from \monuniqCACGAF\ in May to \monuniqCACGAH\ in July and rose to \monuniqCACGBA\ in October, which is consistent with fewer attended and automatic receivers during the northern-hemisphere summer. Without an independent reference beacon, neither explanation can be ruled out.
+
+\input{out/tab_months.tex}
+\figwide{out/fig_monthly.pdf}{Monthly median number of stations heard between 08 and 16~UTC (bars), median Juliusruh MUF over the same hours (circles) and mean SFI (squares). November comprises six days.\label{fig:months}}
+
+\subsection{Space weather}
+\label{sec:sw}
+Figure~\ref{fig:sw} and Tables~\ref{tab:muf}--\ref{tab:a} relate the hour-adjusted reporting index and the DX share to the three indices recorded at each poll.
+
+\textbf{MUF.} The Juliusruh MUF is the strongest single predictor. At MUF below 12\MHz\ the index is only \mufIdxLow\ and the DX share \mufDxLow\,\%; at 20--24\MHz\ the index is \mufIdxMid\ and the DX share \mufDxMid\,\%. The raw correlation between reporters and MUF is \rMufRaw\ (95\,\% CI \rMufRawLo--\rMufRawHi), but much of that is the common diurnal rhythm; after removing it the correlation with relative reporting is \rMufRel\ (\rMufRelLo--\rMufRelHi). The relationship is therefore real but moderate: a high MUF is necessary rather than sufficient.
+
+\textbf{Geomagnetic activity.} Reporting falls with the K-index, but gently: the index is \kIdxZero\ at K\,=\,0 and \kIdxFive\ at K\,$\ge$\,5; the correlation is \rKRel\ (\rKRelLo\ to \rKRelHi). The DX share is far more sensitive: \kDxZero\,\% at K\,=\,0, \kDxOne\,\% at K\,=\,1 and only \kDxHi\,\% on average for K\,$\ge$\,3. The A-index gives the same picture over the day: for A\,$<$\,8 the DX share is \aDxLow\,\% (index \aIdxLow), for A\,$\ge$\,30 it is \aDxHigh\,\% and the index \aIdxHigh. Disturbed conditions thus mostly remove the weakest, longest paths first, which is the expected behaviour of an auroral-zone path at 60\textdegree N.
+
+\textbf{Solar flux.} The solar flux has no detectable effect on hourly reporting on its own ($r=\rSfiRel$, CI \rSfiRelLo\ to \rSfiRelHi; the raw value is \rSfiRaw). This is not a statement that the Sun is irrelevant: SFI changed only between about \sfiMin\ and \sfiMax\ during the record, strong flux comes with flares and storms (Section~\ref{sec:case}), and SFI is a daily number while reporting responds to the hour-to-hour ionosphere.
+
+\input{out/tab_muf.tex}
+\figwide{out/fig_spaceweather.pdf}{Hour-adjusted reporting index (bars, left axis, 100 = typical for the UTC hour; 95\,\% day-block bootstrap intervals) and DX share (green line, right axis) by (a) Juliusruh MUF, (b) K-index and (c) A-index. Blue bars are at or above the typical level, orange below.\label{fig:sw}}
+\input{out/tab_k.tex}
+\input{out/tab_a.tex}
+
+\subsection{Case study: 24 June -- 9 July}
+\label{sec:case}
+The most disturbed fortnight of the record is instructive (Table~\ref{tab:case}, Figure~\ref{fig:case}). Solar flux rose from 131 on 24~June to above 195 on 30~June--3~July with M-class flares on several days. Reporting followed no simple pattern: 2 and 3~July had the best days of the fortnight (about 93 and 70 stations, with K\,=\,2--3) while 25~June (K\,=\,5, A\,=\,26) and 1~July (K\,=\,4, A\,=\,18) were weak. The worst day of the entire record was 4~July: K\,=\,\caseJulyK, A\,=\,\caseJulyA, and only \caseJulyRep\ stations in the daytime window against the typical \caseTypRep. The disturbance persisted: 5 July (K\,=\,5, A\,=\,74) had 13 stations, and 6~July, with K down to 3 and A\,=\,18, still only 10; reporting recovered to 28 on 7~July and to 67 on 9~July. The pattern, a strong single-day collapse followed by a recovery lag of two to three days, is the classic ionospheric storm signature at high geomagnetic latitudes: it is the K-index and the A-index, not the X-ray class or the flux, that mark the days that failed.
+
+\input{out/tab_case.tex}
+\figwide{out/fig_case.pdf}{Daytime reporting (bars) with maximum K-index (red) and mean SFI (green) for 24~June -- 9~July 2026 (8~July had no complete daytime data).\label{fig:case}}
+
+\subsection{Records}
+The eight farthest stations (Table~\ref{tab:records}) include Oceania and North America; the record is \recBestCall\ at \recBest\km\ on \recBestDate, which corresponds to \wKmW\,km per watt of transmitter output. Three of the eight rows (\callsign{VK7JJ}, \callsign{VK7FLYN}, \callsign{VK7FLYN/2}) share one grid square and are probably one receiving site using several callsigns. Of the 16 stations beyond 12\,000\km, 15 are in Australia and one in South America (a single day in June).
+
+\input{out/tab_records.tex}
+
+\section{Discussion}
+\label{sec:limits}
+\textbf{What the data support.} The diurnal structure, the European concentration and the existence and timing of the North American, African and Oceanian windows are all robust: they rest on hundreds of days or thousands of snapshots and are not sensitive to the quality-control step. The dependence of reporting on MUF and on K/A is also robust in sign and, with day-block intervals, in size. The seasonal pattern is real in the data but cannot be attributed.
+
+\textbf{Limits.}
+\begin{itemize}
+\item \emph{One path, one band, one season.} The archive covers the 2026 summer season, from \dateFrom; the transmitter is on 14\,MHz only. Earlier seasons of the same station were not archived in this form and the car-mounted antenna is not used in winter (snow, low temperature), so no winter data exist. Seasonal statements are therefore about May--November and cannot be extrapolated to the full year.
+\item \emph{Receiver network.} Reporting counts depend on how many receivers are listening. The 73 most frequent stations account for half of all reports, so a station going off-air shifts the counts without any change in propagation. The sparsely covered directions (north, east) say nothing about propagation there.
+\item \emph{Mobile transmitter.} The car moves; \homeShare\,\% of the logged transmissions come from the home square. Position-dependent effects (antenna surroundings, local noise at the receiving end of a path) are not separated. The companion paper on position reporting examines the movement itself.
+\item \emph{Overlapping windows.} Consecutive snapshots overlap by 50 minutes; all intervals use day-block resampling for this reason, but the effective sample size is closer to the number of days than to the number of snapshots.
+\item \emph{Indices versus path.} Juliusruh is about 900\km\ south-west of the transmitter and not on the path to North America; K and A are planetary values, and SFI is daily. The indices are proxies.
+\item \emph{SNR.} Reported SNR is estimated by the receiving station and depends on its noise floor and software; only medians over many stations are interpreted.
+\end{itemize}
+
+\section{Data quality and software notes}
+Two issues were found while preparing the study and are relevant to anyone reading the archive.
+
+\textbf{Under-reported Best DX.} The logger's per-transmission record (used for the ``Best DX'' figure on the live page) was written from a single poll six minutes after the transmission. Distant stations upload to WSPR~Net later, so the farthest reporter of a transmission was often missing; comparing the two databases day by day showed that on \underDays\ of \cmpDays\ days (\underPct\,\%) the farthest reporter in the replay data was farther than the stored value (largest difference on \underExDay: \underExStored\km\ stored against \underExReplay\km). The poll now covers the last 45 minutes and raises the stored value as later reports arrive; days already stored were not corrected, and this study uses the replay database.
+
+\textbf{Spurious reporter.} One callsign--grid pair carried a distance that contradicted its own grid (Section~\ref{sec:qc}); this is the kind of entry that the cleaning step is meant to catch, and a similar check could be added to the live page.
+
+\section{Conclusions}
+\keyboxed{\begin{itemize}
+\item The band is open (median at least 50 stations) from \busyFrom\ to \busyTo~UTC, with a median of about \busyMedAvg\ stations at midday; the long-distance windows lie at the edges of the day, not in its middle.
+\item North America is reached most often in the morning (\peaknamerica\ UTC), Africa and Oceania in the afternoon and evening (\peakafrica\ UTC); the farthest reception was \recBest\km.
+\item \pctDaysDXsix\,\% of days had a reporter beyond 6\,000\km\ with 200\,mW and a car-roof whip.
+\item Within the day, the MUF matters more than anything else the logger records; K and A matter most for the longest paths; the daily solar flux has no detectable effect.
+\item Autumn was far better than summer in this record, independently of the solar flux.
+\end{itemize}}
+
+\appendix
+\section{Reproducing the analysis}
+\label{app:repro}
+The figures, tables and every number in the text are produced from the two SQLite databases by the script \texttt{doc/src/analyze.py} (Python~3 with NumPy and Matplotlib; the standard library for everything else). It writes \texttt{numbers.tex}, one \texttt{tab\_*.tex} file per table and the PDF figures to \texttt{doc/src/out}; the paper is then built with \texttt{pdflatex propagation\_study.tex} (twice). The databases themselves are not part of the repository.
+
+\section*{Version history}
+\begin{tabular}{@{}llp{9.5cm}@{}}\toprule Version & Date & Changes\\\midrule
+1.0 & 6 November 2026 & First version: \dateFrom\ to \dateTo, \nSnap\ snapshots.\\\bottomrule\end{tabular}
+
+\begin{thebibliography}{99}\small
+\bibitem{wsprnet} WSPRnet --- the Weak Signal Propagation Reporter Network. \url{https://wsprnet.org}
+\bibitem{wsprlive} wspr.live --- ClickHouse interface to the WSPRnet spot database. \url{https://wspr.live}
+\bibitem{wsjtx} J.~Taylor, K1JT, \emph{WSJT-X User Guide} (WSPR mode) and \emph{WSPR 2.0 User's Guide}. \url{https://wsjt.sourceforge.io}
+\bibitem{zachtek} ZachTek, \emph{WSPR Desktop Transmitter} documentation. \url{https://www.zachtek.com/1012}
+\bibitem{giro} Global Ionospheric Radio Observatory, Digital Ionogram Database (DIDBase). \url{https://giro.uml.edu/didbase/}
+\bibitem{juliusruh} Leibniz Institute of Atmospheric Physics, Juliusruh Space Weather Monitor. \url{https://ionosonde.iap-kborn.de/actuellz.htm}
+\bibitem{swpc} NOAA Space Weather Prediction Center, solar and geophysical indices. \url{https://www.swpc.noaa.gov}
+\bibitem{hamqsl} N0NBH, solar-terrestrial data feed. \url{https://www.hamqsl.com/solar.html}
+\end{thebibliography}
+\end{document}

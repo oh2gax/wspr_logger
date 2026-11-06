@@ -8,6 +8,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [2026-11-06]
 
 ### Added
+- **Guides — PDF documents on the page** — new sidebar entry **Guides** opens a window
+  that lists the PDF files of the new `doc/` folder with *Open* and *Download* links.
+  Titles, descriptions and dates come from `doc/guides.json` (a PDF without an entry is
+  listed under its file name). New module `guides.py`, endpoints `/api/guides` and
+  `/doc/<file>` (only plain `*.pdf` names inside `doc/` are served).
+- **Two scientific PDF notes in `doc/`** — *Twenty-metre WSPR propagation study*
+  (166 days of replay data: diurnal and seasonal patterns, geography, DX windows,
+  space-weather effects, a storm case study) and *WPRS – Whisper Position Reporting
+  System* (position beaconing over HF with the 200 mW GPS transmitter and the
+  car-roof antenna: locator resolution, fix availability, tracks, power reach, battery
+  budget). Every figure, table and number is generated from the databases by
+  `doc/src/analyze.py` and `doc/src/analyze_wprs.py`; the LaTeX sources are in `doc/src/`.
 - **Propagation Analysis page** — new sidebar page **Analysis**, computed from the
   replay database (no wspr.live queries, cached 10 minutes). A *band-open heatmap*
   (UTC hour by date, coloured by average reporters or farthest distance, with

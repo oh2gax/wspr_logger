@@ -1,0 +1,178 @@
+\documentclass[10pt,a4paper]{article}
+\input{common.tex}
+\input{out/numbers.tex}
+\input{out/wprs_numbers.tex}
+\fancyhead[L]{\small WPRS --- Whisper Position Reporting System}
+\fancyhead[R]{\small v1.0, 6 November 2026}
+\hypersetup{pdftitle={WPRS - Whisper Position Reporting System},pdfauthor={Otso Laakso, OH2GAX}}
+\begin{document}
+\makeheader{WPRS --- Whisper Position Reporting System}{Infrastructure-free position beaconing over HF with a 200\,mW WSPR transmitter and a car-roof 14\,MHz antenna: design and one season of measurements}{WSPR Logger project note --- version 1.0 --- 6 November 2026 --- \texttt{github.com/oh2gax/wspr\_logger}}
+
+\begin{abstract}\noindent
+WSPR, the Weak Signal Propagation Reporter protocol, carries a callsign, a Maidenhead locator and a power level in a 6\,Hz-wide, two-minute transmission that is decoded by volunteer receivers worldwide and published in an open database. If the locator is computed from a GPS fix and the transmitter is moved, the stream of reports becomes a position track that needs no mobile network, no VHF repeater or APRS coverage and no receiver of one's own. This note describes that idea, here called the \emph{Whisper Position Reporting System} (WPRS), and evaluates it with a ZachTek WSPR desktop transmitter (about 200\,mW, built-in GPS) driving a Diamond monoband 14\,MHz whip on a magnetic mount on the roof of a car. The evaluation uses \wFixes\ logged transmissions from \wFirst\ to \wLast. A six-character locator fixes the position to a square of \wSqNS\,$\times$\,\wSqEW\,km at 60\textdegree N (r.m.s.\ error \wRMS\,km). The transmitter sends every ten minutes; consecutive fixes are exactly ten minutes apart in \wGapBA\,\% of the cases, the probability of having a fix from the previous hour is \wAvDayGA\,\% in the daytime (08--16 UTC) and \wAvNightGA\,\% at 01--04 UTC, and the median fix is confirmed by \wRepMed\ independent receivers (\wRepD\,\% by three or more). The system tracked a local commute at one-square resolution and recorded trips to \wMaxDist\,km from home. A 30\,000\,mAh power bank, predicted to last \eDays\ days at the measured duty cycle, lasts four to five days in practice. Reducing the output to 25\,mW would have kept \pwTwentyFive\,\% of the receiving stations; to 10\,mW, \pwTen\,\%.
+\end{abstract}
+{\small\tableofcontents}
+
+\section{Motivation}
+Position tracking of a vehicle normally relies on one of two infrastructures: a cellular network (a GPS tracker that reports over mobile data) or an amateur-radio VHF network such as APRS, which needs a digipeater or an internet gateway within range of the vehicle. Both are absent in much of the countryside, on the sea, in the mountains and abroad. The HF bands are different: the ionosphere returns HF signals to the ground so that a transmission of a fraction of a watt can be heard thousands of kilometres away, and the WSPR network is a worldwide set of volunteer receivers~\cite{wsprnet} (\nStations\ different stations heard this beacon during the season analysed here). If the transmitter simply states where it is, \emph{somebody} will hear it, and the public database holds the answer for anyone who looks.
+
+This is the idea of WPRS. It is deliberately modest: a position is delivered to a square of a few kilometres every ten minutes, with no acknowledgement, over a path that is sometimes not available. The aim of this note is to describe the technique, to quantify what it achieves from an ordinary car with a small whip antenna and 200\,mW, and to say honestly where it is useful and where it is not. The measurements come from the author's own station, with the WSPR Logger software~\cite{logger} recording every transmission and every reception.
+
+\section{Concept and protocol background}
+\subsection{The WSPR signal}
+A WSPR transmission lasts about 110.6\,s, starts one second after an even UTC minute, and consists of 162 symbols of four-tone frequency-shift keying at 1.4648\,baud with a tone spacing of the same size; the occupied bandwidth is about 6\,Hz~\cite{wsjtx}. Transmissions are made in a 200\,Hz wide segment of each band; on 20\,m this is 14\,097\,000--14\,097\,200\,Hz (dial frequency 14.0956\,MHz plus an audio offset of 1\,400--1\,600\,Hz). The ZachTek transmitter picks a random frequency within this segment for each transmission, which spreads the transmitters over the segment~\cite{zachtek}. The receiver decodes the symbols with error correction down to a signal-to-noise ratio of around $-30$\,dB in a 2\,500\,Hz reference bandwidth; in the data of this note the lowest reported value is \wSnrMin\,dB and the weakest decodes cluster near \wFloor\,dB.
+
+\subsection{Message types and the six-character locator}
+A WSPR message carries 50 information bits. The three message types that matter here are
+\begin{description}[leftmargin=1.2em,style=nextline]
+\item[Type 1] callsign (up to six characters), four-character Maidenhead locator, power in dBm;
+\item[Type 2] callsign with a prefix or suffix (a ``compound'' callsign) and power, without a locator;
+\item[Type 3] a 15-bit \emph{hash} of the callsign, a six-character locator and the power.
+\end{description}
+A six-character locator therefore needs a Type 3 message, in which the callsign is represented only by its hash; a receiver that has also decoded a Type 1 message from the same station can resolve the hash back to the callsign. A beacon that wants to send a precise position thus normally alternates the message types (or sends Type 3 occasionally). Which scheme a particular transmitter uses is a firmware and configuration matter described in the manufacturer's documentation~\cite{zachtek}; what matters for this note is the result: every one of the \wFixes\ transmissions logged here has a six-character locator in the public database, and the locator follows the car.
+
+\subsection{Resolution of a Maidenhead locator}
+The Maidenhead locator divides the Earth into $18\times18$ fields of 20\textdegree\ by 10\textdegree, each into $10\times10$ squares of 2\textdegree\ by 1\textdegree, and each of these into $24\times24$ subsquares of 5$'$ by 2.5$'$ (Table~\ref{tab:mh}). At the home latitude of 60.3\textdegree N a subsquare measures \wSqNS\,km north--south by \wSqEW\,km east--west, an area of \wSqArea\,km$^2$. If the true position is uniformly distributed in the square and the centre is quoted, the root-mean-square position error is
+\begin{equation}
+\sigma = \sqrt{\frac{a^2+b^2}{12}} = \wRMS\ \text{km},
+\end{equation}
+with $a$ and $b$ the side lengths, and the largest possible error is half the diagonal, \wHalfDiag\,km. The four-character locator of a Type 1 message is much coarser: \wSqFourNS\,km by \wSqFourEW\,km at this latitude. A six-character locator carries $\log_2(18^2\cdot10^2\cdot24^2)=\wBits$ bits ($\wNSq$ distinct squares) against \wBitsFour\ bits for four characters.
+
+\begin{table}[htbp]\centering\small
+\caption{Maidenhead locator levels. Size in kilometres is for 60.3\textdegree N.}\label{tab:mh}
+\begin{tabular}{llrr}\toprule
+Level & Example & Size (degrees) & Size (km) \\\midrule
+Field & KP & $20\times10$ & $\approx 1\,100\times1\,110$ \\
+Square & KP20 & $2\times1$ & $\approx 110\times111$ \\
+Subsquare & KP20jg & $5'\times2.5'$ & $\wSqEW\times\wSqNS$ \\\bottomrule
+\end{tabular}\end{table}
+
+\subsection{The path of a fix}
+A WPRS fix travels from the transmitter through the ionosphere to any receiver that happens to be listening, from there over the internet to the WSPR database~\cite{wsprnet}, and from the database (here via \texttt{wspr.live}~\cite{wsprlive}) to whoever looks at the track. The delay is not controlled by the transmitter: receivers upload after the two-minute decode, distant stations tend to upload later, and the logger polls every ten minutes, so a fix is typically visible about six to ten minutes after its start. WPRS is therefore a \emph{breadcrumb} system, not a live tracker.
+
+\section{Station}
+\subsection{Transmitter}
+The transmitter is a ZachTek WSPR desktop transmitter~\cite{zachtek}. According to the manufacturer it generates the signal with a Si5351 PLL clocked from a temperature-compensated crystal oscillator, amplifies the square wave in a line-driver IC to about 23\,dBm (200\,mW) into 50\,$\Omega$ on most bands and removes the harmonics with four switched low-pass filters plus a VHF filter (overtones attenuated by 50\,dB or more). A built-in GPS module and an external active GPS antenna (3\,m cable, magnetic base) provide time and position; the firmware, running on an Arduino Pro Mini, encodes the WSPR message. It is powered from 5\,V USB and draws about 100\,mA at idle and 250\,mA while transmitting. A Windows configuration program sets callsign, power, bands and start mode; once configured, the unit runs without a PC. Three status LED patterns are useful in the car: single blinking means it is acquiring the position, double blinking that it is waiting for the start of an even minute, and fast periodic blinking that it is transmitting.
+
+\subsection{Antenna and installation}
+The antenna is a Diamond monoband 14\,MHz whip on a magnetic mount at the roof of a VW Touran; the car body is the ground plane. A magnetic mount on a roof is a practical compromise: it is installed and removed in seconds, but its performance depends on the contact area and on the capacitive coupling to the roof, and a physically short 20\,m whip has a much lower efficiency than a full-size quarter-wave vertical. The SWR and the radiation pattern were not measured for this note, so the effective radiated power is unknown; the receiver reports in Section~\ref{sec:res} are the only measure of what actually leaves the car. The GPS puck sits where it sees the sky. In winter the antenna is not fitted, because of snow and low temperatures, and the transmitter is not used in the car; the dataset therefore covers the summer and autumn only.
+
+\subsection{Power supply and energy budget}
+The transmitter is powered from a 30\,000\,mAh USB power bank. Two packs are rotated: when one is empty (after four to five days) the other, fully charged, replaces it and the empty one is recharged. With a nominal cell voltage of 3.7\,V the pack stores \eCapWh\,Wh; assuming 85\,\% conversion efficiency to 5\,V this leaves \eUsable\,Wh. A WSPR transmission occupies 110.6\,s of every 600\,s (\wTxFrac\,\%), so the average load is \eAvgmA\,mA, or \eAvgW\,W (\eDaily\,Wh per day), and the predicted runtime is \eDays\ days (Table~\ref{tab:wenergy}). The observed four to five days correspond to \eImpliedLo--\eImpliedHi\,\% of the prediction, which is plausible given the cold nights, the real conversion efficiency of power banks at small load, and the GPS puck current that is not counted here.
+
+\input{out/tab_wenergy.tex}
+
+\section{Data and methods}
+\label{sec:meth}
+The logger polls the public WSPR database every ten minutes and stores, for the beacon's callsign, one record per heard transmission (timestamp, six-character locator and its centre coordinates, number of reporting stations, largest distance); the \emph{replay database} also stores each reporting station per poll. This note uses \wFixes\ transmissions on \wDaysWith\ of the \wSpan\ calendar days from \wFirst\ to \wLast, and the \nRows\ station reports of the replay database. A \emph{fix} is a transmission that was heard by at least one station.
+
+\textbf{Availability} at time $t$ is the probability that the most recent fix is no older than $\tau$ ($\tau=0$: the current slot, 30 and 60 minutes), evaluated on every transmit slot of the \wActiveDays\ days with at least 20 fixes and averaged per UTC hour. A missing fix means either that no receiver heard the transmission or that the transmitter was off; the logger cannot distinguish the two. \textbf{Trips} are runs of fixes more than 25\,km from the home square, merged when separated by less than eight hours. \textbf{Power scaling.} Lowering the output by $\Delta=10\log_{10}(200\,\text{mW}/P)$\,dB lowers every received SNR by the same amount (the receiver noise is unchanged); a station is counted as \emph{still decoding} if the best SNR it ever reported minus $\Delta$ stays at or above the decoding floor of \wFloor\,dB. This is an upper bound for the sustained reach, because a station's best SNR is an extreme value. Reports from one station whose distance contradicted its own grid were removed (see the companion study).
+
+\section{Results}
+\label{sec:res}
+\subsection{Cadence and availability of fixes}
+All logged transmissions start on minutes ending in \wMinuteOnly, i.e.\ one transmission every ten minutes, so at most 144 per day. On the median day \wPerDayMed\ transmissions were heard (maximum \wPerDayMax), \wHeardPct\,\% of the possible ones (Figure~\ref{fig:avail}a). Between two consecutive fixes the interval is exactly ten minutes in \wGapBA\,\% of the cases, at most 30 minutes in \wGapDA\,\% and at most 60 minutes in \wGapGA\,\%; only \wGapGh\ gaps exceed six hours.
+
+The availability depends strongly on the time of day (Figure~\ref{fig:avail}b), because it follows the opening of the band. A fix exists for the current slot in \wAvSlotDay\,\% of cases between 08 and 16~UTC and in \wAvSlotNight\,\% between 01 and 04~UTC. The probability of having a fix from the previous 60 minutes averages \wAvGAAvg\,\% over the day, \wAvDayGA\,\% in the daytime, \wAvNightGA\,\% at night and has its minimum of \wAvGAMin\,\% at \wAvGAMinH~UTC. A WPRS user must plan for this: during the day the position is almost always less than an hour old, at night it often is not.
+
+\figwide{out/fig_wprs_avail.pdf}{(a) Position fixes per UTC day. (b) Probability of a fix by UTC hour: from the current slot, from the previous 30 minutes and from the previous 60 minutes.\label{fig:avail}}
+
+\subsection{Confirmation by several receivers}
+A fix heard by one station only is fragile: a wrong grid in the receiver's own report or a decoding error produces a wrong position. Figure~\ref{fig:red} shows that this is uncommon. The median fix was reported by \wRepMed\ stations (mean \wRepMean), \wRepB\,\% by a single station, \wRepD\,\% by three or more and \wRepBA\,\% by ten or more. The share of well-confirmed fixes follows the band: as high as \wRepDMax\,\% in the daytime and as low as \wRepDMin\,\% in the small hours.
+
+\figwide{out/fig_wprs_redundancy.pdf}{(a) Number of receiving stations per fix (the last bar collects 30 or more). (b) Share of fixes heard by at least three stations, by UTC hour.\label{fig:red}}
+
+\subsection{Position: accuracy, tracks and movement}
+The \wFixes\ fixes contain \wLocs\ different six-character locators (Figure~\ref{fig:map}, Table~\ref{tab:wdist}). The home square KP20jg holds \wHomePct\,\% of the fixes and the adjacent squares (up to 5\,km from it) \wNear\,\%; the square KP20kg alone, 4.6\,km to the east, holds \wKPCAkg\,\%. Only \wFar\,\% of the fixes are more than 25\,km from home. The farthest fix is \wMaxDist\,km from home, in square \wMaxLoc\ on \wMaxDate. Table~\ref{tab:wtrips} lists the \wTrips\ trips beyond 25\,km, which span \wTripDays\ days: two summer trips east of home (to 193\,km) and one autumn trip west (106\,km). Home and the second most-used square are told apart only because they happen to lie in different subsquares; two places closer than about five kilometres would be indistinguishable, which is the real resolution limit of the technique.
+
+The movement is visible in time. Between 06 and 14~UTC the home square holds \wHomeWk\,\% of the fixes on weekdays but \wHomeWe\,\% at weekends (Figure~\ref{fig:life}a): the weekday pattern of the car leaving the home square at the start of the working day and returning in the afternoon is recovered from the fixes alone. Between consecutive ten-minute fixes the reported square changed in only \wChangePct\,\% of the \wSteps\ steps; in the \wMoves\ cases where it did, the median jump was \wMoveMed\,km and the 90th percentile \wMovePJA\,km, the largest \wMoveMax\,km. Square-to-square jumps are quantised, so the corresponding speeds ($\ge$\wSpeedPJA\,km/h for the 90th percentile) are lower bounds; at motorway speed the car covers about 13\,km in ten minutes, three squares.
+
+\figwide{out/fig_wprs_map.pdf}{(a) Every six-character position recorded (shading by number of fixes; thin lines: the longest trips; black lines: 2\textdegree\ and 1\textdegree\ square boundaries). (b) The home area; each rectangle is one subsquare and the letters mark the busiest ones.\label{fig:map}}
+\input{out/tab_wdist.tex}
+\input{out/tab_wtrips.tex}
+\figwide{out/fig_wprs_life.pdf}{(a) Share of fixes in the home square by UTC hour, weekdays and weekends. (b) Distance from home of the fixes outside the home square.\label{fig:life}}
+
+\subsection{Who hears the car: coverage and propagation}
+\label{sec:cov}
+Figure~\ref{fig:geo} (taken from the companion propagation study) shows where the fixes are heard. The receiving stations are overwhelmingly European (\zpeurope\,\%), most of them to the south and south-west of the transmitter, so a position fix is delivered, on a typical day, by one of the fixed receivers in Central and Western Europe, over a path of one to three thousand kilometres; \halfStations\ stations carry half of all reports. Long-distance paths add redundancy that does not matter for tracking but proves the reach: at least one station beyond 6\,000\,km was heard on \pctDaysDXsix\,\% of days, with a record of \wRecord\,km, i.e.\ \wKmW\,km per watt. The diurnal rhythm of availability (Figure~\ref{fig:avail}b) is the rhythm of the typical day of the 20\,m band (Figure~\ref{fig:diurnal}a); the daytime plateau of availability is the plateau of reporters.
+
+\figwide{out/fig_geography.pdf}{(Companion study.) Receiving stations by bearing and distance from the transmitter, and station SNR by distance band.\label{fig:geo}}
+\figw{out/fig_diurnal.pdf}{(Companion study.) (a) Typical day: stations heard in 60 minutes by UTC hour. (b) Share of snapshots with a station beyond 6\,000\,km (bars) and 3\,000\,km (line).\label{fig:diurnal}}{0.92}
+
+Space weather matters mainly at the margins. In the companion study the number of stations heard, adjusted for the time of day, is \mufIdxLow\,\% of the typical value when the Juliusruh MUF is below 12\,MHz and \mufIdxMid\,\% of it for a MUF of 20--24\,MHz; it falls modestly with the K-index and collapses on geomagnetic storm days: on the worst day of the season (4 July) only ten stations were heard in the daytime instead of the typical \caseTypRep. A fix still arrives under such conditions because a single receiver suffices, but the updates become rarer and the confirmation weaker.
+
+\subsection{Power and reach}
+Table~\ref{tab:wpower} and Figure~\ref{fig:power} emulate a lower transmit power as described in Section~\ref{sec:meth}. The median report is \wStrongMargin\,dB above the decoding floor, and halving the power twice (50\,mW) still leaves \pwFifty\,\% of the stations that heard the beacon at least once. At 25\,mW \pwTwentyFive\,\% still hear it, at 10\,mW \pwTen\,\%, at 1\,mW \pwOne\,\%. Stations beyond 6\,000\,km are much more sensitive: \pwDxTwentyFive\,\% remain at 25\,mW, \pwDxTen\,\% at 10\,mW and \pwDxOne\,\% at 1\,mW. For position reporting this is reassuring: European reception is so redundant that even 10\,mW would deliver a fix to a large number of receivers; the long paths are the first to be lost. The conclusion applies to the \emph{best} SNR ever reported by each station, and the sustained reach of a lower power would be smaller.
+
+\figw{out/fig_wprs_power.pdf}{Emulated reach versus transmit power: share of receiving stations still above the decoding floor of $-34$\,dB (all stations, stations beyond 3\,000\,km and beyond 6\,000\,km).\label{fig:power}}{0.7}
+\input{out/tab_wpower.tex}
+
+\subsection{Is the car heard better away from home?}
+Away from home (more than 25\,km, \wNAway\ fixes) the hour-adjusted number of reporters per fix is \wRelAway\,\% of that at home on the same days (95\,\% bootstrap interval \wRelAwayLo--\wRelAwayHi\,\%). Only \wPairDays\ days have enough fixes at both places for this comparison, so the interval is very wide and the result is inconclusive; the question cannot be answered with this dataset.
+
+\section{Discussion}
+\subsection{WPRS compared with other position channels}
+Table~\ref{tab:cmp} compares the characteristics at design level. The APRS and cellular entries are generic and were not measured here; the WPRS entries are the measurements of this note.
+
+\begin{table}[htbp]\centering\small
+\caption{Design-level comparison of position channels. APRS and cellular values are nominal, WPRS values are from this note.}\label{tab:cmp}
+\begin{tabularx}{\textwidth}{@{}lXXX@{}}\toprule
+ & APRS (VHF, 144.800\,MHz in Europe) & Cellular GPS tracker & WPRS (HF, 14\,MHz WSPR) \\\midrule
+Infrastructure & digipeater or internet gateway in range & mobile data coverage and a subscription & none; any one of thousands of volunteer receivers \\
+Coverage & local, line-of-sight & where the network is & ionospheric; day and night differ \\
+Resolution & GPS accuracy (metres) & GPS accuracy (metres) & \wSqNS\,$\times$\,\wSqEW\,km subsquare \\
+Update interval & seconds to minutes & seconds to minutes & 10\,min, if heard \\
+Latency & seconds & seconds & about 6--10\,min \\
+TX power & 1--5\,W (typical) & a fraction of a watt (cellular modem) & 0.2\,W \\
+Reverse channel & messages possible & commands possible & none \\
+Licence & amateur & none & amateur \\\bottomrule
+\end{tabularx}\end{table}
+
+WPRS has a niche: low cost and independence of infrastructure, at the price of coarse resolution, a ten-minute cadence, a daily gap in the small hours of the night and no way to know whether anybody listens. It is useful as an \emph{away-from-coverage breadcrumb trail} (hiking, sailing, long drives, expeditions, a car whose owner would like to see where it was) and as a low-power propagation probe; it is not a safety tracker and cannot replace a distress beacon.
+
+\subsection{Limitations}
+\begin{itemize}
+\item \emph{One station, one season.} All numbers are from one car, one antenna and the 2026 season. The author has operated the setup for two to three summers, but only this season is archived; winter operation was not attempted.
+\item \emph{No ground truth.} The true track of the car was not recorded, so the position error of the technique is the theoretical quantisation error of the locator, not a measured error against GPS logs.
+\item \emph{Missing fixes are ambiguous.} A gap can be a closed band, a transmitter that lost its GPS fix, a battery swap or a car parked in a garage.
+\item \emph{Public data.} The track is public. Anybody can see where the car is within about five kilometres, with ten-minute resolution, as soon as the transmitter is on; for personal security the transmitter can be switched off at home.
+\end{itemize}
+
+\subsection{Possible extensions}
+These were not tested in this work. (i) Extra position bits could be carried in the power field of a Type 1 message (which can take only 19 distinct values) or by dedicated telemetry encodings used by balloon tracking; this would raise the resolution below the subsquare at the cost of more complicated decoding. (ii) Transmitting on a second band would add redundancy at night. (iii) The logger could show the WPRS track itself on the map, with the age of the latest fix. (iv) The schedule could be made adaptive: transmit more often when the position changes, less often when parked, which would also extend the battery life.
+
+\section{Operating recommendations}
+\begin{enumerate}[label=\arabic*.]
+\item Switch the transmitter on and wait for the GPS lock (single LED blink ends) \emph{before} driving off; a cold start takes longer than a warm one.
+\item Put the GPS puck where it has a clear view of the sky; do not shield it with metal.
+\item Make sure the magnetic mount is in contact with bare, clean roof metal and the cable is not pinched by a door.
+\item Do not rely on the latest fix at night; assume the last daytime fix and the next morning.
+\item For a trip longer than four days, carry a second charged power bank and swap before the first one is empty.
+\item Remember that the position is public; switch off at home if that matters.
+\end{enumerate}
+
+\section{Conclusions}
+\keyboxed{\begin{itemize}
+\item A GPS-equipped WSPR transmitter makes a usable infrastructure-free position beacon: a six-character locator is delivered in a square of \wSqNS\,$\times$\,\wSqEW\,km with an r.m.s.\ error of \wRMS\,km.
+\item On 20\,m with 200\,mW and a car-roof whip, a position from the previous hour is available \wAvDayGA\,\% of the time in the daytime and \wAvNightGA\,\% at night, and the median fix is confirmed by \wRepMed\ receivers.
+\item The technique recovered the commute and trips to \wMaxDist\,km from home; its resolution limit is about five kilometres.
+\item A power of 25\,mW would have kept \pwTwentyFive\,\% of the receiving stations; the long-distance paths would have been lost first.
+\item A 30\,000\,mAh pack runs the transmitter for four to five days against a predicted \eDays.
+\end{itemize}}
+
+\appendix
+\section{Reproducing the analysis}
+The figures, tables and numbers of this note are produced from the logger databases by \texttt{doc/src/analyze.py} (companion study and shared figures) and \texttt{doc/src/analyze\_wprs.py} (this note); the paper is built with \texttt{pdflatex wprs\_paper.tex} (twice). Both scripts write \LaTeX\ macros so that no number in the text is typed by hand.
+
+\section*{Version history}
+\begin{tabular}{@{}llp{9.5cm}@{}}\toprule Version & Date & Changes\\\midrule
+1.0 & 6 November 2026 & First version: concept, station, one season of measurements.\\\bottomrule\end{tabular}
+
+\begin{thebibliography}{99}\small
+\bibitem{wsprnet} WSPRnet --- the Weak Signal Propagation Reporter Network. \url{https://wsprnet.org}
+\bibitem{wsprlive} wspr.live --- ClickHouse interface to the WSPRnet spot database. \url{https://wspr.live}
+\bibitem{wsjtx} J.~Taylor, K1JT, \emph{WSJT-X User Guide} (WSPR mode) and \emph{WSPR 2.0 User's Guide}. \url{https://wsjt.sourceforge.io}
+\bibitem{zachtek} ZachTek, \emph{WSPR Desktop Transmitter} documentation. \url{https://www.zachtek.com/1012}; firmware and configuration software: \url{https://github.com/HarrydeBug/WSPR-transmitters}
+\bibitem{logger} O.~Laakso, \emph{WSPR Logger} and companion note \emph{Twenty-metre WSPR propagation observed from a mobile 200\,mW beacon in Southern Finland}. \url{https://github.com/oh2gax/wspr_logger}
+\end{thebibliography}
+\end{document}

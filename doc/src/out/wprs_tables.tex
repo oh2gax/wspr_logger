@@ -1,0 +1,59 @@
+\begin{table}[htbp]\centering\small
+\caption{Where the position fixes were: distance of the reported square centre from the home square KP20jg.}\label{tab:wdist}
+\begin{tabular}{lrr}
+\toprule
+Distance from home square & Fixes & Share (\%) \\
+\midrule
+home square & 13\,363 & 83.8 \\
+adjacent squares ($\leq$ 5 km) & 1\,740 & 10.9 \\
+5--25 km & 310 & 1.9 \\
+25--100 km & 37 & 0.2 \\
+$>$ 100 km & 492 & 3.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]\centering\small
+\caption{The eight longest trips beyond 25 km from home, as seen through WPRS fixes alone.}\label{tab:wtrips}
+\begin{tabular}{lllrrr}
+\toprule
+Start (UTC) & End (UTC) & Hours & Fixes & Squares & Max.\ dist.\ (km) \\
+\midrule
+2026-06-19 11:12 & 06-20 15:52 & 29 & 165 & 14 & 193 \\
+2026-06-23 10:42 & 06-23 17:52 & 7 & 43 & 14 & 193 \\
+2026-10-14 10:42 & 10-14 18:42 & 8 & 49 & 8 & 106 \\
+2026-10-15 03:02 & 10-17 12:52 & 58 & 263 & 8 & 106 \\
+2026-10-18 09:02 & 10-18 10:22 & 1 & 9 & 9 & 106 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]\centering\small
+\caption{Emulated power reduction: share of the actual reports and of the receiving stations that would still lie above the decoding floor of $-34$\,dB if the output were lowered by $\Delta$.}\label{tab:wpower}
+\begin{tabular}{lrrrrr}
+\toprule
+Transmit power & dBm & $\Delta$ (dB) & All reports (\%) & Stations (\%) & Stations $>$ 6000 km (\%) \\
+\midrule
+200 mW (as used) & 23 & 0.0 & 100 & 100 & 100 \\
+100 mW & 20 & 3.0 & 99 & 100 & 99 \\
+50 mW & 17 & 6.0 & 94 & 97 & 93 \\
+25 mW & 14 & 9.0 & 80 & 88 & 74 \\
+10 mW & 10 & 13.0 & 57 & 72 & 46 \\
+5 mW & 7 & 16.0 & 40 & 58 & 25 \\
+1 mW & 0 & 23.0 & 14 & 30 & 7 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]\centering\small
+\caption{Energy budget of the 30\,000\,mAh battery pack (nominal 3.7\,V, 111\,Wh; 85\,\% assumed conversion efficiency to 5\,V).}\label{tab:wenergy}
+\begin{tabular}{lrrr}
+\toprule
+Load case & Current (mA) & Power (W) & Runtime (days) \\
+\midrule
+Idle (GPS acquiring / waiting) & 100 & 0.50 & 7.9 \\
+Transmitting continuously & 250 & 1.25 & 3.1 \\
+WPRS duty cycle (18.4\,\% transmitting) & 128 & 0.64 & 6.2 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -26,6 +26,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **1 h / Today stats** — toggle the sidebar mini-stats between the last 60 minutes (default) and the full day
 - **History player** — replay any stored day on the live map from the sidebar **History Player** switch: a player bar (play/pause, time slider, date picker with previous/next day, 1–16 frames per second, **Live ✕** to leave) steps through the snapshots stored every ~10 minutes. The enabled layers show the replayed moment: Reporter List, SNR / Dist Histogram, Reporter Plot arcs, Reporter Countries and the Solar Conditions panel (including foF2 and MUF); the Propagation overlay uses the spot logged at that time. Needs the replay database (`[replay] enabled = true`)
 - **Propagation Analysis page** — built from the replay history: a band-open heatmap (UTC hour by date, reporters or farthest distance), a typical-day chart with today overlaid, reporters versus Juliusruh MUF, K-index and SFI (shown as an index against the typical value for the same hour, so the day/night cycle does not distort the comparison), a list of geomagnetic storm days, DX windows by hour and month, the farthest reporters with links into the History Player, a "right now" comparison with history, and an ionosonde (MUF / foF2) day view; 30 d / 90 d / All
+- **Guides** — sidebar entry that lists the PDF documents in the `doc/` folder (technical notes and studies about the station and its data) with *Open* and *Download* links; titles and descriptions come from `doc/guides.json`
 - **What's new and About** — sidebar entries: *What's new* lists the last 10 days of changes straight from `CHANGELOG.md` with a version label `v.DDMMYYYY` (NEW marker until opened); *About* describes the station (operator, transmitter, antenna, home locator)
 - **Remembered Map Layers** — the Map Layers switches (Position Trail, Reporter Countries, MUF graph, Solar Conditions, Reporter List, Histogram, Reporter Plot, Day / Night) and their sub-settings (MUF period, histogram SNR/Dist tab, reporter list sort, 1h / Today tab) are saved in the browser and restored on the next visit
 - **Light / Dark theme** — toggle in the sidebar; preference is remembered in the browser
@@ -416,6 +417,10 @@ Shows the selected day at a glance — total spots, max and average reporters, l
 
 Needs the replay database. The **band-open heatmap** shows for every UTC hour and date how many stations heard you (or the farthest distance) — switch with the Reporters / Farthest km buttons and hover for details. **Typical day** shows the median and 25–75 % range of stations heard per UTC hour with the latest day drawn over it. The three **space weather** charts compare your reporter count with the Juliusruh MUF, the K-index and the solar flux: bars are an index where 100 means "as many reporters as usual at that hour", the line is the share of snapshots with a reporter beyond 6000 km. The **storm days** table lists days when K reached 5 or more and how your reporters compared with a typical day. **Right now** (top) compares the live number of stations heard with what is usual for this UTC hour and for a similar MUF. **DX windows** show when reporters beyond 6000 km are most likely, by hour of day and by month. **Farthest reporters** lists the ten longest distances of the period, and the ▶ buttons there and in the storm table open that moment in the History Player. The **Ionosonde day view** plots Juliusruh MUF (and foF2 on days where it was collected) over the stations heard for any chosen day. Choose 30 days, 90 days or all history; results are computed from the local replay database and cached for 10 minutes (the "Right now" card is always live).
 
+### Guides
+
+*Guides* (sidebar) opens a window that lists the PDF files in the `doc/` folder. To add a document, copy the PDF into `doc/` and, optionally, add an entry (`file`, `title`, `description`, `date`) to `doc/guides.json`; a PDF without an entry is still listed with a title made from its file name. Only plain `*.pdf` names inside `doc/` are served (`/doc/<file>`); the LaTeX sources and figure scripts of the two bundled papers are in `doc/src/` and are not served.
+
 ### What's new and About
 
 *What's new* (sidebar) shows the changes of the last 10 days. It is generated from `CHANGELOG.md`: the bold title of each bullet is listed, grouped by date and Added / Changed / Fixed, and the version label `v.DDMMYYYY` comes from the date of the newest entry. Keep every changelog bullet starting with a bold title so it shows up. *About* shows the station information.
@@ -461,10 +466,14 @@ wspr_logger/
 ├── replay_db.py            — SQLite read/write layer (replay history database)
 ├── analysis.py             — propagation analysis computed from the replay database
 ├── changelog.py            — reads CHANGELOG.md for the What's new window
+├── guides.py               — lists the PDF documents in doc/ for the Guides window
 ├── requirements.txt        — Python dependencies (flask)
 ├── update.sh               — server update: pull from GitHub, back up databases, restart, verify
 ├── wspr_data.db            — main SQLite database (created automatically on first run)
 ├── wspr_replay.db          — replay SQLite database (created automatically, safe to delete)
+├── doc/                    — PDF guides shown under Guides (guides.json = titles and descriptions)
+│   └── src/                — LaTeX sources and analysis scripts of those PDFs (not served)
+├── tmp_files/              — scratch folder, gitignored
 └── templates/
     └── index.html          — single-page frontend (Leaflet.js, Chart.js, vanilla JS)
 ```
@@ -481,6 +490,8 @@ wspr_logger/
 | `/api/analysis` | GET | `days` (0 = all, default 90), `band` | Heatmap, typical-day profile, MUF / K / SFI bins and storm days computed from the replay database; cached 10 min |
 | `/api/daily_summary` | GET | `band` | Per-day totals (transmissions, best DX, max reporters) for the Statistics chart |
 | `/api/whatsnew` | GET | — | Version label and the last 10 days of changes parsed from `CHANGELOG.md` |
+| `/api/guides` | GET | — | The PDF documents in `doc/` (file, title, description, date, size) |
+| `/doc/<file>` | GET | — | One PDF from `doc/` (`application/pdf`; only plain `*.pdf` names) |
 | `/api/replay/dates` | GET | `band` | `{enabled, dates}` — UTC dates that have replay snapshots, newest first |
 | `/api/replay/day` | GET | `date` (YYYY-MM-DD), `band` | All replay frames of one day: reporters, country counts and solar indices per snapshot (~300 KB for a full day) |
 | `/api/reporters` | GET | — | Cached reporter countries from the past 60 minutes |
