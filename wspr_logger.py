@@ -872,10 +872,24 @@ def store_spots(rows: list) -> int:
 # Flask routes
 # ---------------------------------------------------------------------------
 
+def _asset_version() -> int:
+    """Newest modification time of the files in static/: part of their URLs, so a browser
+    fetches the new CSS / JavaScript after an update instead of using its cached copy."""
+    newest = 0
+    for root, _dirs, files in os.walk(os.path.join(_script_dir, "static")):
+        for f in files:
+            try:
+                newest = max(newest, int(os.path.getmtime(os.path.join(root, f))))
+            except OSError:
+                pass
+    return newest
+
+
 @app.route('/')
 def index():
     return render_template(
         'index.html',
+        asset_v=_asset_version(),
         callsign=CALLSIGN,
         default_band=DEFAULT_BAND,
         map_lat=MAP_DEFAULT_LAT,
@@ -1022,14 +1036,14 @@ def api_replay_day():
 
 @app.route('/api/whatsnew')
 def api_whatsnew():
-    """Version label and the last 10 days of changes, read from CHANGELOG.md."""
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "CHANGELOG.md")
+    """Version label and the newest notes, read from doc/whats_new.md."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "doc", "whats_new.md")
     try:
         with open(path, encoding="utf-8") as fh:
             text = fh.read()
     except OSError:
         text = ""
-    return jsonify(changelog.whats_new(text, datetime.utcnow().date(), days=10))
+    return jsonify(changelog.whats_new(text, limit=10))
 
 
 @app.route('/api/wprs/days')

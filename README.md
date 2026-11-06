@@ -28,7 +28,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **Propagation Analysis page** — built from the replay history: a band-open heatmap (UTC hour by date, reporters or farthest distance), a typical-day chart with today overlaid, reporters versus Juliusruh MUF, K-index and SFI (shown as an index against the typical value for the same hour, so the day/night cycle does not distort the comparison), a list of geomagnetic storm days, DX windows by hour and month, the farthest reporters with links into the History Player, a "right now" comparison with history, and an ionosonde (MUF / foF2) day view; 30 d / 90 d / All
 - **WPRS page** — the car's movements from the logged 6-character locators: a drive detector lists the days on which the car moved (squares used, distance moved, path length, distance from the home square) with a distance filter, a map shows the visited squares and the track line for the chosen day(s), and a drive replay plays the fixes in order or opens a moment in the History Player
 - **Guides** — sidebar entry that lists the PDF documents in the `doc/` folder (technical notes and studies about the station and its data) with *Open* and *Download* links (a tab of the same window as *What's new*); titles and descriptions come from `doc/guides.json`
-- **What's new and About** — sidebar entries: *What's new* lists the last 10 days of changes straight from `CHANGELOG.md` with a version label `v.DDMMYYYY` (NEW marker until opened); *About* describes the station (operator, transmitter, antenna, home locator)
+- **What's new and About** — sidebar entries: *What's new* (a link under the page title) shows the latest releases as short prose notes from `doc/whats_new.md`, with a version label `v.DDMMYYYY` (NEW marker until opened); *About* describes the station (operator, transmitter, antenna, home locator)
 - **Remembered Map Layers** — the Map Layers switches (Position Trail, Last Fix Label, Reporter Countries, MUF graph, Solar Conditions, Reporter List, Histogram, Reporter Plot, Day / Night) and their sub-settings (MUF period, histogram SNR/Dist tab, reporter list sort, 1h / Today tab) are saved in the browser and restored on the next visit
 - **Auto / Dark / Light theme** — one icon button beside the sidebar title cycles Auto (follows the system setting, also while the page is open), Dark and Light; the choice is remembered in the browser
 - **Collapsible sidebar** — fold the panel away for a full-screen map view, handy on mobile
@@ -40,7 +40,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 
 ## Screenshots
 
-![WSPR Logger — live map view](https://raw.githubusercontent.com/oh2gax/wspr_logger/main/Main_screen_1_wspr_logger.png)
+![WSPR Logger — live map view](https://raw.githubusercontent.com/oh2gax/wspr_logger/main/doc/images/Main_screen_1_wspr_logger.png)
 *Live map (dark mode) with all panels enabled: MUF D=3000 km / Reporter Count graph spanning the top, Solar Conditions, Reporter List, and SNR / Dist Histogram stacked on the left, Current Position / Propagation / Reporter Countries overlays on the right, Reporter Plot layer showing SNR-weighted great-circle arcs from the beacon to each reporter, Day/Night overlay with dashed terminator line, and the collapsible info sidebar on the left.*
 
 ---
@@ -354,7 +354,7 @@ sudo ufw allow 5008/tcp
 | **Locator** | Current 6-character Maidenhead grid square; turns red when last spot is older than 1 hour |
 | **Latitude / Longitude** | Decimal coordinates derived from the locator |
 | **Reporters / Max DX** | How many stations received the last transmission and the farthest one; turn red when data is stale |
-| **Last Spot (UTC)** | Timestamp of the most recent logged transmission |
+| **Last Spot (UTC)** | Timestamp (minutes) of the most recent logged transmission, with a "Last fix N min ago" line below it |
 | **Position Trail** | Toggle the dashed trail connecting today's positions on the live map |
 | **Last Fix Label** | Show or hide the "last fix N min ago" label beside the car marker (colour: green up to 25 min, amber to 60 min, red beyond) |
 | **Reporter Countries** | Toggle the country breakdown overlay on the live map |
@@ -468,11 +468,11 @@ Choose `--from` so that it does not reach back to a time when the callsign was s
 
 ### Guides
 
-*Guides* and *What's new* (sidebar) open one window with two tabs, *What's new* and *User guides*, each entry on its own tab. The *User guides* tab lists the PDF files in the `doc/` folder. To add a document, copy the PDF into `doc/` and, optionally, add an entry (`file`, `title`, `description`, `date`) to `doc/guides.json`; a PDF without an entry is still listed with a title made from its file name. Only plain `*.pdf` names inside `doc/` are served (`/doc/<file>`); the LaTeX sources and figure scripts of the two bundled papers are in `doc/src/` and are not served.
+*Guides* (sidebar) and *What's new* (under the title) open one window with two tabs, *What's new* and *User guides*, each entry on its own tab. The *User guides* tab lists the PDF files in the `doc/` folder. To add a document, copy the PDF into `doc/` and, optionally, add an entry (`file`, `title`, `description`, `date`) to `doc/guides.json`; a PDF without an entry is still listed with a title made from its file name. Only plain `*.pdf` names inside `doc/` are served (`/doc/<file>`); the LaTeX sources and figure scripts of the two bundled papers are in `doc/src/` and are not served.
 
 ### What's new and About
 
-*What's new* (sidebar) shows the changes of the last 10 days. It is generated from `CHANGELOG.md`: the bold title of each bullet is listed, grouped by date and Added / Changed / Fixed, and the version label `v.DDMMYYYY` comes from the date of the newest entry. Keep every changelog bullet starting with a bold title so it shows up. *About* shows the station information.
+*What's new* is a link under the page title (not a menu item). It shows the latest releases in the style of the Mode-S Wind page: a version heading `v.DDMMYYYY`, a headline and short prose bullets with a bold lead. The text is written by hand in `doc/whats_new.md` (newest release first; format `## v.DDMMYYYY — headline`, then `- **Lead** — text`), and the version label comes from the newest heading. `CHANGELOG.md` stays the technical history. *About* shows the station information.
 
 ### Configuration
 
@@ -518,7 +518,7 @@ wspr_logger/
 │   ├── db.py               — SQLite read/write layer (live operational data)
 │   ├── replay_db.py        — SQLite read/write layer (replay history database)
 │   ├── analysis.py         — propagation analysis computed from the replay database
-│   ├── changelog.py        — reads CHANGELOG.md for the What's new window
+│   ├── changelog.py        — parses doc/whats_new.md for the What's new window
 │   ├── guides.py           — lists the PDF documents in doc/ for the Guides window
 │   ├── wprs.py             — drive detector, trips and track building for the WPRS page
 │   ├── sun.py              — solar elevation and sunrise / sunset
@@ -531,10 +531,24 @@ wspr_logger/
 │   ├── wspr_data.db        — main database (spots, MUF readings)
 │   └── wspr_replay.db      — replay database (reporter snapshots, solar log; safe to delete)
 ├── doc/                    — PDF guides shown under Guides (guides.json = titles and descriptions)
+│   ├── images/             — screenshots used by this README
 │   └── src/                — LaTeX sources and analysis scripts of those PDFs (not served)
 ├── tmp_files/              — scratch folder, gitignored
-└── templates/
-    └── index.html          — single-page frontend (Leaflet.js, Chart.js, vanilla JS)
+├── templates/
+│   └── index.html          — the page: markup only, with the settings handed to the scripts
+└── static/                 — served as /static/...
+    ├── css/app.css         — all styles (dark and light theme)
+    └── js/                 — the page's scripts, loaded in this order and sharing one scope:
+        core.js             — constants, state, tile layers, theme, remembered map-layer settings
+        live.js             — live map: latest spot, propagation, status bar, reporter countries
+        panels.js           — panel stacking, movable panels, MUF graph
+        map-layers.js       — reporter plot, day / night overlay, solar conditions, reporter list, histogram
+        history-player.js   — replay of the stored snapshots
+        views.js            — sidebar, view switching, History and Statistics pages
+        analysis.js         — Analysis page (charts, DX outlook, grey line, ionosonde day view)
+        info.js             — What's new / User guides / About window
+        wprs.js             — WPRS page and share links
+        main.js             — toast, utilities, start-up
 ```
 
 ---
@@ -548,7 +562,7 @@ wspr_logger/
 | `/api/stats` | GET | `date`, `band` | Aggregated stats for a date, all-time records and the list of logged dates |
 | `/api/analysis` | GET | `days` (0 = all, default 90), `band` | Heatmap, typical-day profile, MUF / K / SFI bins, storm days, excluded reports, grey-line test and DX outlook computed from the replay database; cached 10 min |
 | `/api/daily_summary` | GET | `band` | Per-day totals (transmissions, best DX, max reporters) for the Statistics chart |
-| `/api/whatsnew` | GET | — | Version label and the last 10 days of changes parsed from `CHANGELOG.md` |
+| `/api/whatsnew` | GET | — | Version label and the latest releases parsed from `doc/whats_new.md` |
 | `/api/wprs/days` | GET | `band` | Home square, one movement summary per logged UTC day (squares, moved, path, distance from home) and the trips |
 | `/api/wprs/track` | GET | `from`, `to` (YYYY-MM-DD, up to 7 days), `band` | Fixes, visited squares and statistics for those days |
 | `/api/guides` | GET | — | The PDF documents in `doc/` (file, title, description, date, size) |

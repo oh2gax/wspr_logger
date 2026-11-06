@@ -8,6 +8,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [2026-11-06]
 
 ### Added
+- **What's new under the title, in plain prose** — *What's new* is now a link with the
+  version label under the *WSPR Logger* title instead of a menu item. The window reads
+  `doc/whats_new.md` (new, hand-written, Mode-S Wind style: version heading, headline,
+  bullets with a bold lead) through `core/changelog.py` instead of listing Added / Changed /
+  Fixed entries from this file.
+- **Last fix age in the Locator area** — the left pane shows *Last fix N min ago* below
+  *Last Spot (UTC)*, which now has minute resolution (`2026-11-06 16:42`).
 - **WPRS page — the car's movements** — new sidebar page **WPRS** (Whisper Position
   Reporting System). Every transmission carries the locator the transmitter computed from
   its GPS fix, so the logged spots are a position track. A *drive detector* lists the days
@@ -147,6 +154,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   project structure.
 
 ### Changed
+- **Page split into files** — `templates/index.html` (4,300 lines) is now only the markup;
+  the styles are in `static/css/app.css` and the scripts in ten files under `static/js/`,
+  loaded in a fixed order. The text is unchanged (checked by comparing the joined files with
+  the old page, and by running the page in a test browser against the old and the new
+  version: identical behaviour). The settings from `config.ini` reach the scripts through one
+  `WSPR_CONFIG` block, and the file URLs carry a version so a browser loads new files after an
+  update.
+- **Repository tidied** — the screenshot moved to `doc/images/`; old scratch files left the
+  top level.
 - **Helper modules in a `core/` package** — `db`, `replay_db`, `analysis`, `greyline`,
   `outlook`, `sun`, `wprs`, `guides` and `changelog` moved from the program folder into
   `core/`, so the top level holds only the entry point `wspr_logger.py`, the tools and the
@@ -168,8 +184,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Theme selector: Auto / Dark / Light** — the *Dark Mode / Light Mode* entry of the
   left menu is replaced by one icon button (🌓 / 🌙 / ☀️) beside the sidebar title, next to the
   collapse arrow. Each click cycles Auto, Dark and Light. *Auto* follows the system setting and
-  switches live when it changes; it is also the default for browsers that have not chosen yet
-  (earlier explicit choices are kept). The page no longer flashes the wrong theme while loading.
+  switches live when it changes; it is the default (stored under the new key `wspr_theme_mode`, so every browser starts in Auto
+  until a mode is chosen). The page no longer flashes the wrong theme while loading.
 - **More reliable foF2 source** — foF2 is now read first from the Juliusruh Space
   Weather Monitor page (`ionosonde.iap-kborn.de/actuellz.htm`, "ION" row, updated
   every 15 minutes, 10 s timeout) and GIRO DIDBase is only tried if that fails,
