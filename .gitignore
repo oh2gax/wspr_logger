@@ -12,6 +12,8 @@ wspr_replay.db*
 # Scratch folder
 tmp_files/
 
+# The live database is never committed (it holds the live data and would overwrite the server's)
+wspr_data.db
 # SQLite sidecar files of the live database
 wspr_data.db-shm
 wspr_data.db-wal
