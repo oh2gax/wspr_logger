@@ -154,8 +154,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   project structure.
 
 ### Changed
-- **Tighter sidebar menu** — less vertical padding between the menu items (History,
-  Statistics, …), so more of the panel below is visible without scrolling.
+- **Tighter left pane** — less vertical spacing in the menu, the Locator block, the Map
+  Layers switches and the Last 1h / Today cards, so the whole pane (including the stats cards
+  at the bottom) fits a 1920 × 1080 screen without scrolling.
 - **About is a tab of the What's new window** — the *About* menu entry is removed; the
   station information is the third tab next to *What's new* and *User guides* (same fixed-size
   window).
