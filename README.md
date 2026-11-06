@@ -25,6 +25,8 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **Statistics view** — daily and all-time records (spot count, longest DX, max reporters)
 - **1 h / Today stats** — toggle the sidebar mini-stats between the last 60 minutes (default) and the full day
 - **History player** — replay any stored day on the live map from the sidebar **History Player** switch: a player bar (play/pause, time slider, date picker with previous/next day, 1–16 frames per second, **Live ✕** to leave) steps through the snapshots stored every ~10 minutes. The enabled layers show the replayed moment: Reporter List, SNR / Dist Histogram, Reporter Plot arcs, Reporter Countries and the Solar Conditions panel (including foF2 and MUF); the Propagation overlay uses the spot logged at that time. Needs the replay database (`[replay] enabled = true`)
+- **Propagation Analysis page** — built from the replay history: a band-open heatmap (UTC hour by date, reporters or farthest distance), a typical-day chart with today overlaid, reporters versus Juliusruh MUF, K-index and SFI (shown as an index against the typical value for the same hour, so the day/night cycle does not distort the comparison), and a list of geomagnetic storm days; 30 d / 90 d / All
+- **What's new and About** — sidebar entries: *What's new* lists the last 10 days of changes straight from `CHANGELOG.md` with a version label `v.DDMMYYYY` (NEW marker until opened); *About* describes the station (operator, transmitter, antenna, home locator)
 - **Remembered Map Layers** — the Map Layers switches (Position Trail, Reporter Countries, MUF graph, Solar Conditions, Reporter List, Histogram, Reporter Plot, Day / Night) and their sub-settings (MUF period, histogram SNR/Dist tab, reporter list sort, 1h / Today tab) are saved in the browser and restored on the next visit
 - **Light / Dark theme** — toggle in the sidebar; preference is remembered in the browser
 - **Collapsible sidebar** — fold the panel away for a full-screen map view, handy on mobile
@@ -321,7 +323,6 @@ sudo ufw allow 5008/tcp
 | **Latitude / Longitude** | Decimal coordinates derived from the locator |
 | **Reporters / Max DX** | How many stations received the last transmission and the farthest one; turn red when data is stale |
 | **Last Spot (UTC)** | Timestamp of the most recent logged transmission |
-| **Band** | Static display of the active band as configured in `config.ini` |
 | **Position Trail** | Toggle the dashed trail connecting today's positions on the live map |
 | **Reporter Countries** | Toggle the country breakdown overlay on the live map |
 | **MUF / Reports Graph** | Toggle the MUF and reporter count chart at the top of the map; use the 1d / 2d / 3d / 1wk buttons on the panel to change the time range |
@@ -409,7 +410,15 @@ Select a date using the date picker or the **Today / Yesterday / −7 days** qui
 
 ### Statistics View
 
-Shows aggregated data for the selected date (total spots, max reporters, longest DX, first/last spot time) alongside **all-time records**. A list of all dates with logged data appears at the bottom as clickable chips.
+Shows the selected day at a glance — total spots, max and average reporters, longest DX (with its percentage of the all-time record), first and last spot time — with previous/next-day arrows. Two charts follow: *Through the day* (reporters per transmission and farthest distance) and *Best DX per day* (30 d / 90 d / All; click a bar to open that day). Below are the **all-time records**, each with the date it was set, and a clickable list of all dates with logged data.
+
+### Analysis View
+
+Needs the replay database. The **band-open heatmap** shows for every UTC hour and date how many stations heard you (or the farthest distance) — switch with the Reporters / Farthest km buttons and hover for details. **Typical day** shows the median and 25–75 % range of stations heard per UTC hour with the latest day drawn over it. The three **space weather** charts compare your reporter count with the Juliusruh MUF, the K-index and the solar flux: bars are an index where 100 means "as many reporters as usual at that hour", the line is the share of snapshots with a reporter beyond 6000 km. The **storm days** table lists days when K reached 5 or more and how your reporters compared with a typical day. Choose 30 days, 90 days or all history; results are computed from the local replay database and cached for 10 minutes.
+
+### What's new and About
+
+*What's new* (sidebar) shows the changes of the last 10 days. It is generated from `CHANGELOG.md`: the bold title of each bullet is listed, grouped by date and Added / Changed / Fixed, and the version label `v.DDMMYYYY` comes from the date of the newest entry. Keep every changelog bullet starting with a bold title so it shows up. *About* shows the station information.
 
 ### Configuration
 
@@ -450,6 +459,8 @@ wspr_logger/
 ├── wspr_logger.py          — Flask app, background polling thread, REST API
 ├── db.py                   — SQLite read/write layer (live operational data)
 ├── replay_db.py            — SQLite read/write layer (replay history database)
+├── analysis.py             — propagation analysis computed from the replay database
+├── changelog.py            — reads CHANGELOG.md for the What's new window
 ├── requirements.txt        — Python dependencies (flask)
 ├── update.sh               — server update: pull from GitHub, back up databases, restart, verify
 ├── wspr_data.db            — main SQLite database (created automatically on first run)
@@ -466,7 +477,10 @@ wspr_logger/
 |----------|--------|------------|-------------|
 | `/api/latest` | GET | `band` | Most recent spot, cached reporter countries, and `wspr_down` flag indicating whether wspr.live is currently reachable |
 | `/api/positions` | GET | `date`, or `from`+`to`, `band` | List of spots for a date or time range |
-| `/api/stats` | GET | `date`, `band` | Aggregated stats for a date plus all-time records |
+| `/api/stats` | GET | `date`, `band` | Aggregated stats for a date, all-time records and the list of logged dates |
+| `/api/analysis` | GET | `days` (0 = all, default 90), `band` | Heatmap, typical-day profile, MUF / K / SFI bins and storm days computed from the replay database; cached 10 min |
+| `/api/daily_summary` | GET | `band` | Per-day totals (transmissions, best DX, max reporters) for the Statistics chart |
+| `/api/whatsnew` | GET | — | Version label and the last 10 days of changes parsed from `CHANGELOG.md` |
 | `/api/replay/dates` | GET | `band` | `{enabled, dates}` — UTC dates that have replay snapshots, newest first |
 | `/api/replay/day` | GET | `date` (YYYY-MM-DD), `band` | All replay frames of one day: reporters, country counts and solar indices per snapshot (~300 KB for a full day) |
 | `/api/reporters` | GET | — | Cached reporter countries from the past 60 minutes |

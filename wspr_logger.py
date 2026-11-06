@@ -19,6 +19,8 @@ from datetime import datetime, timedelta
 
 from flask import Flask, jsonify, render_template, request
 
+import analysis
+import changelog
 import db
 import replay_db
 
@@ -996,13 +998,62 @@ def api_replay_day():
     return jsonify({"date": date_str, "frames": frames})
 
 
+@app.route('/api/whatsnew')
+def api_whatsnew():
+    """Version label and the last 10 days of changes, read from CHANGELOG.md."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "CHANGELOG.md")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+    except OSError:
+        text = ""
+    return jsonify(changelog.whats_new(text, datetime.utcnow().date(), days=10))
+
+
+_analysis_cache: dict = {}          # (days, band) -> (monotonic time, payload)
+_ANALYSIS_TTL = 600                 # seconds
+
+
+@app.route('/api/analysis')
+def api_analysis():
+    """Propagation analysis computed from the replay database.
+
+    Query params: days=<0..400> (0 = whole history, default 90), band=<int>.
+    Results are cached for 10 minutes; no wspr.live queries are made.
+    """
+    days = min(max(request.args.get('days', 90, type=int), 0), 400)
+    band = request.args.get('band', DEFAULT_BAND, type=int)
+    if not replay_db.is_enabled():
+        return jsonify({"enabled": False, "empty": True})
+    key = (days, band)
+    hit = _analysis_cache.get(key)
+    if hit and time.monotonic() - hit[0] < _ANALYSIS_TTL:
+        return jsonify(hit[1])
+    rows = replay_db.get_snapshot_rows(days, band)
+    payload = analysis.build(rows, datetime.utcnow().strftime("%Y-%m-%d"))
+    payload["enabled"] = True
+    _analysis_cache[key] = (time.monotonic(), payload)
+    return jsonify(payload)
+
+
 @app.route('/api/stats')
 def api_stats():
     """Daily statistics (spot count, max DX, max reporters)."""
     date_str = request.args.get('date', datetime.utcnow().strftime("%Y-%m-%d"))
     band     = request.args.get('band', DEFAULT_BAND, type=int)
     stats    = db.get_stats_by_date(date_str, band)
-    return jsonify({"stats": stats})
+    return jsonify({
+        "stats":           stats,
+        "all_time":        db.get_all_time_stats(),
+        "available_dates": db.get_available_dates(band),
+    })
+
+
+@app.route('/api/daily_summary')
+def api_daily_summary():
+    """Per-day totals (spots, best DX, max reporters) for the Statistics charts."""
+    band = request.args.get('band', DEFAULT_BAND, type=int)
+    return jsonify(db.get_daily_summary(band))
 
 
 # ---------------------------------------------------------------------------

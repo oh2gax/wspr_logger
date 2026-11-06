@@ -5,20 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [2026-11-06b]
+## [2026-11-06]
 
 ### Added
-- **Map Layer toggles are remembered per browser** — the sidebar switches
-  (Position Trail, Reporter Countries, MUF / Reports Graph, Solar Conditions,
-  Reporter List, SNR / Dist Histogram, Reporter Plot, Day / Night) are saved to
-  `localStorage` (key `wspr_layers`) on every change and restored on page load,
-  after the map is created and before the first data fetch. Restoring calls the
-  normal toggle functions, so panels, timers and panel stacking behave exactly as
-  after a click. Related sub-settings are saved too: MUF period (1d / 2d / 3d /
-  1wk), histogram SNR / Dist tab, reporter-list sort column, and the 1h / Today
-  stats tab. Missing, corrupt or unavailable storage falls back to the defaults
-  (Position Trail on, everything else off). No backend change.
-
+- **Propagation Analysis page** — new sidebar page **Analysis**, computed from the
+  replay database (no wspr.live queries, cached 10 minutes). A *band-open heatmap*
+  (UTC hour by date, coloured by average reporters or farthest distance, with
+  hover details), a *typical day* chart (median and 25–75 % range per UTC hour with
+  the latest day on top), reporters versus Juliusruh *MUF*, *K-index* and *SFI*, and
+  a table of *geomagnetic storm days* (K ≥ 5). Period buttons 30 d / 90 d / All.
+  The bin charts show an index (100 = typical number of reporters for that UTC
+  hour) so the day/night rhythm does not masquerade as a space-weather effect;
+  solar readings of 0 (feed glitches) are ignored. New module `analysis.py`,
+  endpoint `/api/analysis?days=&band=`, `replay_db.get_snapshot_rows()`.
 - **History player on the live map** — new sidebar switch **History Player** opens
   a player bar at the bottom of the map: play/pause, time slider, date picker with
   previous/next day that has data, 1/2/4/8/16 frames per second, and **Live ✕** to
@@ -29,47 +28,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (SFI, K, A, X-ray, Bz, wind, aurora, proton flux, foF2, MUF). The Propagation
   overlay uses the spot logged at that time, or "No propagation" if none was
   logged within 25 minutes. Live refreshes are paused during replay and the page
-  repaints from live data on exit. The MUF graph and Day / Night overlay stay live.
-- New endpoints `/api/replay/dates` and `/api/replay/day?date=YYYY-MM-DD` (a whole
-  day in one response, ~300 KB, so playback needs no per-frame requests);
-  `replay_db.get_day_frames()`. Solar panel rendering split into `renderSolar()` so
-  live data and replay frames share it. No new queries to wspr.live.
-
-### Changed
-- **More reliable foF2 source** — foF2 is now read first from the Juliusruh Space
-  Weather Monitor page (`ionosonde.iap-kborn.de/actuellz.htm`, "ION" row, updated
-  every 15 minutes, 10 s timeout) and GIRO DIDBase is only tried if that fails,
-  because GIRO frequently returned nothing. The HTML is reduced to plain text before
-  matching, so the parser does not depend on the table markup. The MUF source is
-  unchanged (GIRO first, Juliusruh page as fallback).
-
-### Fixed
-- **SNR / Dist Histogram was empty when it was the only layer switched on** — the
-  reporter data was only fetched when the Reporter List or Reporter Plot was
-  enabled. The histogram now triggers the fetch itself.
-
-- **Best DX / reporter count under-reported long-distance spots** — each poll only
-  queried the single newest transmission slot, six minutes after it was sent.
-  Distant reporters (USA, Asia, Pacific) upload to wspr.live later, and by the next
-  poll the newest slot was a different one, so the earlier slot was never refreshed;
-  the `ON CONFLICT` update added earlier only helped after a backend restart.
-  Comparing the databases showed that on 67 of 163 days the farthest reporter in the
-  replay data was farther than the stored Best DX (e.g. 15,614 km vs 4,553 km on
-  2026-10-07). The poll query now covers the last 45 minutes / 5 slots (still one
-  query per cycle, no extra wspr.live load), and every poll raises the stored
-  `max_distance` / `reporter_count` of the recent slots (values are never lowered).
-  New helpers: `fetch_recent_spots()`, `store_spots()`, `db.get_spot_at()`; the
-  log shows `Updated: <slot> reporters a->b max_dx x->y km` when a slot improves.
-  Days already stored are not corrected retroactively.
-
-- The MUF panel title always said "Last 24 h" at start-up although the default
-  period is 2 days; the title now matches the active period button.
-
----
-
-## [2026-11-06]
-
-### Added
+  repaints from live data on exit. New endpoints `/api/replay/dates` and
+  `/api/replay/day?date=YYYY-MM-DD` (a whole day in one ~300 KB response);
+  `replay_db.get_day_frames()`; solar panel rendering split into `renderSolar()`.
+- **Map Layer toggles are remembered per browser** — the sidebar switches and their
+  sub-settings (MUF period, histogram SNR/Dist tab, reporter-list sort, 1h/Today tab)
+  are saved to `localStorage` (key `wspr_layers`) on every change and restored on
+  page load through the normal toggle functions. Missing or corrupt storage falls
+  back to the defaults.
+- **What's new and About** — two new entries in the sidebar. *What's new* lists the
+  changes of the last 10 days (read from this CHANGELOG by `changelog.py`, endpoint
+  `/api/whatsnew`) and shows the version as `v.DDMMYYYY` (date of the newest
+  entry), with a NEW marker until it has been opened. *About* shows the station:
+  operator, transmitter, antenna and home locator.
+- **Statistics page redesign** — day navigation with previous/next arrows and a
+  weekday label, an *average reporters* card, a *Longest DX* card that shows the
+  percentage of the all-time record (or a trophy on a record day), a *Through the
+  day* chart (reporters per transmission and farthest distance), a *Best DX per
+  day* chart (30 d / 90 d / All; click a bar to open that day), all-time records
+  with the date each was set, and a clickable list of logged dates. New endpoint
+  `/api/daily_summary`.
 - **`update.sh` — one-command server update** — pulls the latest version from
   GitHub on a git-clone installation (such as the AWS server), restarts the
   systemd service, and verifies that the web page answers with HTTP 200 again.
@@ -86,10 +64,46 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   copied to `<install folder>_backups/` with SQLite's online backup before every
   update (the 7 newest copies are kept), and `pip install -r requirements.txt`
   runs only when `requirements.txt` changed.
-- README: new "Updating on a Server" section, including a step-by-step recipe for
-  converting a folder that was copied rather than cloned into a git checkout
-  without touching `config.ini`, `api_keys.py`, the databases or `venv/`;
-  `update.sh` added to the project structure.
+- **README: Updating on a Server** — a step-by-step recipe for converting a folder
+  that was copied rather than cloned into a git checkout without touching
+  `config.ini`, `api_keys.py`, the databases or `venv/`; `update.sh` added to the
+  project structure.
+
+### Changed
+- **More reliable foF2 source** — foF2 is now read first from the Juliusruh Space
+  Weather Monitor page (`ionosonde.iap-kborn.de/actuellz.htm`, "ION" row, updated
+  every 15 minutes, 10 s timeout) and GIRO DIDBase is only tried if that fails,
+  because GIRO frequently returned nothing. The HTML is reduced to plain text before
+  matching, so the parser does not depend on the table markup. The MUF source is
+  unchanged (GIRO first, Juliusruh page as fallback).
+- **Empty "Band" block removed from the sidebar** — it never showed a value (the
+  template variable was never supplied); the band is still shown in the 1h / Today
+  card.
+- **`.gitignore` updated** — it now ignores `wspr_replay.db*` (large, server-local), and its line
+  endings were normalised.
+
+### Fixed
+- **Best DX / reporter count under-reported long-distance spots** — each poll only
+  queried the single newest transmission slot, six minutes after it was sent.
+  Distant reporters (USA, Asia, Pacific) upload to wspr.live later, and by the next
+  poll the newest slot was a different one, so the earlier slot was never refreshed;
+  the `ON CONFLICT` update added earlier only helped after a backend restart.
+  Comparing the databases showed that on 67 of 163 days the farthest reporter in the
+  replay data was farther than the stored Best DX (e.g. 15,614 km vs 4,553 km on
+  2026-10-07). The poll query now covers the last 45 minutes / 5 slots (still one
+  query per cycle, no extra wspr.live load), and every poll raises the stored
+  `max_distance` / `reporter_count` of the recent slots (values are never lowered).
+  New helpers: `fetch_recent_spots()`, `store_spots()`, `db.get_spot_at()`; the
+  log shows `Updated: <slot> reporters a->b max_dx x->y km` when a slot improves.
+  Days already stored are not corrected retroactively.
+- **Statistics: All-Time Records and Logged Dates were always empty** — the
+  `/api/stats` route returned only the day's numbers while the page also expected
+  `all_time` and `available_dates`; both are now included.
+- **SNR / Dist Histogram was empty when it was the only layer switched on** — the
+  reporter data was only fetched when the Reporter List or Reporter Plot was
+  enabled. The histogram now triggers the fetch itself.
+- **MUF panel title said "Last 24 h" at start-up** although the default period is
+  2 days; the title now matches the active period button.
 
 ---
 

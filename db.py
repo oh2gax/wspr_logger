@@ -260,3 +260,23 @@ def get_all_time_stats() -> dict:
             FROM spots
         """).fetchone()
         return dict(row) if row else {}
+
+
+def get_daily_summary(band: int = None) -> list[dict]:
+    """One row per UTC day (oldest first): date, spots, max_dx, max_reporters."""
+    with _connect() as conn:
+        sql = """
+            SELECT date(timestamp) AS date,
+                   COUNT(*)            AS spots,
+                   MAX(max_distance)   AS max_dx,
+                   MAX(reporter_count) AS max_reporters
+            FROM spots
+            {where}
+            GROUP BY date(timestamp)
+            ORDER BY date(timestamp)
+        """
+        if band:
+            rows = conn.execute(sql.format(where="WHERE band = ?"), (band,)).fetchall()
+        else:
+            rows = conn.execute(sql.format(where="")).fetchall()
+        return [dict(r) for r in rows]

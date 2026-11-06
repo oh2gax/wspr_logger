@@ -700,6 +700,93 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
 .rl-table td.rl-dist { color: #4ade80; font-weight: 600; }
 .rl-empty { font-size: 11px; color: var(--text-muted); padding: 6px 0; }
 
+.at-item-sub { font-size: 10px; color: var(--text-muted); margin-top: 1px; min-height: 12px; }
+.at-item-val.sm { font-size: 12px; font-weight: 600; }
+.alltime-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.stat-card { border-top: 2px solid var(--accent-dim); }
+.stat-card-val.hit { color: #f59e0b; }
+
+/* ── What's new / About modal ── */
+.nav-badge {
+    margin-left: auto; font-size: 9px; color: var(--text-muted);
+    border: 1px solid var(--border); border-radius: 8px; padding: 1px 6px;
+}
+.nav-badge.new { color: #f59e0b; border-color: #f59e0b; }
+.modal-back {
+    position: fixed; inset: 0; z-index: 10000;
+    background: rgba(0,0,0,.55);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+}
+.modal-card {
+    background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px;
+    width: min(560px, 100%); max-height: calc(100vh - 40px);
+    display: flex; flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0,0,0,.45);
+}
+.modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+}
+.modal-title { font-size: 15px; font-weight: 600; color: var(--accent); }
+.modal-x {
+    background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+    border-radius: 4px; width: 26px; height: 26px; cursor: pointer; font-size: 12px;
+}
+.modal-x:hover { color: var(--text-primary); border-color: var(--accent); }
+.modal-body { padding: 14px 18px 18px; overflow-y: auto; font-size: 13px; color: var(--text-primary); line-height: 1.5; }
+.modal-body a { color: var(--accent); }
+.wn-ver { font-size: 11px; color: var(--text-muted); margin-bottom: 10px; }
+.wn-date { font-size: 12px; font-weight: 600; color: var(--text-primary); margin: 14px 0 4px; padding-bottom: 3px; border-bottom: 1px solid var(--border); }
+.wn-sec { display: inline-block; font-size: 9px; letter-spacing: .6px; text-transform: uppercase; border-radius: 3px; padding: 1px 6px; margin: 8px 0 3px; }
+.wn-sec.Added   { color: #4ade80; border: 1px solid #4ade80; }
+.wn-sec.Changed { color: #f59e0b; border: 1px solid #f59e0b; }
+.wn-sec.Fixed   { color: #f87171; border: 1px solid #f87171; }
+.wn-sec.other   { color: var(--text-muted); border: 1px solid var(--border); }
+.wn-list { margin: 0 0 0 18px; padding: 0; }
+.wn-list li { margin: 2px 0; font-size: 12px; color: var(--text-secondary); }
+.wn-foot { font-size: 11px; color: var(--text-muted); margin-top: 14px; }
+.about-row { display: grid; grid-template-columns: 110px 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.about-row:last-child { border-bottom: none; }
+.about-lbl { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; padding-top: 2px; }
+.about-note { font-size: 11px; color: var(--text-muted); }
+
+/* ── ANALYSIS VIEW ── */
+#analysis-view { overflow-y: auto; }
+.an-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 14px;
+    padding: 0 18px 18px;
+}
+.an-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px 14px;
+    position: relative;
+    min-width: 0;
+}
+.an-card.wide { grid-column: 1 / -1; }
+.an-card-title { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 2px; }
+.an-card-sub { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4; }
+.an-chart { position: relative; height: 240px; }
+.an-head-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.an-legend { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); margin-top: 6px; }
+.an-legend-bar {
+    width: 160px; height: 8px; border-radius: 4px;
+    background: linear-gradient(90deg, #1f2937, #0369a1, #38bdf8, #4ade80, #facc15);
+}
+html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1, #38bdf8, #4ade80, #facc15); }
+#anTip {
+    position: absolute; display: none; pointer-events: none; z-index: 5;
+    background: var(--overlay-bg); border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 8px; font-size: 11px; color: var(--text-primary);
+    white-space: nowrap;
+}
+.an-note { padding: 0 18px 22px; font-size: 11px; color: var(--text-muted); line-height: 1.6; max-width: 980px; }
+.an-empty { padding: 40px 18px; color: var(--text-muted); font-size: 13px; }
+
 /* ── History player bar (bottom centre of the live map) ── */
 .replay-bar {
     position: absolute;
@@ -798,7 +885,10 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
         <div class="nav-item active" id="nav-map"     onclick="showView('map')">     <span class="nav-icon">🗺️</span> Live Map</div>
         <div class="nav-item"        id="nav-history" onclick="showView('history')"> <span class="nav-icon">📅</span> History</div>
         <div class="nav-item"        id="nav-stats"   onclick="showView('stats')">   <span class="nav-icon">📊</span> Statistics</div>
+        <div class="nav-item"        id="nav-analysis" onclick="showView('analysis')"> <span class="nav-icon">🔬</span> Analysis</div>
         <div class="nav-item"        id="nav-theme"   onclick="toggleTheme()">       <span class="nav-icon" id="themeIcon">🌙</span> <span id="themeLabel">Dark Mode</span></div>
+        <div class="nav-item"        id="nav-whatsnew" onclick="openWhatsNew()">      <span class="nav-icon">✨</span> What's new <span class="nav-badge" id="navVersion"></span></div>
+        <div class="nav-item"        id="nav-about"   onclick="openAbout()">          <span class="nav-icon">ℹ️</span> About</div>
     </nav>
 
     <div class="sb-body">
@@ -819,12 +909,6 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
 
             <div class="lbl">Last Spot (UTC)</div>
             <div class="val sm" id="infoTime">—</div>
-        </div>
-
-        <!-- Band display -->
-        <div class="sb-section">
-            <div class="sb-section-lbl">Band</div>
-            <div class="val sm" id="bandDisplay">{{ band_label }}</div>
         </div>
 
         <!-- Map layer toggles -->
@@ -1067,8 +1151,11 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
     <div class="view" id="stats-view">
         <div class="view-header">
             <span class="view-title">📊 Statistics</span>
+            <span class="quick-btn" onclick="shiftStatsDate(-1)" title="Previous day">&#9664;</span>
             <input type="date" id="statsDate" onchange="loadStats()" style="width:140px;">
+            <span class="quick-btn" onclick="shiftStatsDate(1)" title="Next day">&#9654;</span>
             <span class="quick-btn" onclick="setStatsDate(0); loadStats()">Today</span>
+            <span id="stDayLabel" style="font-size:11px;color:var(--text-muted);"></span>
         </div>
 
         <div class="stats-grid" id="statsGrid">
@@ -1080,12 +1167,17 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
             <div class="stat-card">
                 <div class="stat-card-lbl">Max Reporters</div>
                 <div class="stat-card-val g" id="stMaxRprt">—</div>
-                <div class="stat-card-unit">stations heard you</div>
+                <div class="stat-card-unit" id="stMaxRprtSub">stations heard you</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-lbl">Avg Reporters</div>
+                <div class="stat-card-val g" id="stAvgRprt">—</div>
+                <div class="stat-card-unit">per transmission</div>
             </div>
             <div class="stat-card">
                 <div class="stat-card-lbl">Longest DX</div>
                 <div class="stat-card-val g" id="stMaxDX">—</div>
-                <div class="stat-card-unit">km</div>
+                <div class="stat-card-unit" id="stMaxDXSub">km</div>
             </div>
             <div class="stat-card">
                 <div class="stat-card-lbl">First Spot</div>
@@ -1099,26 +1191,124 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
             </div>
         </div>
 
-        <div class="alltime-section">
-            <div class="alltime-title">All-Time Records</div>
-            <div class="alltime-grid">
-                <div><div class="at-item-lbl">Total Spots</div><div class="at-item-val" id="atSpots">—</div></div>
-                <div><div class="at-item-lbl">Best DX</div><div class="at-item-val" id="atDX">—</div></div>
-                <div><div class="at-item-lbl">Best Reporters</div><div class="at-item-val" id="atRprt">—</div></div>
-                <div><div class="at-item-lbl">Active Days</div><div class="at-item-val" id="atDays">—</div></div>
-                <div><div class="at-item-lbl">First Ever</div><div class="at-item-val" id="atFirst" style="font-size:12px;">—</div></div>
-                <div><div class="at-item-lbl">Last Ever</div><div class="at-item-val" id="atLast" style="font-size:12px;">—</div></div>
+        <div class="an-grid">
+            <div class="an-card wide">
+                <div class="an-card-title">Through the day (UTC)</div>
+                <div class="an-card-sub">Bars: stations that heard each transmission. Line: farthest reporter in km.</div>
+                <div class="an-chart"><canvas id="stDayChart"></canvas></div>
+                <div class="an-empty" id="stDayEmpty" style="display:none;padding:12px 0;">No transmissions logged on this date.</div>
+            </div>
+            <div class="an-card wide">
+                <div class="an-head-row">
+                    <div>
+                        <div class="an-card-title">Best DX per day</div>
+                        <div class="an-card-sub">Bars: farthest reporter of each day (the selected day is highlighted; click a bar to open that day). Line: most reporters in a single transmission.</div>
+                    </div>
+                    <div class="muf-period-btns">
+                        <button class="muf-period-btn"        id="stR30" onclick="setStatsRange(30)">30 d</button>
+                        <button class="muf-period-btn active" id="stR90" onclick="setStatsRange(90)">90 d</button>
+                        <button class="muf-period-btn"        id="stR0"  onclick="setStatsRange(0)">All</button>
+                    </div>
+                </div>
+                <div class="an-chart"><canvas id="stHistChart"></canvas></div>
+            </div>
+            <div class="an-card">
+                <div class="an-card-title">All-time records</div>
+                <div class="an-card-sub">&nbsp;</div>
+                <div class="alltime-grid">
+                    <div><div class="at-item-lbl">Best DX</div><div class="at-item-val" id="atDX">—</div><div class="at-item-sub" id="atDXSub"></div></div>
+                    <div><div class="at-item-lbl">Best Reporters</div><div class="at-item-val" id="atRprt">—</div><div class="at-item-sub" id="atRprtSub"></div></div>
+                    <div><div class="at-item-lbl">Total Spots</div><div class="at-item-val" id="atSpots">—</div></div>
+                    <div><div class="at-item-lbl">Active Days</div><div class="at-item-val" id="atDays">—</div></div>
+                    <div><div class="at-item-lbl">First Ever</div><div class="at-item-val sm" id="atFirst">—</div></div>
+                    <div><div class="at-item-lbl">Last Ever</div><div class="at-item-val sm" id="atLast">—</div></div>
+                </div>
+            </div>
+            <div class="an-card">
+                <div class="an-card-title">Logged dates</div>
+                <div class="an-card-sub">Click a date to open it.</div>
+                <div class="dates-chips" id="dateChips" style="max-height:150px;overflow-y:auto;"></div>
             </div>
         </div>
+    </div>
 
-        <div class="dates-section">
-            <div class="dates-title">Logged Dates</div>
-            <div class="dates-chips" id="dateChips"></div>
+    <!-- ── ANALYSIS VIEW ── -->
+    <div class="view" id="analysis-view">
+        <div class="view-header">
+            <span class="view-title">🔬 Propagation Analysis</span>
+            <span class="quick-btn" id="anP30"  onclick="setAnalysisDays(30)">30 d</span>
+            <span class="quick-btn active-qb" id="anP90" onclick="setAnalysisDays(90)">90 d</span>
+            <span class="quick-btn" id="anP0"   onclick="setAnalysisDays(0)">All</span>
+            <span id="anPeriod" style="font-size:11px;color:var(--text-muted);"></span>
+        </div>
+        <div id="anEmpty" class="an-empty" style="display:none;"></div>
+        <div id="anBody" style="display:none;">
+            <div class="stats-grid" id="anSummary"></div>
+            <div class="an-grid">
+                <div class="an-card wide">
+                    <div class="an-head-row">
+                        <div>
+                            <div class="an-card-title">Band-open heatmap</div>
+                            <div class="an-card-sub">UTC hour (rows) by date (columns). Grey cells have no data.</div>
+                        </div>
+                        <div class="muf-period-btns">
+                            <button class="muf-period-btn active" id="anHmN"  onclick="setHeatMetric('n')">Reporters</button>
+                            <button class="muf-period-btn"        id="anHmMx" onclick="setHeatMetric('dist')">Farthest km</button>
+                        </div>
+                    </div>
+                    <div style="position:relative;"><canvas id="anHeat"></canvas><div id="anTip"></div></div>
+                    <div class="an-legend"><span>0</span><div class="an-legend-bar"></div><span id="anHeatMax"></span></div>
+                </div>
+                <div class="an-card wide">
+                    <div class="an-card-title">Typical day (UTC)</div>
+                    <div class="an-card-sub">Stations heard in the last 60 minutes, by hour of day: median and the 25&ndash;75 % range over the period, with the latest day on top.</div>
+                    <div class="an-chart"><canvas id="anProfile"></canvas></div>
+                </div>
+                <div class="an-card">
+                    <div class="an-card-title">Reporters vs. Juliusruh MUF (D=3000 km)</div>
+                    <div class="an-card-sub">Bars: reporters compared with what is typical for the same UTC hour (dashed line = 100 = typical). Line: share of snapshots with a reporter beyond 6000 km.</div>
+                    <div class="an-chart"><canvas id="anMuf"></canvas></div>
+                </div>
+                <div class="an-card">
+                    <div class="an-card-title">Reporters vs. K-index</div>
+                    <div class="an-card-sub">Same scale: 100 = typical for the hour. Geomagnetic disturbance (K) lowers it.</div>
+                    <div class="an-chart"><canvas id="anK"></canvas></div>
+                </div>
+                <div class="an-card">
+                    <div class="an-card-title">Reporters vs. solar flux (SFI)</div>
+                    <div class="an-card-sub">Same scale: 100 = typical for the hour.</div>
+                    <div class="an-chart"><canvas id="anSfi"></canvas></div>
+                </div>
+                <div class="an-card">
+                    <div class="an-card-title" id="anStormTitle">Geomagnetic storm days</div>
+                    <div class="an-card-sub">Days when K reached the storm level, and how many reporters you had compared with a typical day (100 = typical). Days with few snapshots are less reliable.</div>
+                    <div style="max-height:240px;overflow-y:auto;">
+                        <table class="htbl"><thead><tr><th>Date</th><th>Max K</th><th>Avg reporters</th><th>vs. typical</th><th>Snapshots</th></tr></thead>
+                        <tbody id="anStormBody"></tbody></table>
+                    </div>
+                </div>
+            </div>
+            <div class="an-note">
+                A &ldquo;snapshot&rdquo; is one poll cycle (about every 10 minutes); its reporter count is the number of different stations heard in the preceding 60 minutes.
+                MUF and reporter counts both follow the day/night cycle, so the raw correlation overstates the link; the bar charts therefore compare each snapshot with the typical value for its UTC hour.
+                MUF is measured at the Juliusruh ionosonde in northern Germany, which only roughly represents your paths. Snapshots where the solar feed returned 0 are ignored for that chart.
+                All figures are computed from the local replay database; nothing is queried from wspr.live.
+            </div>
         </div>
     </div>
 
 
 </div><!-- /main -->
+
+<div class="modal-back" id="modalBack" onclick="if (event.target === this) closeModal()">
+    <div class="modal-card" role="dialog" aria-modal="true">
+        <div class="modal-head">
+            <span class="modal-title" id="modalTitle"></span>
+            <button class="modal-x" onclick="closeModal()" title="Close (Esc)">&#10005;</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+    </div>
+</div>
 
 <div id="toast"></div>
 
@@ -1232,6 +1422,8 @@ function toggleTheme() {
     if (histMap && histTileLayer) {
         histTileLayer = swapTiles(histMap, histTileLayer);
     }
+    if (_anData && document.getElementById('analysis-view').classList.contains('active')) renderAnalysis();
+    if (document.getElementById('stats-view').classList.contains('active')) renderStatsCharts();
 }
 
 function initTheme() {
@@ -2470,6 +2662,8 @@ function showView(name) {
         setHistDate(0); loadHistory();
     } else if (name === 'stats') {
         setStatsDate(0); loadStats();
+    } else if (name === 'analysis') {
+        loadAnalysis();
     }
 }
 
@@ -2589,36 +2783,451 @@ function setStatsDate(offset) {
     document.getElementById('statsDate').value = d.toISOString().split('T')[0];
 }
 
+let _stDaily = [];
+let _stDay   = [];
+let _stRange = 90;
+let _stAllBest = 0;
+
+function shiftStatsDate(dir) {
+    const el = document.getElementById('statsDate');
+    const d  = new Date((el.value || todayStr()) + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + dir);
+    el.value = d.toISOString().slice(0, 10);
+    loadStats();
+}
+
+function setStatsRange(n) {
+    _stRange = n;
+    [[30,'stR30'],[90,'stR90'],[0,'stR0']].forEach(([v,id]) =>
+        document.getElementById(id).classList.toggle('active', v === n));
+    drawStatsHistChart();
+}
+
 async function loadStats() {
     const date = document.getElementById('statsDate').value;
     if (!date) return;
     try {
-        const r    = await fetch(`/api/stats?date=${date}&band=${currentBand}`);
-        const data = await r.json();
-        const s    = data.stats || {};
-        const at   = data.all_time || {};
+        const [data, pos, daily] = await Promise.all([
+            fetch(`/api/stats?date=${date}&band=${currentBand}`).then(r => r.json()),
+            fetch(`/api/positions?date=${date}&band=${currentBand}`).then(r => r.json()),
+            fetch(`/api/daily_summary?band=${currentBand}`).then(r => r.json()),
+        ]);
+        const s  = data.stats || {};
+        const at = data.all_time || {};
+        _stDay   = Array.isArray(pos) ? pos : [];
+        _stDaily = Array.isArray(daily) ? daily : [];
+        _stAllBest = at.best_dx || 0;
+
+        document.getElementById('stDayLabel').textContent =
+            new Date(date + 'T00:00:00Z').toLocaleDateString('en-GB',
+                { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 
         document.getElementById('stSpots').textContent   = s.spot_count    || 0;
         document.getElementById('stMaxRprt').textContent = s.max_reporters || '—';
-        document.getElementById('stMaxDX').textContent   = s.max_distance  || '—';
+        const dayDX = s.max_distance || 0;
+        const dxEl  = document.getElementById('stMaxDX');
+        dxEl.textContent = dayDX ? dayDX.toLocaleString() : '—';
+        const isRecord = dayDX > 0 && dayDX >= _stAllBest;
+        dxEl.classList.toggle('hit', isRecord);
+        document.getElementById('stMaxDXSub').textContent = isRecord ? '🏆 all-time best'
+            : (dayDX && _stAllBest ? `km · ${Math.round(100 * dayDX / _stAllBest)} % of record` : 'km');
+        const avg = _stDay.length ? _stDay.reduce((a, x) => a + (x.reporter_count || 0), 0) / _stDay.length : null;
+        document.getElementById('stAvgRprt').textContent = avg === null ? '—' : avg.toFixed(1);
         document.getElementById('stFirst').textContent   = s.first_spot ? s.first_spot.split(' ')[1] : '—';
         document.getElementById('stLast').textContent    = s.last_spot  ? s.last_spot.split(' ')[1]  : '—';
 
-        document.getElementById('atSpots').textContent = at.total_spots    || '—';
-        document.getElementById('atDX').textContent    = at.best_dx ? at.best_dx + ' km' : '—';
+        // All-time records, with the date each record was set (from the daily summary)
+        const bestDxDay  = _stDaily.find(x => x.max_dx === at.best_dx);
+        const bestRepDay = _stDaily.find(x => x.max_reporters === at.best_reporters);
+        document.getElementById('atSpots').textContent = at.total_spots ? at.total_spots.toLocaleString() : '—';
+        document.getElementById('atDX').textContent    = at.best_dx ? at.best_dx.toLocaleString() + ' km' : '—';
+        document.getElementById('atDXSub').textContent = bestDxDay ? bestDxDay.date : '';
         document.getElementById('atRprt').textContent  = at.best_reporters || '—';
+        document.getElementById('atRprtSub').textContent = bestRepDay ? bestRepDay.date : '';
         document.getElementById('atDays').textContent  = at.active_days    || '—';
         document.getElementById('atFirst').textContent = at.first_ever     || '—';
         document.getElementById('atLast').textContent  = at.last_ever      || '—';
 
-        const chips = document.getElementById('dateChips');
-        chips.innerHTML = (data.available_dates || []).map(d =>
-            `<span class="quick-btn${d===date?' active-qb':''}"
+        document.getElementById('dateChips').innerHTML = (data.available_dates || []).map(d =>
+            `<span class="quick-btn${d === date ? ' active-qb' : ''}"
                    onclick="document.getElementById('statsDate').value='${d}';loadStats()">${d}</span>`
         ).join('');
+
+        renderStatsCharts();
     } catch(e) { showToast('Failed to load stats', 'err'); }
 }
 
+function renderStatsCharts() {
+    drawStatsDayChart();
+    drawStatsHistChart();
+}
+
+function drawStatsDayChart() {
+    const col = anColors(), has = _stDay.length > 0;
+    document.getElementById('stDayEmpty').style.display = has ? 'none' : 'block';
+    document.getElementById('stDayChart').parentElement.style.display = has ? 'block' : 'none';
+    if (!has) { if (_anCharts.stDayChart) { _anCharts.stDayChart.destroy(); delete _anCharts.stDayChart; } return; }
+    anChart('stDayChart', {
+        type: 'bar',
+        data: { labels: _stDay.map(x => x.timestamp.slice(11, 16)), datasets: [
+            { type: 'bar', label: 'Reporters', data: _stDay.map(x => x.reporter_count), yAxisID: 'y',
+              backgroundColor: 'rgba(56,189,248,0.65)' },
+            { type: 'line', label: 'Farthest (km)', data: _stDay.map(x => x.max_distance), yAxisID: 'y2',
+              borderColor: '#4ade80', backgroundColor: '#4ade80', borderWidth: 2, pointRadius: 2, tension: 0.2 },
+        ]},
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { labels: { color: col.text, boxWidth: 12, font: { size: 10 } } } },
+            scales: {
+                x:  { ticks: { color: col.text, font: { size: 10 }, maxTicksLimit: 24, maxRotation: 0 }, grid: { display: false } },
+                y:  { beginAtZero: true, ticks: { color: col.text, font: { size: 10 }, precision: 0 }, grid: { color: col.grid },
+                      title: { display: true, text: 'reporters', color: col.text, font: { size: 10 } } },
+                y2: { position: 'right', beginAtZero: true, grid: { display: false }, ticks: { color: col.text, font: { size: 10 } },
+                      title: { display: true, text: 'km', color: col.text, font: { size: 10 } } },
+            }
+        }
+    });
+}
+
+function drawStatsHistChart() {
+    const col = anColors();
+    const sel = document.getElementById('statsDate').value;
+    let rows = _stDaily;
+    if (_stRange > 0 && rows.length) {
+        const cut = new Date(); cut.setUTCDate(cut.getUTCDate() - _stRange);
+        const cutS = cut.toISOString().slice(0, 10);
+        rows = rows.filter(x => x.date >= cutS);
+    }
+    anChart('stHistChart', {
+        type: 'bar',
+        data: { labels: rows.map(x => x.date.slice(5)), datasets: [
+            { type: 'bar', label: 'Best DX (km)', data: rows.map(x => x.max_dx), yAxisID: 'y',
+              backgroundColor: rows.map(x => x.date === sel ? '#f59e0b' : 'rgba(56,189,248,0.65)') },
+            { type: 'line', label: 'Max reporters', data: rows.map(x => x.max_reporters), yAxisID: 'y2',
+              borderColor: '#4ade80', backgroundColor: '#4ade80', borderWidth: 1.5, pointRadius: 2, tension: 0.2 },
+        ]},
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            onClick: (e, els) => {
+                if (els.length) {
+                    document.getElementById('statsDate').value = rows[els[0].index].date;
+                    loadStats();
+                }
+            },
+            onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+            plugins: {
+                legend: { labels: { color: col.text, boxWidth: 12, font: { size: 10 } } },
+                tooltip: { callbacks: { title: items => rows[items[0].dataIndex].date,
+                                        afterBody: items => `${rows[items[0].dataIndex].spots} transmissions logged` } },
+            },
+            scales: {
+                x:  { ticks: { color: col.text, font: { size: 10 }, maxTicksLimit: 20, maxRotation: 0 }, grid: { display: false } },
+                y:  { beginAtZero: true, ticks: { color: col.text, font: { size: 10 } }, grid: { color: col.grid },
+                      title: { display: true, text: 'km', color: col.text, font: { size: 10 } } },
+                y2: { position: 'right', beginAtZero: true, grid: { display: false }, ticks: { color: col.text, font: { size: 10 }, precision: 0 },
+                      title: { display: true, text: 'reporters', color: col.text, font: { size: 10 } } },
+            }
+        }
+    });
+}
+
+// ── Propagation analysis page ──────────────────────────────────────────────
+let _anData = null;
+let _anDays = 90;
+let _anHeatMetric = 'n';
+let _anCharts = {};
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+async function loadAnalysis() {
+    try {
+        const r = await fetch(`/api/analysis?days=${_anDays}&band=${currentBand}`);
+        _anData = await r.json();
+    } catch(e) { showToast('Failed to load analysis', 'err'); return; }
+    renderAnalysis();
+}
+
+function setAnalysisDays(d) {
+    _anDays = d;
+    [[30,'anP30'],[90,'anP90'],[0,'anP0']].forEach(([n,id]) =>
+        document.getElementById(id).classList.toggle('active-qb', n === d));
+    loadAnalysis();
+}
+
+function setHeatMetric(m) {
+    _anHeatMetric = m;
+    document.getElementById('anHmN').classList.toggle('active',  m === 'n');
+    document.getElementById('anHmMx').classList.toggle('active', m === 'dist');
+    drawHeatmap();
+}
+
+function renderAnalysis() {
+    const d = _anData, empty = document.getElementById('anEmpty'), body = document.getElementById('anBody');
+    if (!d || d.empty) {
+        body.style.display = 'none';
+        empty.style.display = 'block';
+        empty.textContent = (d && d.enabled === false)
+            ? 'The replay database is disabled in config.ini ([replay] enabled = true), so there is nothing to analyse.'
+            : 'No replay data stored yet.';
+        return;
+    }
+    empty.style.display = 'none';
+    body.style.display = 'block';
+    const sm = d.summary;
+    document.getElementById('anPeriod').textContent = `${sm.from} → ${sm.to}`;
+    const fmt = n => n.toLocaleString();
+    const corr = (sm.corr_muf_raw ?? '—') + ' raw / ' + (sm.corr_muf_rel ?? '—') + ' vs. typical hour';
+    document.getElementById('anSummary').innerHTML = [
+        ['Snapshots', fmt(sm.snapshots), '', `over ${sm.days} days`],
+        ['Avg reporters', sm.avg_n, 'g', 'stations heard per hour'],
+        ['Reporter > 6000 km', sm.pct_dx + ' %', 'g', 'of snapshots'],
+        ['Farthest reporter', fmt(sm.best_dist), 'g', `km · ${sm.best_ts} UTC`],
+        ['Reporters ~ MUF', corr, 'sm2', 'correlation (−1 … 1)'],
+    ].map(([l, v, c, u]) => `<div class="stat-card"><div class="stat-card-lbl">${l}</div>` +
+        `<div class="stat-card-val ${c}">${v}</div><div class="stat-card-unit">${u}</div></div>`).join('');
+
+    drawHeatmap();
+    drawProfileChart();
+    drawBinChart('anMuf', d.bins.muf, b => `${b.lo}–${b.hi}`, 'MUF (MHz)');
+    drawBinChart('anK',   d.bins.k,   b => `K${b.lo}`,        'K-index');
+    drawBinChart('anSfi', d.bins.sfi, b => `${b.lo}–${b.hi}`, 'SFI');
+
+    document.getElementById('anStormTitle').textContent = `Geomagnetic storm days (K ≥ ${sm.storm_k})`;
+    document.getElementById('anStormBody').innerHTML = d.storms.length
+        ? d.storms.map(s => `<tr><td>${s.date}</td><td>${s.k_max} <span style="color:var(--text-muted)">@${s.k_time}</span></td>` +
+            `<td>${s.avg_n}</td><td style="color:${s.index >= 100 ? '#4ade80' : '#f59e0b'}">${s.index} %</td><td>${s.snapshots}</td></tr>`).join('')
+        : '<tr><td colspan="5" class="no-data">No storm days in this period</td></tr>';
+}
+
+function anColors() {
+    const cs = getComputedStyle(document.documentElement);
+    return { text: cs.getPropertyValue('--text-secondary').trim() || '#9ca3af',
+             grid: cs.getPropertyValue('--border').trim() || '#374151',
+             accent: cs.getPropertyValue('--accent').trim() || '#38bdf8' };
+}
+
+function anChart(id, cfg) {
+    if (_anCharts[id]) _anCharts[id].destroy();
+    cfg.options = cfg.options || {};
+    cfg.options.animation = false;    // draw immediately; large datasets, no need to animate
+    _anCharts[id] = new Chart(document.getElementById(id).getContext('2d'), cfg);
+}
+
+function heatColor(t) {
+    const lo = isDark ? [31,41,55] : [226,232,240];
+    const stops = [lo, [3,105,161], [56,189,248], [74,222,128], [250,204,21]];
+    t = Math.max(0, Math.min(1, t)) * (stops.length - 1);
+    const i = Math.min(Math.floor(t), stops.length - 2), f = t - i;
+    const c = stops[i].map((v, k) => Math.round(v + (stops[i+1][k] - v) * f));
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+function drawHeatmap() {
+    const cv = document.getElementById('anHeat');
+    if (!cv || !_anData || _anData.empty) return;
+    const hm = _anData.heatmap, grid = _anHeatMetric === 'dist' ? hm.mx : hm.n;
+    const W = Math.max(cv.parentElement.clientWidth, 300);
+    const left = 34, top = 6, bottom = 20, cellH = 14, H = top + 24 * cellH + bottom;
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const nd = hm.dates.length, cw = (W - left - 4) / nd;
+    const vals = grid.flat().filter(v => v !== null && v > 0).sort((a, b) => a - b);
+    const vmax = vals.length ? vals[Math.min(vals.length - 1, Math.floor(vals.length * 0.97))] : 1;
+    const col = anColors();
+    for (let h = 0; h < 24; h++) {
+        for (let i = 0; i < nd; i++) {
+            const v = grid[h][i];
+            ctx.fillStyle = v === null ? 'rgba(128,128,128,0.10)' : heatColor(v / vmax);
+            ctx.fillRect(left + i * cw, top + h * cellH, Math.ceil(cw), cellH - 1);
+        }
+    }
+    ctx.fillStyle = col.text; ctx.font = '10px sans-serif'; ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
+    for (let h = 0; h < 24; h += 3) ctx.fillText(String(h).padStart(2, '0'), left - 5, top + h * cellH + cellH / 2);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    let lastLbl = -100;
+    hm.dates.forEach((d, i) => {
+        if (d.slice(8) === '01' || i === 0) {
+            const x = left + i * cw;
+            if (x - lastLbl > 34) { ctx.fillText(MONTHS[+d.slice(5, 7) - 1], x, top + 24 * cellH + 4); lastLbl = x; }
+        }
+    });
+    document.getElementById('anHeatMax').textContent =
+        (_anHeatMetric === 'dist' ? Math.round(vmax).toLocaleString() + ' km' : Math.round(vmax) + ' stations') + ' (97th percentile)';
+    cv._lay = { left, top, cw, cellH, nd, grid, dates: hm.dates };
+
+    if (!cv._wired) {
+        cv._wired = true;
+        const tip = document.getElementById('anTip');
+        cv.addEventListener('mousemove', e => {
+            const L = cv._lay, rc = cv.getBoundingClientRect();
+            const x = e.clientX - rc.left, y = e.clientY - rc.top;
+            const i = Math.floor((x - L.left) / L.cw), h = Math.floor((y - L.top) / L.cellH);
+            if (i < 0 || i >= L.nd || h < 0 || h > 23) { tip.style.display = 'none'; return; }
+            const v = L.grid[h][i];
+            const unit = _anHeatMetric === 'dist' ? ' km farthest' : ' stations (avg)';
+            tip.textContent = `${L.dates[i]} ${String(h).padStart(2, '0')}:00 UTC — ` + (v === null ? 'no data' : v.toLocaleString() + unit);
+            tip.style.display = 'block';
+            tip.style.left = Math.min(x + 12, rc.width - 220) + 'px';
+            tip.style.top  = (y + 14) + 'px';
+        });
+        cv.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+    }
+}
+
+function drawProfileChart() {
+    const d = _anData, col = anColors();
+    const labels = Array.from({length: 24}, (_, h) => String(h).padStart(2, '0'));
+    // The 25-75 % range is drawn as floating bars (one per hour) rather than a filled
+    // line band: line datasets without visible points broke the Chart.js layout here.
+    anChart('anProfile', {
+        type: 'bar',
+        data: { labels, datasets: [
+            { type: 'bar', label: '25–75 % range', data: d.profile.map(p => [p.p25, p.p75]),
+              backgroundColor: 'rgba(56,189,248,0.22)', borderWidth: 0,
+              barPercentage: 1.0, categoryPercentage: 1.0, order: 3 },
+            { type: 'line', label: 'Median', data: d.profile.map(p => p.median), borderColor: col.accent,
+              backgroundColor: col.accent, borderWidth: 2, pointRadius: 2, tension: 0.3, order: 2 },
+            { type: 'line', label: d.latest.is_today ? `Today (${d.latest.date})` : `Latest day (${d.latest.date})`,
+              data: d.latest.n, borderColor: '#f59e0b', backgroundColor: '#f59e0b',
+              borderWidth: 2, pointRadius: 2, tension: 0.3, spanGaps: false, order: 1 },
+        ]},
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { labels: { color: col.text, boxWidth: 12, font: { size: 10 } } },
+                       tooltip: { callbacks: { label: it => it.dataset.type === 'bar'
+                           ? `25–75 %: ${it.raw[0]} – ${it.raw[1]}` : `${it.dataset.label}: ${it.formattedValue}` } } },
+            scales: {
+                x: { ticks: { color: col.text, font: { size: 10 } }, grid: { display: false },
+                     title: { display: true, text: 'UTC hour', color: col.text, font: { size: 10 } } },
+                y: { beginAtZero: true, ticks: { color: col.text, font: { size: 10 } }, grid: { color: col.grid },
+                     title: { display: true, text: 'stations heard (60 min)', color: col.text, font: { size: 10 } } },
+            }
+        }
+    });
+}
+
+function drawBinChart(id, bins, labelFn, xTitle) {
+    const col = anColors();
+    // dashed reference line at index 100 ("typical for the hour"), drawn by a tiny plugin
+    const typical = { id: 'typical100', afterDatasetsDraw(chart) {
+        const py = chart.scales.y.getPixelForValue(100), a = chart.chartArea;
+        if (!(py >= a.top && py <= a.bottom)) return;
+        const c = chart.ctx; c.save(); c.setLineDash([4, 4]); c.strokeStyle = col.text; c.lineWidth = 1;
+        c.beginPath(); c.moveTo(a.left, py); c.lineTo(a.right, py); c.stroke(); c.restore();
+    } };
+    anChart(id, {
+        type: 'bar',
+        plugins: [typical],
+        data: { labels: bins.map(labelFn), datasets: [
+            { type: 'bar', label: 'Reporters vs. typical (%)', data: bins.map(b => b.index), yAxisID: 'y',
+              backgroundColor: bins.map(b => b.index >= 100 ? 'rgba(56,189,248,0.75)' : 'rgba(245,158,11,0.75)') },
+            { type: 'line', label: '% snapshots with reporter > 6000 km', data: bins.map(b => b.pct_dx), yAxisID: 'y2',
+              borderColor: '#4ade80', backgroundColor: '#4ade80', borderWidth: 2, pointRadius: 3, tension: 0.25 },
+        ]},
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: col.text, boxWidth: 12, font: { size: 10 } } },
+                tooltip: { callbacks: { afterBody: items => {
+                    const b = bins[items[0].dataIndex];
+                    return `${b.count.toLocaleString()} snapshots · avg ${b.avg_n} reporters · avg farthest ${b.avg_max.toLocaleString()} km`;
+                } } },
+            },
+            scales: {
+                x: { ticks: { color: col.text, font: { size: 10 } }, grid: { display: false },
+                     title: { display: true, text: xTitle, color: col.text, font: { size: 10 } } },
+                y: { beginAtZero: true, ticks: { color: col.text, font: { size: 10 } }, grid: { color: col.grid },
+                     title: { display: true, text: 'index (100 = typical)', color: col.text, font: { size: 10 } } },
+                y2: { position: 'right', beginAtZero: true, grid: { display: false },
+                      ticks: { color: col.text, font: { size: 10 } },
+                      title: { display: true, text: '% > 6000 km', color: col.text, font: { size: 10 } } },
+            }
+        }
+    });
+}
+
+window.addEventListener('resize', () => {
+    if (_anData && document.getElementById('analysis-view').classList.contains('active')) drawHeatmap();
+});
+
+// ── What's new / About ─────────────────────────────────────────────────────
+let _wnData = null;
+
+function escHtml(t) {
+    return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function openModal(title, html) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalBody').innerHTML = html;
+    document.getElementById('modalBack').style.display = 'flex';
+}
+
+function closeModal() {
+    document.getElementById('modalBack').style.display = 'none';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+async function loadWhatsNew() {
+    try {
+        const r = await fetch('/api/whatsnew');
+        _wnData = await r.json();
+    } catch(e) { return; }
+    const badge = document.getElementById('navVersion');
+    if (!_wnData.version) { badge.textContent = ''; return; }
+    badge.textContent = _wnData.version;
+    let seen = null;
+    try { seen = localStorage.getItem('wspr_seen_version'); } catch(e) {}
+    badge.classList.toggle('new', seen !== _wnData.version);
+}
+
+async function openWhatsNew() {
+    if (!_wnData) await loadWhatsNew();
+    const d = _wnData || { entries: [] };
+    let html;
+    if (!d.entries.length) {
+        html = '<div class="wn-ver">No change history is available.</div>';
+    } else {
+        html = `<div class="wn-ver">Version ${escHtml(d.version)} &middot; changes of the last ${d.days} days</div>`;
+        for (const e of d.entries) {
+            const nice = new Date(e.date + 'T00:00:00Z').toLocaleDateString('en-GB',
+                { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+            html += `<div class="wn-date">${nice}</div>`;
+            for (const s of e.sections) {
+                const cls = ['Added', 'Changed', 'Fixed'].includes(s.name) ? s.name : 'other';
+                html += `<div class="wn-sec ${cls}">${escHtml(s.name)}</div><ul class="wn-list">` +
+                        s.items.map(i => `<li>${escHtml(i)}</li>`).join('') + '</ul>';
+            }
+        }
+        html += '<div class="wn-foot">Full details: CHANGELOG.md in the ' +
+                '<a href="https://github.com/oh2gax/wspr_logger" target="_blank" rel="noopener">GitHub repository</a>.</div>';
+    }
+    openModal("What's new", html);
+    if (d.version) {
+        try { localStorage.setItem('wspr_seen_version', d.version); } catch(e) {}
+        document.getElementById('navVersion').classList.remove('new');
+    }
+}
+
+function openAbout() {
+    const ver = (_wnData && _wnData.version) ? escHtml(_wnData.version) : '';
+    openModal('About ' + CALLSIGN, `
+        <div class="about-row"><div class="about-lbl">Operator</div><div>Otso Laakso / OH2GAX</div></div>
+        <div class="about-row"><div class="about-lbl">Transmitter</div><div>WSPR transmitter based on the
+            <a href="https://www.zachtek.com/1012" target="_blank" rel="noopener">ZachTek desktop transmitter</a></div></div>
+        <div class="about-row"><div class="about-lbl">Antenna</div><div>Diamond monoband antenna for 14&nbsp;MHz (20&nbsp;m),
+            mounted on a VW Touran car</div></div>
+        <div class="about-row"><div class="about-lbl">Home locator</div><div>KP20JG<div class="about-note">The actual location
+            changes as the car moves &mdash; the map and the Locator field always show the latest reported position.</div></div></div>
+        <div class="about-row"><div class="about-lbl">Software</div><div>WSPR Logger ${ver}<div class="about-note">
+            <a href="https://github.com/oh2gax/wspr_logger" target="_blank" rel="noopener">github.com/oh2gax/wspr_logger</a>
+            &middot; data from wspr.live, GIRO / Juliusruh ionosonde and hamqsl.com</div></div></div>`);
+}
 
 // ── Toast ──────────────────────────────────────────────────────────────────
 let _toastTimer = null;
@@ -2639,6 +3248,7 @@ function todayStr() {
 // ── Bootstrap ─────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
+    loadWhatsNew();
     setHistDate(0);
     setStatsDate(0);
     initLiveMap();

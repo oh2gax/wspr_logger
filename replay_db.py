@@ -301,3 +301,32 @@ def get_day_frames(date_str: str, band: int = 14) -> list[dict]:
             f = frames[r["timestamp"]] = {"ts": r["timestamp"], "reporters": [], "solar": s}
         f["reporters"].append((r["callsign"], r["grid"], r["snr"], r["distance"]))
     return list(frames.values())
+
+
+def get_snapshot_rows(days: int = 90, band: int = 14) -> list[tuple]:
+    """
+    One row per snapshot for the Analysis page:
+        (timestamp, reporter_count, max_distance, reporters_over_6000km,
+         kindex, muf, sfi)
+    days = 0 means the whole history.  Solar fields are None when the
+    snapshot has no matching solar row.
+    """
+    if not _enabled:
+        return []
+    where = "WHERE band = ?"
+    args: list = [band]
+    if days and days > 0:
+        where += " AND timestamp >= datetime('now', ?)"
+        args.append(f"-{int(days)} days")
+    with _connect() as conn:
+        rows = conn.execute(f"""
+            SELECT s.ts, s.n, s.mx, s.dx6, l.kindex, l.muf, l.sfi
+            FROM (SELECT timestamp AS ts, COUNT(*) AS n,
+                         MAX(distance) AS mx,
+                         SUM(CASE WHEN distance > 6000 THEN 1 ELSE 0 END) AS dx6
+                  FROM reporters_log {where}
+                  GROUP BY timestamp) AS s
+            LEFT JOIN solar_log l ON l.timestamp = s.ts
+            ORDER BY s.ts
+        """, args).fetchall()
+    return [tuple(r) for r in rows]
