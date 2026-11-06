@@ -220,8 +220,7 @@ def compare_with_live(replay_db, snaps, start, end, tol_min=SKIP_NEAR_MIN):
 
 def run(args, fetch=fetch_chunk):
     import wspr_logger as w            # reads config.ini; nothing is started on import
-    import db
-    import replay_db
+    from core import db, replay_db
     callsign = (args.callsign or w.CALLSIGN).upper()
     band = args.band or w.DEFAULT_BAND
     db.init(w.DB_PATH)

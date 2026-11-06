@@ -147,6 +147,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   project structure.
 
 ### Changed
+- **Helper modules in a `core/` package** — `db`, `replay_db`, `analysis`, `greyline`,
+  `outlook`, `sun`, `wprs`, `guides` and `changelog` moved from the program folder into
+  `core/`, so the top level holds only the entry point `wspr_logger.py`, the tools and the
+  data. Nothing changes for the service or for `config.ini`; `tools/backfill.py` and the
+  analysis scripts use the new places. Behaviour is identical (all pages and endpoints were
+  checked, the numbers of the papers regenerate unchanged).
 - **Databases in a `data/` folder** — `wspr_data.db` and `wspr_replay.db` now live in
   `data/` (created automatically; the folder is gitignored). Installations that still have
   the files next to `wspr_logger.py` keep working: the program finds them there and logs a

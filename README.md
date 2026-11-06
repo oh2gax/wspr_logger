@@ -312,7 +312,7 @@ If the folder was created by copying files (for example from another server) ins
 ```bash
 cd ~/wspr_logger
 git status 2>&1 | head -1      # expect: fatal: not a git repository
-mkdir -p ~/wspr_pre_git && cp -a config.ini api_keys.py wspr_logger.py db.py replay_db.py requirements.txt templates ~/wspr_pre_git/   # small safety copy
+mkdir -p ~/wspr_pre_git && cp -a config.ini api_keys.py wspr_logger.py core requirements.txt templates ~/wspr_pre_git/   # small safety copy
 git init -q -b main
 git remote add origin https://github.com/oh2gax/wspr_logger.git      # or your own fork
 git fetch -q origin
@@ -514,15 +514,16 @@ wspr_logger/
 ├── api_keys.py             — local API keys (CARTO, …); gitignored, never committed
 ├── api_keys.py.example     — template for api_keys.py; safe to commit
 ├── wspr_logger.py          — Flask app, background polling thread, REST API
-├── db.py                   — SQLite read/write layer (live operational data)
-├── replay_db.py            — SQLite read/write layer (replay history database)
-├── analysis.py             — propagation analysis computed from the replay database
-├── changelog.py            — reads CHANGELOG.md for the What's new window
-├── guides.py               — lists the PDF documents in doc/ for the Guides window
-├── wprs.py                 — drive detector, trips and track building for the WPRS page
-├── sun.py                  — solar elevation and sunrise / sunset
-├── greyline.py             — grey-line test for the Analysis page
-├── outlook.py              — DX outlook model and its back-test
+├── core/                   — the helper modules, imported by wspr_logger.py
+│   ├── db.py               — SQLite read/write layer (live operational data)
+│   ├── replay_db.py        — SQLite read/write layer (replay history database)
+│   ├── analysis.py         — propagation analysis computed from the replay database
+│   ├── changelog.py        — reads CHANGELOG.md for the What's new window
+│   ├── guides.py           — lists the PDF documents in doc/ for the Guides window
+│   ├── wprs.py             — drive detector, trips and track building for the WPRS page
+│   ├── sun.py              — solar elevation and sunrise / sunset
+│   ├── greyline.py         — grey-line test for the Analysis page
+│   └── outlook.py          — DX outlook model and its back-test
 ├── tools/backfill.py       — fills the replay database from wspr.live history
 ├── requirements.txt        — Python dependencies (flask)
 ├── update.sh               — server update: pull from GitHub, back up databases, restart, verify

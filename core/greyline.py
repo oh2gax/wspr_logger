@@ -12,7 +12,7 @@ on days when the terminator happens to be there?" and does not just restate the 
 import math
 from datetime import date, datetime
 
-import sun
+from . import sun
 
 TWILIGHT_DEG = 6.0
 MIN_EVENT_DAYS = 10

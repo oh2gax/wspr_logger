@@ -20,14 +20,7 @@ from datetime import datetime, timedelta
 
 from flask import Flask, abort, jsonify, render_template, request, send_from_directory
 
-import analysis
-import changelog
-import db
-import greyline
-import guides
-import outlook
-import replay_db
-import wprs
+from core import analysis, changelog, db, greyline, guides, outlook, replay_db, wprs
 
 try:
     from api_keys import CARTO_API_KEY
