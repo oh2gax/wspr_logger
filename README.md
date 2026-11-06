@@ -30,7 +30,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **Guides** — sidebar entry that lists the PDF documents in the `doc/` folder (technical notes and studies about the station and its data) with *Open* and *Download* links (a tab of the same window as *What's new*); titles and descriptions come from `doc/guides.json`
 - **What's new and About** — sidebar entries: *What's new* lists the last 10 days of changes straight from `CHANGELOG.md` with a version label `v.DDMMYYYY` (NEW marker until opened); *About* describes the station (operator, transmitter, antenna, home locator)
 - **Remembered Map Layers** — the Map Layers switches (Position Trail, Last Fix Label, Reporter Countries, MUF graph, Solar Conditions, Reporter List, Histogram, Reporter Plot, Day / Night) and their sub-settings (MUF period, histogram SNR/Dist tab, reporter list sort, 1h / Today tab) are saved in the browser and restored on the next visit
-- **Light / Dark theme** — toggle in the sidebar; preference is remembered in the browser
+- **Auto / Dark / Light theme** — one icon button beside the sidebar title cycles Auto (follows the system setting, also while the page is open), Dark and Light; the choice is remembered in the browser
 - **Collapsible sidebar** — fold the panel away for a full-screen map view, handy on mobile
 - **Config-file driven** — all settings managed in `config.ini`; no settings UI exposed to the browser
 - **SQLite storage** — one database file, WAL mode, indexed for fast date-range queries; separate table for MUF history
@@ -338,7 +338,7 @@ sudo ufw allow 5008/tcp
 | **1h / Today tabs** | Switch the mini-stats cards between the last 60 minutes (default) and the full day |
 
 *The Map Layers switches above and the 1h / Today tab, MUF period, histogram tab and reporter-list sort are remembered per browser (stored in `localStorage` under `wspr_layers`). Each browser or device keeps its own settings; clearing the site data resets them to the defaults (only Position Trail and Last Fix Label on).*
-| **🌙 / ☀️ Dark / Light Mode** | Toggle the colour theme; saved across sessions |
+| **🌓 / 🌙 / ☀️ Theme button** (top of the sidebar, beside the collapse arrow) | Cycles Auto (follow the system), Dark and Light; saved across sessions. Hidden while the sidebar is collapsed |
 
 ### Live Map
 

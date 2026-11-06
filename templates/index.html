@@ -7,6 +7,15 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+(function () {
+    try {
+        var m = localStorage.getItem('wspr_theme');
+        var light = m === 'light' || ((m !== 'dark') && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+        if (light) document.documentElement.classList.add('light');
+    } catch (e) {}
+})();
+</script>
 <style>
 /* ── CSS Variables — Dark (default) ── */
 :root {
@@ -128,6 +137,23 @@ body {
     padding: 0;
 }
 #sbToggleBtn:hover { background: var(--border); color: var(--text-primary); }
+#themeBtn {
+    position: absolute;
+    top: 8px; right: 36px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    width: 22px; height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 20px;
+    text-align: center;
+    padding: 0;
+    user-select: none;
+}
+#themeBtn:hover { background: var(--border); }
+#sidebar.collapsed #themeBtn { display: none; }
 .sb-title {
     font-size: 17px;
     font-weight: 700;
@@ -958,6 +984,7 @@ html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1,
     <div class="sb-header">
         <div class="sb-title">📡 WSPR Logger</div>
         <div class="sb-sub">Tracking: <strong>{{ callsign }}</strong></div>
+        <button id="themeBtn" onclick="cycleTheme()" title="Theme: Auto">🌓</button>
         <button id="sbToggleBtn" onclick="toggleSidebar()" title="Collapse sidebar">◀</button>
     </div>
 
@@ -972,7 +999,6 @@ html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1,
         <div class="nav-item"        id="nav-stats"   onclick="showView('stats')">   <span class="nav-icon">📊</span> Statistics</div>
         <div class="nav-item"        id="nav-analysis" onclick="showView('analysis')"> <span class="nav-icon">🔬</span> Analysis</div>
         <div class="nav-item"        id="nav-wprs"    onclick="showView('wprs')">     <span class="nav-icon">📍</span> WPRS</div>
-        <div class="nav-item"        id="nav-theme"   onclick="toggleTheme()">       <span class="nav-icon" id="themeIcon">🌙</span> <span id="themeLabel">Dark Mode</span></div>
         <div class="nav-item"        id="nav-guides"  onclick="openGuides()">         <span class="nav-icon">📄</span> Guides</div>
         <div class="nav-item"        id="nav-whatsnew" onclick="openWhatsNew()">      <span class="nav-icon">✨</span> What's new <span class="nav-badge" id="navVersion"></span></div>
         <div class="nav-item"        id="nav-about"   onclick="openAbout()">          <span class="nav-icon">ℹ️</span> About</div>
@@ -1622,34 +1648,55 @@ function initHistMap() {
     histTileLayer.addTo(histMap);
 }
 
-// ── Theme toggle ───────────────────────────────────────────────────────────
-function toggleTheme() {
-    isDark = !isDark;
-    document.documentElement.classList.toggle('light', !isDark);
-    document.getElementById('themeIcon').textContent  = isDark ? '🌙' : '☀️';
-    document.getElementById('themeLabel').textContent = isDark ? 'Dark Mode' : 'Light Mode';
-    localStorage.setItem('wspr_theme', isDark ? 'dark' : 'light');
+// ── Theme: Auto (follow the system) / Dark / Light ─────────────────────────
+// The button in the sidebar header cycles Auto → Dark → Light. The choice is remembered;
+// in Auto mode the page follows the system setting, also while it is open.
+const THEME_ICON  = { auto: '🌓', dark: '🌙', light: '☀️' };
+const THEME_LABEL = { auto: 'Auto (follows the system)', dark: 'Dark', light: 'Light' };
+let themeMode = 'auto';
+const _sysLight = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
 
-    if (liveMap && liveTileLayer) {
-        liveTileLayer = swapTiles(liveMap, liveTileLayer);
+function themeIsDark() {
+    if (themeMode === 'dark') return true;
+    if (themeMode === 'light') return false;
+    return !(_sysLight && _sysLight.matches);
+}
+
+function applyTheme() {
+    const was = isDark;
+    isDark = themeIsDark();
+    document.documentElement.classList.toggle('light', !isDark);
+    const b = document.getElementById('themeBtn');
+    if (b) {
+        b.textContent = THEME_ICON[themeMode];
+        b.title = 'Theme: ' + THEME_LABEL[themeMode] + ' — click to change';
     }
-    if (histMap && histTileLayer) {
-        histTileLayer = swapTiles(histMap, histTileLayer);
-    }
-    if (wprsMap && wprsTile) {
-        wprsTile = swapTiles(wprsMap, wprsTile);
-    }
+    if (isDark === was) return;                  // e.g. Auto → Dark on a dark system: nothing to redraw
+    if (liveMap && liveTileLayer) liveTileLayer = swapTiles(liveMap, liveTileLayer);
+    if (histMap && histTileLayer) histTileLayer = swapTiles(histMap, histTileLayer);
+    if (wprsMap && wprsTile) wprsTile = swapTiles(wprsMap, wprsTile);
     if (_anData && document.getElementById('analysis-view').classList.contains('active')) renderAnalysis();
     if (document.getElementById('stats-view').classList.contains('active')) renderStatsCharts();
 }
 
+function cycleTheme() {
+    themeMode = themeMode === 'auto' ? 'dark' : themeMode === 'dark' ? 'light' : 'auto';
+    try { localStorage.setItem('wspr_theme', themeMode); } catch (e) {}
+    applyTheme();
+    showToast('Theme: ' + THEME_LABEL[themeMode]);
+}
+
 function initTheme() {
-    const saved = localStorage.getItem('wspr_theme');
-    if (saved === 'light') {
-        isDark = false;
-        document.documentElement.classList.add('light');
-        document.getElementById('themeIcon').textContent  = '☀️';
-        document.getElementById('themeLabel').textContent = 'Light Mode';
+    let saved = null;
+    try { saved = localStorage.getItem('wspr_theme'); } catch (e) {}
+    themeMode = (saved === 'dark' || saved === 'light') ? saved : 'auto';
+    isDark = themeIsDark();                      // the maps are built next, with the right tiles
+    document.documentElement.classList.toggle('light', !isDark);
+    applyTheme();
+    if (_sysLight) {
+        const onSys = () => { if (themeMode === 'auto') applyTheme(); };
+        if (_sysLight.addEventListener) _sysLight.addEventListener('change', onSys);
+        else if (_sysLight.addListener) _sysLight.addListener(onSys);
     }
 }
 

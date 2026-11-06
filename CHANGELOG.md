@@ -147,6 +147,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   project structure.
 
 ### Changed
+- **Theme selector: Auto / Dark / Light** — the *Dark Mode / Light Mode* entry of the
+  left menu is replaced by one icon button (🌓 / 🌙 / ☀️) beside the sidebar title, next to the
+  collapse arrow. Each click cycles Auto, Dark and Light. *Auto* follows the system setting and
+  switches live when it changes; it is also the default for browsers that have not chosen yet
+  (earlier explicit choices are kept). The page no longer flashes the wrong theme while loading.
 - **More reliable foF2 source** — foF2 is now read first from the Juliusruh Space
   Weather Monitor page (`ionosonde.iap-kborn.de/actuellz.htm`, "ION" row, updated
   every 15 minutes, 10 s timeout) and GIRO DIDBase is only tried if that fails,
