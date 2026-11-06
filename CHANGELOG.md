@@ -209,6 +209,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   endings were normalised.
 
 ### Fixed
+- **Reporter callsigns, grids and country names are escaped** — strings that come from
+  wspr.live (reporter list table, Reporter Plot popups, country list) were put into the page as
+  HTML. A reporter that uploaded a callsign containing markup could have run script in a
+  visitor's browser. They now go through `escHtml()` (moved to `core.js`).
+- **Unknown `band` values are rejected, caches are bounded** — `?band=` accepts only the WSPR
+  bands and the configured band (otherwise `400`), where a huge value used to fail with a 500
+  inside SQLite. `/api/analysis` rounds `days` up to 30, 90, 180 or 400, and the analysis,
+  outlier and outlook caches keep at most 16 entries, so crafted parameters can no longer grow
+  memory or trigger endless recomputation.
+- **No missed polls** — the update thread now sleeps until the next `:08` / `:18` / … minute
+  instead of checking the clock every 60 s, which drifted by the time each poll took and
+  occasionally stepped over the minute (a lost snapshot). The first fetch at startup is
+  protected too: an error there can no longer stop the polling thread.
+- **Callsign check at startup** — `config.ini` callsigns other than letters, digits and `/`
+  are refused, because the callsign is put into the wspr.live queries.
+- Cleanups: unused `math` import, an f-string without placeholders, an unused variable.
 - **What's new / User guides window keeps its size** — switching to the *User guides* tab
   shrank the window and moved it; both tabs now share one fixed-size window.
 - **Reporter Countries window hidden after a reload** — a window that had been moved lost

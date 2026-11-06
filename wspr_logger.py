@@ -18,7 +18,7 @@ import xml.etree.ElementTree as ET
 from html import unescape
 from datetime import datetime, timedelta
 
-from flask import Flask, abort, jsonify, render_template, request, send_from_directory
+from flask import Flask, abort, jsonify, make_response, render_template, request, send_from_directory
 
 from core import analysis, changelog, db, greyline, guides, outlook, replay_db, wprs
 
@@ -51,7 +51,9 @@ def load_config():
 
 cfg = load_config()
 
-CALLSIGN     = cfg.get("station",  "callsign",     fallback="OH2GAX")
+CALLSIGN     = cfg.get("station",  "callsign",     fallback="OH2GAX").strip()
+if not re.fullmatch(r"[A-Za-z0-9/]{3,12}", CALLSIGN):      # it is put into the wspr.live queries
+    raise SystemExit(f"config.ini: [station] callsign {CALLSIGN!r} is not a valid callsign (letters, digits and / only)")
 DEFAULT_BAND = cfg.getint("station", "default_band", fallback=14)
 HOST         = cfg.get("server",   "host",          fallback="0.0.0.0")
 PORT         = cfg.getint("server", "port",          fallback=5008)
@@ -543,6 +545,25 @@ _BAND_LABELS_SHORT = {
     18:'17m', 21:'15m', 24:'12m', 28:'10m',
 }
 
+# Bands the API accepts: the WSPR bands above plus the configured one.  Anything else is a 400, so a
+# crafted ?band= can neither fail inside SQLite nor create new cache entries.
+ALLOWED_BANDS = frozenset(_BAND_LABELS_SHORT) | {DEFAULT_BAND}
+
+
+def _band_arg() -> int:
+    """The ?band= query parameter (default: the configured band); 400 when it is not a known band."""
+    band = request.args.get('band', DEFAULT_BAND, type=int)
+    if band not in ALLOWED_BANDS:
+        abort(make_response(jsonify({"error": "unknown band"}), 400))
+    return band
+
+
+def _cache_put(cache: dict, key, value, limit: int = 16) -> None:
+    """Store a cache entry; the oldest entries are dropped beyond `limit` so a cache cannot grow without bound."""
+    cache[key] = value
+    while len(cache) > limit:
+        cache.pop(min(cache, key=lambda k: cache[k][0]))
+
 
 def fetch_reporter_list(callsign: str, band: int) -> list:
     """
@@ -902,7 +923,7 @@ def index():
 @app.route('/api/latest')
 def api_latest():
     """Latest spot + cached reporter countries."""
-    band = request.args.get('band', DEFAULT_BAND, type=int)
+    band = _band_arg()
     spot = db.get_latest_spot(band)
     with _state_lock:
         countries = list(_cached_countries)
@@ -931,7 +952,7 @@ def api_positions():
       to=YYYY-MM-DD HH:MM:SS   – range end
       band=<int>               – band filter (default: DEFAULT_BAND)
     """
-    band     = request.args.get('band', DEFAULT_BAND, type=int)
+    band     = _band_arg()
     date_str = request.args.get('date')
     from_dt  = request.args.get('from')
     to_dt    = request.args.get('to')
@@ -964,7 +985,7 @@ def api_reporter_list():
 def api_muf():
     """MUF history + reporter-count overlay for chart."""
     days = request.args.get('days', 1, type=int)
-    band = request.args.get('band', DEFAULT_BAND, type=int)
+    band = _band_arg()
     muf_rows  = db.get_muf_last_24h(days)
     spot_rows = db.get_spots_last_24h(band, days)
     return jsonify({"muf": muf_rows, "spots": spot_rows})
@@ -999,7 +1020,7 @@ def _tidy_solar(s: dict | None) -> dict | None:
 @app.route('/api/replay/dates')
 def api_replay_dates():
     """UTC dates that have replay snapshots (newest first)."""
-    band = request.args.get('band', DEFAULT_BAND, type=int)
+    band = _band_arg()
     return jsonify({
         "enabled": replay_db.is_enabled(),
         "dates":   replay_db.get_available_dates(band),
@@ -1017,7 +1038,7 @@ def api_replay_day():
     date_str = request.args.get('date', '')
     if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', date_str):
         return jsonify({"error": "date must be YYYY-MM-DD"}), 400
-    band   = request.args.get('band', DEFAULT_BAND, type=int)
+    band   = _band_arg()
     frames = []
     for f in replay_db.get_day_frames(date_str, band):
         counts: dict = {}
@@ -1049,7 +1070,7 @@ def api_whatsnew():
 @app.route('/api/wprs/days')
 def api_wprs_days():
     """Home square and one movement summary per logged UTC day (newest first)."""
-    band = request.args.get('band', DEFAULT_BAND, type=int)
+    band = _band_arg()
     spots = db.get_all_spots(band)
     home = wprs.home_of(spots)
     return jsonify({"home": home, "days": wprs.summarize_days(spots, home), "trips": wprs.build_trips(spots, home)})
@@ -1058,7 +1079,7 @@ def api_wprs_days():
 @app.route('/api/wprs/track')
 def api_wprs_track():
     """Position track for a range of UTC days: ?from=YYYY-MM-DD&to=YYYY-MM-DD (inclusive, max 7 days)."""
-    band = request.args.get('band', DEFAULT_BAND, type=int)
+    band = _band_arg()
     d_from = request.args.get('from', '')
     d_to = request.args.get('to', d_from)
     try:
@@ -1092,6 +1113,7 @@ def serve_doc(name):
 
 _analysis_cache: dict = {}          # (days, band) -> (monotonic time, payload)
 _ANALYSIS_TTL = 600                 # seconds
+_ANALYSIS_DAYS = (30, 90, 180, 400) # periods the analysis is computed for; other ?days= values round up to one of them
 
 # Reporters whose reported distance contradicts their own grid (a wrong grid or a decoding error)
 # would otherwise show up as the farthest "reporter" or as a long-distance window.
@@ -1122,7 +1144,7 @@ def find_outliers(band: int) -> list:
             if max(abs(gd - p["dmax"]), abs(gd - p["dmin"])) > OUTLIER_TOL_KM:
                 out.append({"callsign": p["callsign"], "grid": grid, "reports": p["n"],
                             "reported_km": p["dmax"] if d_far else p["dmin"], "grid_km": round(gd)})
-    _outlier_cache[band] = (time.monotonic(), out)
+    _cache_put(_outlier_cache, band, (time.monotonic(), out))
     return out
 
 
@@ -1158,7 +1180,7 @@ def outlook_state(band: int) -> dict:
     events = _dx_events(replay_db.get_dx_reports(0, band, exclude=excl))
     state = {"model": outlook.fit([(d, h, z) for d, h, z, _la, _lo in events], rows) if rows else None,
              "last_k": next(((r[0], r[4]) for r in reversed(rows) if r[4] is not None), None)}
-    _outlook_cache[band] = (time.monotonic(), state)
+    _cache_put(_outlook_cache, band, (time.monotonic(), state))
     return state
 
 
@@ -1166,11 +1188,12 @@ def outlook_state(band: int) -> dict:
 def api_analysis():
     """Propagation analysis computed from the replay database.
 
-    Query params: days=<0..400> (0 = whole history, default 90), band=<int>.
+    Query params: days=<0..400> (0 = whole history, default 90; rounded up to 30, 90, 180 or 400), band=<int>.
     Results are cached for 10 minutes; no wspr.live queries are made.
     """
-    days = min(max(request.args.get('days', 90, type=int), 0), 400)
-    band = request.args.get('band', DEFAULT_BAND, type=int)
+    days = request.args.get('days', 90, type=int)
+    days = 0 if days <= 0 else next((d for d in _ANALYSIS_DAYS if days <= d), _ANALYSIS_DAYS[-1])
+    band = _band_arg()
     if not replay_db.is_enabled():
         return jsonify({"enabled": False, "empty": True})
     key = (days, band)
@@ -1195,7 +1218,7 @@ def api_analysis():
                 hour_days.setdefault(int(r[0][11:13]), set()).add(r[0][:10])
             home = wprs.home_of(db.get_all_spots(band))
             payload["greyline"] = greyline.build(events, hour_days, home)
-        _analysis_cache[key] = (time.monotonic(), payload)
+        _cache_put(_analysis_cache, key, (time.monotonic(), payload))
 
     out = {k: v for k, v in payload.items() if not k.startswith("_")}      # "right now" is never cached
     if not out.get("empty"):
@@ -1233,7 +1256,7 @@ def api_analysis():
 def api_stats():
     """Daily statistics (spot count, max DX, max reporters)."""
     date_str = request.args.get('date', datetime.utcnow().strftime("%Y-%m-%d"))
-    band     = request.args.get('band', DEFAULT_BAND, type=int)
+    band     = _band_arg()
     stats    = db.get_stats_by_date(date_str, band)
     return jsonify({
         "stats":           stats,
@@ -1245,7 +1268,7 @@ def api_stats():
 @app.route('/api/daily_summary')
 def api_daily_summary():
     """Per-day totals (spots, best DX, max reporters) for the Statistics charts."""
-    band = request.args.get('band', DEFAULT_BAND, type=int)
+    band = _band_arg()
     return jsonify(db.get_daily_summary(band))
 
 
@@ -1253,40 +1276,54 @@ def api_daily_summary():
 # Background update thread
 # ---------------------------------------------------------------------------
 
+def _next_poll_time(now: datetime) -> datetime:
+    """The next whole minute after `now` whose minute ends in 8 (:08, :18, ... :58)."""
+    t = now.replace(second=0, microsecond=0) + timedelta(minutes=1)
+    while t.minute % 10 != 8:
+        t += timedelta(minutes=1)
+    return t
+
+
 def update_thread():
     global _last_update_utc, _update_error, _cached_countries, _cached_reporter_list, _cached_fof2
     print(f"[INFO] Update thread started — tracking {CALLSIGN} on {DEFAULT_BAND} MHz")
 
     # Populate caches immediately on startup so the UI has data before the
     # first scheduled poll cycle (minutes ending in :08).
-    print(f"[INFO] Initial fetch on startup...")
-    store_spots(fetch_recent_spots(CALLSIGN, DEFAULT_BAND))
-    init_reporters = fetch_reporter_list(CALLSIGN, DEFAULT_BAND)
-    with _state_lock:
-        _cached_countries     = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
-        _cached_reporter_list = init_reporters
-    check_wsprlive_health()
-    muf_init = fetch_giro_mufd()
-    if muf_init:
-        db.insert_muf(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), muf_init)
-    fof2_init = fetch_fof2()
-    with _state_lock:
-        _cached_fof2 = fof2_init
+    try:
+        print("[INFO] Initial fetch on startup...")
+        store_spots(fetch_recent_spots(CALLSIGN, DEFAULT_BAND))
+        init_reporters = fetch_reporter_list(CALLSIGN, DEFAULT_BAND)
+        with _state_lock:
+            _cached_countries     = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
+            _cached_reporter_list = init_reporters
+        check_wsprlive_health()
+        muf_init = fetch_giro_mufd()
+        if muf_init:
+            db.insert_muf(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), muf_init)
+        fof2_init = fetch_fof2()
+        with _state_lock:
+            _cached_fof2 = fof2_init
 
-    # Store initial snapshot in replay DB
-    _ts_init = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-    n_rep = replay_db.insert_reporters(_ts_init, init_reporters, DEFAULT_BAND)
-    solar_init = fetch_solar_data()
-    replay_db.insert_solar(_ts_init, solar_init, fof2_init, muf_init)
-    print(f"[INFO] Initial fetch complete — {len(_cached_countries)} countries cached, "
-          f"{len(init_reporters)} reporters (stored {n_rep} to replay DB), "
-          f"MUF={muf_init} MHz, foF2={fof2_init} MHz")
+        # Store initial snapshot in replay DB
+        _ts_init = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        n_rep = replay_db.insert_reporters(_ts_init, init_reporters, DEFAULT_BAND)
+        solar_init = fetch_solar_data()
+        replay_db.insert_solar(_ts_init, solar_init, fof2_init, muf_init)
+        print(f"[INFO] Initial fetch complete — {len(_cached_countries)} countries cached, "
+              f"{len(init_reporters)} reporters (stored {n_rep} to replay DB), "
+              f"MUF={muf_init} MHz, foF2={fof2_init} MHz")
+
+    except Exception as e:                  # the polling loop below must start whatever went wrong here
+        print(f"[ERROR] Initial fetch failed: {e}")
 
     while True:
-        now = datetime.utcnow()
-
         # Act at minute :08, :18, :28, :38, :48, :58
-        # (6 minutes after each 10-min WSPR TX cycle boundary so data is settled)
+        # (6 minutes after each 10-min WSPR TX cycle boundary so data is settled).
+        # Sleep until that minute instead of polling the clock every 60 s: a fixed sleep drifts by the
+        # time the work takes and, now and then, steps over the minute, which loses a snapshot.
+        time.sleep(max(1.0, (_next_poll_time(datetime.utcnow()) - datetime.utcnow()).total_seconds()))
+        now = datetime.utcnow()
         if now.minute % 10 == 8:
             print(f"[INFO] Polling WSPR.live at {now.strftime('%H:%M:%S')} UTC")
             try:
@@ -1327,8 +1364,6 @@ def update_thread():
                 print(f"[ERROR] Poll cycle exception: {e}")
                 with _state_lock:
                     _update_error = f"Poll error: {e}"
-
-        time.sleep(60)
 
 
 # ---------------------------------------------------------------------------

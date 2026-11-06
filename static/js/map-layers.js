@@ -136,8 +136,8 @@ function renderReporterPlot() {
             fillOpacity: opacity,
             weight: 1.5,
         }).bindPopup(
-            `<strong>${r.callsign}</strong><br>` +
-            `Grid: ${r.grid}<br>` +
+            `<strong>${escHtml(r.callsign)}</strong><br>` +
+            `Grid: ${escHtml(r.grid)}<br>` +
             `SNR: ${r.snr} dB<br>` +
             `Dist: ${r.distance} km`
         ).addTo(reporterPlotLayer);
@@ -465,9 +465,9 @@ function renderReporterList() {
     );
     tbody.innerHTML = sorted.map(r => `
         <tr>
-            <td>${r.band}</td>
-            <td>${r.callsign}</td>
-            <td>${r.grid}</td>
+            <td>${escHtml(r.band)}</td>
+            <td>${escHtml(r.callsign)}</td>
+            <td>${escHtml(r.grid)}</td>
             <td class="rl-snr">${r.snr > 0 ? '+' : ''}${r.snr}</td>
             <td class="rl-dist">${r.distance.toLocaleString()}</td>
         </tr>`).join('');
@@ -499,7 +499,6 @@ function setHgramMode(mode) {
 function renderHistogram() {
     if (!showHistogram) return;
     const darkMode  = isDark;
-    const gridColor = darkMode ? '#374151' : '#cbd5e1';
     const textColor = darkMode ? '#9ca3af' : '#475569';
 
     let labels, counts, lineColor, fillColor;

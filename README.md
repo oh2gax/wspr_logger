@@ -555,12 +555,14 @@ wspr_logger/
 
 ## REST API
 
+The `band` parameter accepts the WSPR bands (3, 7, 10, 14, 18, 21, 24, 28) and the configured band; any other value returns `400 {"error": "unknown band"}`. The `callsign` in `config.ini` may contain only letters, digits and `/` (the logger refuses to start otherwise).
+
 | Endpoint | Method | Parameters | Description |
 |----------|--------|------------|-------------|
 | `/api/latest` | GET | `band` | Most recent spot, cached reporter countries, and `wspr_down` flag indicating whether wspr.live is currently reachable |
 | `/api/positions` | GET | `date`, or `from`+`to`, `band` | List of spots for a date or time range |
 | `/api/stats` | GET | `date`, `band` | Aggregated stats for a date, all-time records and the list of logged dates |
-| `/api/analysis` | GET | `days` (0 = all, default 90), `band` | Heatmap, typical-day profile, MUF / K / SFI bins, storm days, excluded reports, grey-line test and DX outlook computed from the replay database; cached 10 min |
+| `/api/analysis` | GET | `days` (0 = all, default 90; rounded up to 30, 90, 180 or 400), `band` | Heatmap, typical-day profile, MUF / K / SFI bins, storm days, excluded reports, grey-line test and DX outlook computed from the replay database; cached 10 min |
 | `/api/daily_summary` | GET | `band` | Per-day totals (transmissions, best DX, max reporters) for the Statistics chart |
 | `/api/whatsnew` | GET | — | Version label and the latest releases parsed from `doc/whats_new.md` |
 | `/api/wprs/days` | GET | `band` | Home square, one movement summary per logged UTC day (squares, moved, path, distance from home) and the trips |

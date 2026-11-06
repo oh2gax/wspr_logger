@@ -7,10 +7,6 @@
 // ── What's new / About ─────────────────────────────────────────────────────
 let _wnData = null;
 
-function escHtml(t) {
-    return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
 function openModal(title, html) {
     document.getElementById('modalTitle').textContent = title;
     document.getElementById('modalBody').innerHTML = html;

@@ -259,7 +259,7 @@ function updateCountryOverlay(list) {
     const maxCount = list[0].count;
     el.innerHTML = list.map(c => `
         <div class="country-row">
-            <span class="country-name">${c.country}</span>
+            <span class="country-name">${escHtml(c.country)}</span>
             <div class="country-bar-wrap">
                 <div class="country-bar" style="width:${Math.round(c.count / maxCount * 100)}%"></div>
             </div>

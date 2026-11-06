@@ -26,6 +26,11 @@ let showReporterList = false;
 let showHistogram    = false;
 let showReporterPlot = false;
 let showDayNight     = false;
+// Every string that comes from outside (callsigns, grids, country names) must go through this before it is put into HTML.
+function escHtml(t) {
+    return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 let _reporterListData = [];
 let _latestMuf        = 0;    // most recent J-MUF value in MHz (0 = unknown)
 let _rlSortKey        = 'snr';   // 'snr' | 'dist'

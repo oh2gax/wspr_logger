@@ -123,7 +123,7 @@ function renderHistTable(spots) {
     tbody.innerHTML = [...spots].reverse().map(s =>
         `<tr>
             <td>${s.timestamp.split(' ')[1]}</td>
-            <td class="mono">${s.tx_loc}</td>
+            <td class="mono">${escHtml(s.tx_loc)}</td>
             <td>${s.reporter_count}</td>
             <td>${s.max_distance || '—'}</td>
         </tr>`

@@ -12,7 +12,6 @@ For the next hours the current MUF class and K class are assumed to persist. Thi
 descriptive estimate from one station's history, not a physical forecast; it is back-tested
 (fit on the first 70 % of the days, scored on the rest) against the hour-of-day alone.
 """
-import math
 from collections import defaultdict
 from datetime import datetime, timedelta
 
