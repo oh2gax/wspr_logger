@@ -426,11 +426,11 @@ The **Days / Trips** switch lists consecutive days away from home as trips (date
 
 ### Backfilling earlier seasons
 
-The replay database starts when the logger was first run with replay enabled. Earlier snapshots can be rebuilt from wspr.live, which keeps every spot: `tools/backfill.py` fetches the spots of the station callsign and rebuilds what each 10-minute poll at :08 would have listed (stations heard in the preceding 60 minutes). Run it on the server that holds the databases:
+The replay database starts when the logger was first run with replay enabled. Earlier snapshots can be rebuilt from wspr.live, which keeps every spot: `tools/backfill.py` fetches the spots of the station callsign and rebuilds what each 10-minute poll at :08 would have listed (stations heard in the preceding 60 minutes). Run it on the server that holds the databases, with the project's virtual environment (`venv/bin/python`, as the service uses; plain `python3` fails with *No module named 'flask'*):
 
 ```bash
-python3 tools/backfill.py --test 2025-07-15                      # one day, writes nothing
-python3 tools/backfill.py --from 2025-05-01 --to 2025-09-30      # week by week, with pauses
+venv/bin/python tools/backfill.py --test 2025-07-15              # one day, writes nothing
+venv/bin/python tools/backfill.py --from 2025-05-01 --to 2025-09-30  # week by week, with pauses
 ```
 
 Options: `--callsign`, `--band`, `--chunk-days` (7), `--pause` (5 s), `--timeout` (300 s), `--yes` (no confirmation). `--to` defaults to the day before the oldest existing snapshot. Existing snapshots are never overwritten, so the command can be repeated after an interruption. Solar and MUF values are not backfilled, so old seasons appear in the heatmaps and DX statistics but not in the space-weather charts. Expect about 100 MB of database growth per season, and `update.sh` backs up both databases.

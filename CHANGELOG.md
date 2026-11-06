@@ -56,8 +56,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **History backfill from wspr.live** — `tools/backfill.py` fills the replay database with
   the snapshots of earlier seasons by reconstructing, from the spots wspr.live holds for
   the callsign, what the :08 poll would have listed. Run it on the server:
-  `python3 tools/backfill.py --test 2025-07-15`, then for example
-  `python3 tools/backfill.py --from 2025-05-01 --to 2025-09-30`. Existing snapshots are
+  `venv/bin/python tools/backfill.py --test 2025-07-15`, then for example
+  `venv/bin/python tools/backfill.py --from 2025-05-01 --to 2025-09-30`. Existing snapshots are
   never overwritten; solar and MUF data are not backfilled. See README.
 - **Two scientific PDF notes in `doc/`** — *Twenty-metre WSPR propagation study*
   (166 days of replay data: diurnal and seasonal patterns, geography, DX windows,
