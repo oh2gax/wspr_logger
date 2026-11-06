@@ -257,6 +257,7 @@ do_rollback() {
     cp -p -- "$cfgkeep" config.ini
     rm -f "$cfgkeep"
   fi
+  read_config
   if [ ! -e "$SELF" ]; then
     cp -- "$keep" "$SELF"
     say "Note    : update.sh is not part of the older version - your copy was put back"
@@ -427,6 +428,7 @@ do_update() {
 
   say "Updating $(short "$OLD") -> $(short "$NEW")"
   git merge --ff-only --quiet "$UPSTREAM" || die "git could not update the files (see above). The service was not touched."
+  read_config          # the new version may have changed what config.ini means (paths, host): check against the new values
 
   if printf '%s\n' "$CHANGED" | grep -qx 'requirements.txt'; then
     say "Installing packages ..."
