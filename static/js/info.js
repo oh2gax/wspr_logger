@@ -1,4 +1,4 @@
-// What's new / User guides / About window.
+// What's new / User guides / About window (three tabs of one window).
 // Part of the WSPR Logger page. The scripts in templates/index.html are loaded in this order and share one scope,
 // so keep the order: core, live, panels, map-layers, history-player, views, analysis, info, wprs, main.
 
@@ -15,6 +15,7 @@ function openModal(title, html) {
     document.getElementById('modalTitle').textContent = title;
     document.getElementById('modalBody').innerHTML = html;
     document.getElementById('modalBack').style.display = 'flex';
+    document.querySelector('#modalBack .modal-card').classList.remove('fixed');
 }
 
 function closeModal() {
@@ -36,7 +37,7 @@ async function loadWhatsNew() {
     badge.classList.toggle('new', seen !== _wnData.version);
 }
 
-// What's new and User guides share one window with two tabs (as on the Mode-S Wind page)
+// What's new, User guides and About share one window with three tabs (as on the Mode-S Wind page)
 let _infoTab = 'whatsnew';
 
 // **bold**, *italic* and `code` of the notes; everything else is shown as plain text
@@ -86,13 +87,30 @@ async function guidesHtml() {
     return html;
 }
 
+function aboutHtml() {
+    const ver = (_wnData && _wnData.version) ? escHtml(_wnData.version) : '';
+    return `
+        <div class="about-row"><div class="about-lbl">Operator</div><div>Otso Laakso / OH2GAX</div></div>
+        <div class="about-row"><div class="about-lbl">Transmitter</div><div>WSPR transmitter based on the
+            <a href="https://www.zachtek.com/1012" target="_blank" rel="noopener">ZachTek desktop transmitter</a>,
+            200&nbsp;mW (23&nbsp;dBm) transmit power</div></div>
+        <div class="about-row"><div class="about-lbl">Antenna</div><div>Diamond monoband antenna for 14&nbsp;MHz (20&nbsp;m),
+            mounted on a VW Touran car</div></div>
+        <div class="about-row"><div class="about-lbl">Home locator</div><div>KP20JG<div class="about-note">The actual location
+            changes as the car moves &mdash; the map and the Locator field always show the latest reported position.</div></div></div>
+        <div class="about-row"><div class="about-lbl">Software</div><div>WSPR Logger ${ver}<div class="about-note">
+            Data from wspr.live, GIRO / Juliusruh ionosonde and hamqsl.com</div></div></div>
+        <div class="about-row"><div class="about-lbl">Source code</div><div>Public repository on GitHub:
+            <a href="https://github.com/oh2gax/wspr_logger" target="_blank" rel="noopener">https://github.com/oh2gax/wspr_logger</a></div></div>`;
+}
+
 async function renderInfo() {
-    const tabs = '<div class="info-tabs">' +
-        `<button class="info-tab${_infoTab === 'whatsnew' ? ' on' : ''}" onclick="switchInfo('whatsnew')">What's new</button>` +
-        `<button class="info-tab${_infoTab === 'guides' ? ' on' : ''}" onclick="switchInfo('guides')">User guides</button></div>`;
+    const TABS = [['whatsnew', "What's new"], ['guides', 'User guides'], ['about', 'About']];
+    const tabs = '<div class="info-tabs">' + TABS.map(([k, t]) =>
+        `<button class="info-tab${_infoTab === k ? ' on' : ''}" onclick="switchInfo('${k}')">${t}</button>`).join('') + '</div>';
     document.getElementById('modalBody').innerHTML = tabs + '<div class="wn-ver">Loading&hellip;</div>';
     const tab = _infoTab;
-    const body = tab === 'whatsnew' ? whatsNewHtml() : await guidesHtml();
+    const body = tab === 'whatsnew' ? whatsNewHtml() : tab === 'guides' ? await guidesHtml() : aboutHtml();
     if (tab !== _infoTab) return;              // the user switched tab while loading
     document.getElementById('modalBody').innerHTML = tabs + body;
     if (tab === 'whatsnew' && _wnData && _wnData.version) {
@@ -101,18 +119,25 @@ async function renderInfo() {
     }
 }
 
+function infoTitle(tab) {
+    return tab === 'whatsnew' ? "What's new" : tab === 'guides' ? 'User guides' : 'About ' + CALLSIGN;
+}
+
 function switchInfo(tab) {
     _infoTab = tab;
-    document.getElementById('modalTitle').textContent = tab === 'whatsnew' ? "What's new" : 'User guides';
+    document.getElementById('modalTitle').textContent = infoTitle(tab);
     renderInfo();
 }
 
 async function openInfo(tab) {
     if (!_wnData) await loadWhatsNew();
-    openModal(tab === 'whatsnew' ? "What's new" : 'User guides', '');
+    openModal(infoTitle(tab), '');
+    // What's new and User guides are tabs of one window: fixed size, so switching tabs never moves it
+    document.querySelector('#modalBack .modal-card').classList.add('fixed');
     _infoTab = tab;
     renderInfo();
 }
 function openWhatsNew() { return openInfo('whatsnew'); }
 function openGuides()   { return openInfo('guides'); }
+function openAbout()    { return openInfo('about'); }
 

@@ -290,20 +290,3 @@ function wprsOpenHistory() {
     if (wprsTrack && wprsTrack.fixes.length) openReplayAt(wprsTrack.fixes[wprsIdx].t);
 }
 
-function openAbout() {
-    const ver = (_wnData && _wnData.version) ? escHtml(_wnData.version) : '';
-    openModal('About ' + CALLSIGN, `
-        <div class="about-row"><div class="about-lbl">Operator</div><div>Otso Laakso / OH2GAX</div></div>
-        <div class="about-row"><div class="about-lbl">Transmitter</div><div>WSPR transmitter based on the
-            <a href="https://www.zachtek.com/1012" target="_blank" rel="noopener">ZachTek desktop transmitter</a>,
-            200&nbsp;mW (23&nbsp;dBm) transmit power</div></div>
-        <div class="about-row"><div class="about-lbl">Antenna</div><div>Diamond monoband antenna for 14&nbsp;MHz (20&nbsp;m),
-            mounted on a VW Touran car</div></div>
-        <div class="about-row"><div class="about-lbl">Home locator</div><div>KP20JG<div class="about-note">The actual location
-            changes as the car moves &mdash; the map and the Locator field always show the latest reported position.</div></div></div>
-        <div class="about-row"><div class="about-lbl">Software</div><div>WSPR Logger ${ver}<div class="about-note">
-            Data from wspr.live, GIRO / Juliusruh ionosonde and hamqsl.com</div></div></div>
-        <div class="about-row"><div class="about-lbl">Source code</div><div>Public repository on GitHub:
-            <a href="https://github.com/oh2gax/wspr_logger" target="_blank" rel="noopener">https://github.com/oh2gax/wspr_logger</a></div></div>`);
-}
-

@@ -154,6 +154,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   project structure.
 
 ### Changed
+- **Tighter sidebar menu** — less vertical padding between the menu items (History,
+  Statistics, …), so more of the panel below is visible without scrolling.
+- **About is a tab of the What's new window** — the *About* menu entry is removed; the
+  station information is the third tab next to *What's new* and *User guides* (same fixed-size
+  window).
 - **Page split into files** — `templates/index.html` (4,300 lines) is now only the markup;
   the styles are in `static/css/app.css` and the scripts in ten files under `static/js/`,
   loaded in a fixed order. The text is unchanged (checked by comparing the joined files with
@@ -199,6 +204,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   endings were normalised.
 
 ### Fixed
+- **What's new / User guides window keeps its size** — switching to the *User guides* tab
+  shrank the window and moved it; both tabs now share one fixed-size window.
 - **Reporter Countries window hidden after a reload** — a window that had been moved lost
   its stacking order when its saved place was restored and went behind the map. Moved
   windows now always stay above the map.

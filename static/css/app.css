@@ -177,7 +177,7 @@ body {
 
 /* Navigation */
 nav {
-    padding: 8px 0;
+    padding: 4px 0;
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
 }
@@ -185,7 +185,7 @@ nav {
     display: flex;
     align-items: center;
     gap: 9px;
-    padding: 9px 14px;
+    padding: 5px 14px;
     cursor: pointer;
     font-size: 13px;
     color: var(--text-secondary);
@@ -739,6 +739,7 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
     display: flex; flex-direction: column;
     box-shadow: 0 10px 40px rgba(0,0,0,.45);
 }
+.modal-card.fixed { height: min(680px, calc(100vh - 40px)); }
 .modal-head {
     display: flex; align-items: center; justify-content: space-between;
     padding: 12px 16px; border-bottom: 1px solid var(--border);
