@@ -24,6 +24,7 @@ from collections import defaultdict
 # Snapshot row layout: (ts, n, max_dist, dx6, kindex, muf, sfi)
 MIN_BIN_SNAPSHOTS = 15      # bins with fewer snapshots are dropped
 STORM_K = 5                 # a day with K >= this counts as a storm day
+MIN_EXPECT_SAMPLES = 8      # smallest sample used for an hour+MUF expectation
 
 
 def _pct(sorted_vals: list, p: float):
@@ -50,6 +51,34 @@ def _corr(a: list, b: list):
     if da == 0 or db_ == 0:
         return None
     return sum((x - ma) * (y - mb) for x, y in zip(a, b)) / math.sqrt(da * db_)
+
+
+def _stats(vals: list) -> dict:
+    """count / mean / quartiles of a list of numbers."""
+    v = sorted(vals)
+    return {"count": len(v), "mean": _r(_mean(v)), "p25": _r(_pct(v, 25)),
+            "median": _r(_pct(v, 50)), "p75": _r(_pct(v, 75))}
+
+
+def expectation(expect: dict, hour: int, muf, live_n: int) -> dict:
+    """
+    Compare the live reporter count with history for this UTC hour: first with
+    all snapshots of the hour, then (if enough samples) with those at a similar
+    MUF (same 2 MHz bin).  verdict: 'above' / 'typical' / 'below' relative to
+    the quartiles of the best available comparison.
+    """
+    tab = expect.get(str(hour)) or {}
+    allh = tab.get("all") or {}
+    at_muf = None
+    if muf is not None and muf > 0:
+        at_muf = (tab.get("muf") or {}).get(str(math.floor(muf / 2) * 2))
+    ref = at_muf or allh
+    verdict = None
+    if live_n is not None and ref and ref.get("p25") is not None:
+        verdict = "above" if live_n > ref["p75"] else "below" if live_n < ref["p25"] else "typical"
+    return {"hour": hour, "muf": muf, "live_n": live_n, "typical": allh or None,
+            "typical_muf": at_muf, "verdict": verdict,
+            "verdict_basis": "muf" if at_muf else "hour"}
 
 
 def _r(v, nd=1):
@@ -148,6 +177,39 @@ def build(rows: list, today: str) -> dict:
                        "snapshots": len(g)})
     storms.sort(key=lambda s: s["date"], reverse=True)
 
+    # --- DX windows: share of snapshots with a reporter beyond 6000 km ----
+    dx_hour = []
+    for h in range(24):
+        g = [r for r in rows if int(r[0][11:13]) == h]
+        dx_hour.append({"hour": h, "count": len(g),
+                        "pct_dx": _r(100.0 * sum(1 for r in g if r[3] > 0) / len(g), 1) if g else None,
+                        "avg_max": _r(_mean([r[2] for r in g]), 0) if g else None})
+    by_month = defaultdict(list)
+    for r in rows:
+        by_month[r[0][:7]].append(r)
+    dx_month = []
+    for m in sorted(by_month):
+        g = by_month[m]
+        sfi = [r[6] for r in g if r[6] is not None]
+        dx_month.append({"month": m, "count": len(g),
+                         "avg_n": _r(_mean([r[1] for r in g])),
+                         "pct_dx": _r(100.0 * sum(1 for r in g if r[3] > 0) / len(g), 1),
+                         "avg_sfi": _r(_mean(sfi), 0) if sfi else None,
+                         "days": len({r[0][:10] for r in g})})
+
+    # --- expectation tables for "right now": per UTC hour, overall and per MUF bin
+    expect = {}
+    for h in range(24):
+        hrows = [r for r in rows if int(r[0][11:13]) == h]
+        per_muf = defaultdict(list)
+        for r in hrows:
+            if r[5] is not None:
+                per_muf[math.floor(r[5] / 2) * 2].append(r[1])
+        expect[str(h)] = {
+            "all": _stats([r[1] for r in hrows]),
+            "muf": {str(lo): _stats(v) for lo, v in per_muf.items() if len(v) >= MIN_EXPECT_SAMPLES},
+        }
+
     # --- summary ----------------------------------------------------------
     best = max(rows, key=lambda r: r[2])
     pairs_raw = [(r[1], r[5]) for r in rows if r[5] is not None]
@@ -167,4 +229,5 @@ def build(rows: list, today: str) -> dict:
     return {"empty": False, "summary": summary,
             "heatmap": {"dates": dates, "n": heat_n, "mx": heat_mx},
             "profile": profile, "latest": latest_day,
-            "bins": bins, "storms": storms[:15]}
+            "bins": bins, "storms": storms[:15],
+            "dx_hour": dx_hour, "dx_month": dx_month, "expect": expect}

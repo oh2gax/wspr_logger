@@ -1028,12 +1028,35 @@ def api_analysis():
     key = (days, band)
     hit = _analysis_cache.get(key)
     if hit and time.monotonic() - hit[0] < _ANALYSIS_TTL:
-        return jsonify(hit[1])
-    rows = replay_db.get_snapshot_rows(days, band)
-    payload = analysis.build(rows, datetime.utcnow().strftime("%Y-%m-%d"))
-    payload["enabled"] = True
-    _analysis_cache[key] = (time.monotonic(), payload)
-    return jsonify(payload)
+        payload = hit[1]
+    else:
+        rows = replay_db.get_snapshot_rows(days, band)
+        payload = analysis.build(rows, datetime.utcnow().strftime("%Y-%m-%d"))
+        payload["enabled"] = True
+        if not payload.get("empty"):
+            records = replay_db.get_top_distances(days, band, limit=10)
+            for rec in records:
+                rec["country"] = callsign_to_country(rec["callsign"] or "??", rec["grid"] or "")
+            payload["records"] = records
+        _analysis_cache[key] = (time.monotonic(), payload)
+
+    out = dict(payload)                  # "right now" is never cached
+    if not out.get("empty"):
+        muf_rows = db.get_muf_last_24h(1)
+        muf = None
+        if muf_rows:                      # ignore a MUF reading older than 3 hours
+            try:
+                age = datetime.utcnow() - datetime.strptime(muf_rows[-1]["timestamp"], "%Y-%m-%d %H:%M:%S")
+                if age <= timedelta(hours=3):
+                    muf = muf_rows[-1]["muf"]
+            except ValueError:
+                pass
+        with _state_lock:
+            live_n = len(_cached_reporter_list)
+        if live_n == 0 and _wspr_live_down:
+            live_n = None                 # no usable live data: do not claim "below usual"
+        out["now"] = analysis.expectation(out["expect"], datetime.utcnow().hour, muf, live_n)
+    return jsonify(out)
 
 
 @app.route('/api/stats')

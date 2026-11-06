@@ -330,3 +330,34 @@ def get_snapshot_rows(days: int = 90, band: int = 14) -> list[tuple]:
             ORDER BY s.ts
         """, args).fetchall()
     return [tuple(r) for r in rows]
+
+
+def get_top_distances(days: int = 90, band: int = 14, limit: int = 10) -> list[dict]:
+    """
+    The farthest reporters: one row per callsign (its longest distance),
+    best first.  Each row: callsign, grid, distance, timestamp (the poll at
+    which that distance was seen, earliest if repeated).  days = 0 -> all.
+    """
+    if not _enabled:
+        return []
+    where = "WHERE band = ?"
+    args: list = [band]
+    if days and days > 0:
+        where += " AND timestamp >= datetime('now', ?)"
+        args.append(f"-{int(days)} days")
+    with _connect() as conn:
+        rows = conn.execute(f"""
+            SELECT callsign, grid, distance, timestamp
+            FROM reporters_log {where}
+            ORDER BY distance DESC, timestamp ASC
+            LIMIT 500
+        """, args).fetchall()
+    seen, out = set(), []
+    for r in rows:
+        if r["callsign"] in seen:
+            continue
+        seen.add(r["callsign"])
+        out.append(dict(r))
+        if len(out) >= limit:
+            break
+    return out

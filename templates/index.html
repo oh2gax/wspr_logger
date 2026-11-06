@@ -752,7 +752,16 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
 .about-note { font-size: 11px; color: var(--text-muted); }
 
 /* ── ANALYSIS VIEW ── */
+.an-now { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-top: 6px; }
+.an-now-lbl { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.an-now-val { font-size: 26px; font-weight: 700; color: var(--accent); margin: 2px 0; }
+.an-now-sub { font-size: 11px; color: var(--text-muted); }
+.an-now-val.good { color: #4ade80; } .an-now-val.bad { color: #f59e0b; }
+.an-btn { background: transparent; border: 1px solid var(--border); color: var(--accent); border-radius: 4px;
+          padding: 2px 8px; font-size: 11px; cursor: pointer; }
+.an-btn:hover { border-color: var(--accent); }
 #analysis-view { overflow-y: auto; }
+#analysis-view .htbl th, #analysis-view .htbl td { white-space: nowrap; padding: 6px 8px; }
 .an-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
@@ -1246,6 +1255,16 @@ html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1,
             <div class="stats-grid" id="anSummary"></div>
             <div class="an-grid">
                 <div class="an-card wide">
+                    <div class="an-card-title">Right now</div>
+                    <div class="an-card-sub" id="anNowSub">&nbsp;</div>
+                    <div class="an-now">
+                        <div><div class="an-now-lbl">Stations heard (last 60 min)</div><div class="an-now-val" id="anNowLive">—</div><div class="an-now-sub">live</div></div>
+                        <div><div class="an-now-lbl">Typical at this hour</div><div class="an-now-val" id="anNowTyp">—</div><div class="an-now-sub" id="anNowTypSub"></div></div>
+                        <div><div class="an-now-lbl">Typical at this MUF</div><div class="an-now-val" id="anNowMuf">—</div><div class="an-now-sub" id="anNowMufSub"></div></div>
+                        <div><div class="an-now-lbl">Compared with history</div><div class="an-now-val" id="anNowVerdict">—</div><div class="an-now-sub" id="anNowBasis"></div></div>
+                    </div>
+                </div>
+                <div class="an-card wide">
                     <div class="an-head-row">
                         <div>
                             <div class="an-card-title">Band-open heatmap</div>
@@ -1282,10 +1301,43 @@ html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1,
                 <div class="an-card">
                     <div class="an-card-title" id="anStormTitle">Geomagnetic storm days</div>
                     <div class="an-card-sub">Days when K reached the storm level, and how many reporters you had compared with a typical day (100 = typical). Days with few snapshots are less reliable.</div>
-                    <div style="max-height:240px;overflow-y:auto;">
-                        <table class="htbl"><thead><tr><th>Date</th><th>Max K</th><th>Avg reporters</th><th>vs. typical</th><th>Snapshots</th></tr></thead>
+                    <div style="max-height:240px;overflow:auto;">
+                        <table class="htbl"><thead><tr><th>Date</th><th>Max K</th><th>Avg reporters</th><th>vs. typical</th><th>Snapshots</th><th></th></tr></thead>
                         <tbody id="anStormBody"></tbody></table>
                     </div>
+                </div>
+                <div class="an-card">
+                    <div class="an-card-title">DX windows by hour (UTC)</div>
+                    <div class="an-card-sub">Bars: share of snapshots in which at least one reporter was beyond 6000 km. Line: average farthest reporter (km).</div>
+                    <div class="an-chart"><canvas id="anDxHour"></canvas></div>
+                </div>
+                <div class="an-card">
+                    <div class="an-card-title">Month by month</div>
+                    <div class="an-card-sub">Bars: average stations heard. Line: share of snapshots with a reporter beyond 6000 km. The current month may be incomplete (see tooltip).</div>
+                    <div class="an-chart"><canvas id="anDxMonth"></canvas></div>
+                </div>
+                <div class="an-card">
+                    <div class="an-card-title" id="anRecTitle">Farthest reporters</div>
+                    <div class="an-card-sub">One row per station (its longest distance in the period). &#9654; opens that moment in the History Player.</div>
+                    <div style="max-height:300px;overflow:auto;">
+                        <table class="htbl"><thead><tr><th>#</th><th>Station</th><th>Distance</th><th>When (UTC)</th><th></th></tr></thead>
+                        <tbody id="anRecBody"></tbody></table>
+                    </div>
+                </div>
+                <div class="an-card wide">
+                    <div class="an-head-row">
+                        <div>
+                            <div class="an-card-title">Ionosonde day view &mdash; Juliusruh MUF and foF2 vs. reporters</div>
+                            <div class="an-card-sub">Bars: stations heard. Lines: MUF (D=3000 km) and foF2 in MHz measured at Juliusruh. foF2 is only available for days after the Juliusruh monitor page became the source (a few weeks of history will build up).</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <span class="quick-btn" onclick="shiftIonoDay(-1)" title="Previous day">&#9664;</span>
+                            <input type="date" class="replay-input" id="anIonoDate" onchange="loadIonoDay(this.value)">
+                            <span class="quick-btn" onclick="shiftIonoDay(1)" title="Next day">&#9654;</span>
+                        </div>
+                    </div>
+                    <div class="an-chart" style="height:280px;"><canvas id="anIono"></canvas></div>
+                    <div class="an-empty" id="anIonoEmpty" style="display:none;padding:12px 0;">No snapshots for this date.</div>
                 </div>
             </div>
             <div class="an-note">
@@ -2509,7 +2561,7 @@ async function toggleReplay() {
     if (_replayActive) exitReplay(); else await enterReplay();
 }
 
-async function enterReplay() {
+async function enterReplay(date, ts) {
     try {
         const r = await fetch(`/api/replay/dates?band=${currentBand}`);
         const d = await r.json();
@@ -2524,7 +2576,9 @@ async function enterReplay() {
     const di = document.getElementById('replayDate');
     di.min = _replayDates[_replayDates.length - 1];
     di.max = _replayDates[0];
-    await replayLoadDate(_replayDates[0]);
+    const start = (date && _replayDates.includes(date)) ? date : _replayDates[0];
+    if (date && start !== date) showToast('No replay data for ' + date + ' — showing ' + start, 'err');
+    await replayLoadDate(start, start === date ? ts : null);
 }
 
 function exitReplay() {
@@ -2543,7 +2597,7 @@ function exitReplay() {
     if (showSolar) fetchSolarData();
 }
 
-async function replayLoadDate(date) {
+async function replayLoadDate(date, ts) {
     if (!date || !_replayActive) return;
     replayPause();
     try {
@@ -2559,7 +2613,12 @@ async function replayLoadDate(date) {
     document.getElementById('replayDate').value = date;
     document.getElementById('replaySlider').max = Math.max(_replayFrames.length - 1, 0);
     if (!_replayFrames.length) showToast('No replay data for ' + date, 'err');
-    replaySeek(0);
+    let idx = 0;
+    if (ts) {   // jump to the first snapshot at or after the requested moment
+        const k = _replayFrames.findIndex(f => f.ts >= ts);
+        idx = k < 0 ? Math.max(_replayFrames.length - 1, 0) : k;
+    }
+    replaySeek(idx);
 }
 
 function replaySeek(i) {
@@ -2995,8 +3054,159 @@ function renderAnalysis() {
     document.getElementById('anStormTitle').textContent = `Geomagnetic storm days (K ≥ ${sm.storm_k})`;
     document.getElementById('anStormBody').innerHTML = d.storms.length
         ? d.storms.map(s => `<tr><td>${s.date}</td><td>${s.k_max} <span style="color:var(--text-muted)">@${s.k_time}</span></td>` +
-            `<td>${s.avg_n}</td><td style="color:${s.index >= 100 ? '#4ade80' : '#f59e0b'}">${s.index} %</td><td>${s.snapshots}</td></tr>`).join('')
-        : '<tr><td colspan="5" class="no-data">No storm days in this period</td></tr>';
+            `<td>${s.avg_n}</td><td style="color:${s.index >= 100 ? '#4ade80' : '#f59e0b'}">${s.index} %</td><td>${s.snapshots}</td>` +
+            `<td><button class="an-btn" title="Open the moment of the K maximum in the History Player" ` +
+            `onclick="openReplayAt('${s.date} ${s.k_time}:00')">&#9654;</button></td></tr>`).join('')
+        : '<tr><td colspan="6" class="no-data">No storm days in this period</td></tr>';
+
+    renderNowCard(d.now);
+    drawDxCharts();
+    document.getElementById('anRecTitle').textContent = `Farthest reporters (${_anDays ? 'last ' + _anDays + ' days' : 'all history'})`;
+    document.getElementById('anRecBody').innerHTML = (d.records || []).length
+        ? d.records.map((r, i) => `<tr><td>${i + 1}</td><td><strong>${escHtml(r.callsign)}</strong> ` +
+            `<span style="color:var(--text-muted)">${escHtml(r.country || '')} ${escHtml(r.grid || '')}</span></td>` +
+            `<td>${r.distance.toLocaleString()} km</td><td>${r.timestamp.slice(0, 16)}</td>` +
+            `<td><button class="an-btn" title="Open in the History Player" onclick="openReplayAt('${r.timestamp}')">&#9654;</button></td></tr>`).join('')
+        : '<tr><td colspan="5" class="no-data">No data</td></tr>';
+
+    // keep the selected ionosonde day if it is still in range, else the latest day
+    const dates = d.heatmap.dates;
+    loadIonoDay(_ionoDate && dates.includes(_ionoDate) ? _ionoDate : dates[dates.length - 1]);
+}
+
+function renderNowCard(n) {
+    const fmt = v => (v === null || v === undefined) ? '—' : v;
+    if (!n) return;
+    const hh = String(n.hour).padStart(2, '0');
+    document.getElementById('anNowSub').textContent =
+        `${hh}:00 UTC · Juliusruh MUF ${n.muf ? n.muf.toFixed(1) + ' MHz' : 'not available'}`;
+    document.getElementById('anNowLive').textContent = fmt(n.live_n);
+    const t = n.typical, m = n.typical_muf;
+    document.getElementById('anNowTyp').textContent = t ? fmt(t.median) : '—';
+    document.getElementById('anNowTypSub').textContent = t ? `usual range ${t.p25}–${t.p75} · ${t.count.toLocaleString()} snapshots` : '';
+    document.getElementById('anNowMuf').textContent = m ? fmt(m.median) : '—';
+    document.getElementById('anNowMufSub').textContent = m
+        ? `usual range ${m.p25}–${m.p75} · ${m.count.toLocaleString()} snapshots`
+        : 'not enough history at this MUF';
+    const v = document.getElementById('anNowVerdict');
+    const txt = { above: 'Better than usual', typical: 'Typical', below: 'Below usual' }[n.verdict] || '—';
+    v.textContent = txt;
+    v.className = 'an-now-val' + (n.verdict === 'above' ? ' good' : n.verdict === 'below' ? ' bad' : '');
+    document.getElementById('anNowBasis').textContent = n.verdict
+        ? (n.verdict_basis === 'muf' ? 'vs. similar MUF at this hour' : 'vs. this hour of day') : '';
+}
+
+function drawDxCharts() {
+    const d = _anData, col = anColors();
+    anChart('anDxHour', {
+        type: 'bar',
+        data: { labels: d.dx_hour.map(x => String(x.hour).padStart(2, '0')), datasets: [
+            { type: 'bar', label: '% snapshots with reporter > 6000 km', data: d.dx_hour.map(x => x.pct_dx), yAxisID: 'y',
+              backgroundColor: 'rgba(74,222,128,0.7)' },
+            { type: 'line', label: 'Avg farthest reporter (km)', data: d.dx_hour.map(x => x.avg_max), yAxisID: 'y2',
+              borderColor: col.accent, backgroundColor: col.accent, borderWidth: 2, pointRadius: 2, tension: 0.3 },
+        ]},
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: col.text, boxWidth: 12, font: { size: 10 } } },
+                       tooltip: { callbacks: { afterBody: it => `${d.dx_hour[it[0].dataIndex].count.toLocaleString()} snapshots` } } },
+            scales: {
+                x:  { ticks: { color: col.text, font: { size: 10 } }, grid: { display: false },
+                      title: { display: true, text: 'UTC hour', color: col.text, font: { size: 10 } } },
+                y:  { beginAtZero: true, ticks: { color: col.text, font: { size: 10 } }, grid: { color: col.grid },
+                      title: { display: true, text: '% of snapshots', color: col.text, font: { size: 10 } } },
+                y2: { position: 'right', beginAtZero: true, grid: { display: false }, ticks: { color: col.text, font: { size: 10 } },
+                      title: { display: true, text: 'km', color: col.text, font: { size: 10 } } },
+            }
+        }
+    });
+    anChart('anDxMonth', {
+        type: 'bar',
+        data: { labels: d.dx_month.map(x => x.month), datasets: [
+            { type: 'bar', label: 'Avg stations heard', data: d.dx_month.map(x => x.avg_n), yAxisID: 'y',
+              backgroundColor: 'rgba(56,189,248,0.7)' },
+            { type: 'line', label: '% snapshots with reporter > 6000 km', data: d.dx_month.map(x => x.pct_dx), yAxisID: 'y2',
+              borderColor: '#4ade80', backgroundColor: '#4ade80', borderWidth: 2, pointRadius: 3, tension: 0.25 },
+        ]},
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: col.text, boxWidth: 12, font: { size: 10 } } },
+                       tooltip: { callbacks: { afterBody: it => { const x = d.dx_month[it[0].dataIndex];
+                           return `${x.days} days · ${x.count.toLocaleString()} snapshots` + (x.avg_sfi ? ` · avg SFI ${x.avg_sfi}` : ''); } } } },
+            scales: {
+                x:  { ticks: { color: col.text, font: { size: 10 } }, grid: { display: false } },
+                y:  { beginAtZero: true, ticks: { color: col.text, font: { size: 10 } }, grid: { color: col.grid },
+                      title: { display: true, text: 'stations', color: col.text, font: { size: 10 } } },
+                y2: { position: 'right', beginAtZero: true, grid: { display: false }, ticks: { color: col.text, font: { size: 10 } },
+                      title: { display: true, text: '% > 6000 km', color: col.text, font: { size: 10 } } },
+            }
+        }
+    });
+}
+
+// ── Ionosonde day view (Juliusruh MUF / foF2 vs reporters) ─────────────────
+let _ionoDate = null;
+let _ionoFrames = [];
+
+async function loadIonoDay(date) {
+    if (!date) return;
+    _ionoDate = date;
+    document.getElementById('anIonoDate').value = date;
+    try {
+        const r = await fetch(`/api/replay/day?date=${date}&band=${currentBand}`);
+        _ionoFrames = (await r.json()).frames || [];
+    } catch(e) { _ionoFrames = []; }
+    drawIonoChart();
+}
+
+function shiftIonoDay(dir) {
+    if (!_anData || _anData.empty) return;
+    const dates = _anData.heatmap.dates, i = dates.indexOf(_ionoDate);
+    const j = i < 0 ? dates.length - 1 : i + dir;
+    if (j >= 0 && j < dates.length) loadIonoDay(dates[j]);
+}
+
+function drawIonoChart() {
+    const col = anColors(), fr = _ionoFrames, has = fr.length > 0;
+    document.getElementById('anIonoEmpty').style.display = has ? 'none' : 'block';
+    document.getElementById('anIono').parentElement.style.display = has ? 'block' : 'none';
+    if (!has) { if (_anCharts.anIono) { _anCharts.anIono.destroy(); delete _anCharts.anIono; } return; }
+    const muf  = fr.map(f => f.s && f.s.muf  ? f.s.muf  : null);
+    const fof2 = fr.map(f => f.s && f.s.fof2 ? f.s.fof2 : null);
+    const datasets = [
+        { type: 'bar', label: 'Stations heard', data: fr.map(f => f.r.length), yAxisID: 'y', backgroundColor: 'rgba(56,189,248,0.55)' },
+        { type: 'line', label: 'MUF D=3000 km (MHz)', data: muf, yAxisID: 'y2', borderColor: '#f59e0b', backgroundColor: '#f59e0b',
+          borderWidth: 2, pointRadius: 1.5, tension: 0.25, spanGaps: true },
+    ];
+    if (fof2.some(v => v !== null)) {
+        datasets.push({ type: 'line', label: 'foF2 (MHz)', data: fof2, yAxisID: 'y2', borderColor: '#4ade80', backgroundColor: '#4ade80',
+                        borderWidth: 2, pointRadius: 1.5, tension: 0.25, spanGaps: true });
+    }
+    anChart('anIono', {
+        type: 'bar',
+        data: { labels: fr.map(f => f.ts.slice(11, 16)), datasets },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { labels: { color: col.text, boxWidth: 12, font: { size: 10 } } } },
+            scales: {
+                x:  { ticks: { color: col.text, font: { size: 10 }, maxTicksLimit: 24, maxRotation: 0 }, grid: { display: false },
+                      title: { display: true, text: 'UTC', color: col.text, font: { size: 10 } } },
+                y:  { beginAtZero: true, ticks: { color: col.text, font: { size: 10 }, precision: 0 }, grid: { color: col.grid },
+                      title: { display: true, text: 'stations heard', color: col.text, font: { size: 10 } } },
+                y2: { position: 'right', beginAtZero: true, grid: { display: false }, ticks: { color: col.text, font: { size: 10 } },
+                      title: { display: true, text: 'MHz', color: col.text, font: { size: 10 } } },
+            }
+        }
+    });
+}
+
+// Open the History Player at a given moment (used by the Analysis tables)
+async function openReplayAt(ts) {
+    showView('map');
+    const date = ts.slice(0, 10);
+    if (_replayActive) await replayLoadDate(date, ts);
+    else await enterReplay(date, ts);
 }
 
 function anColors() {

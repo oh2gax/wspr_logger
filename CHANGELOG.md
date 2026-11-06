@@ -18,6 +18,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   hour) so the day/night rhythm does not masquerade as a space-weather effect;
   solar readings of 0 (feed glitches) are ignored. New module `analysis.py`,
   endpoint `/api/analysis?days=&band=`, `replay_db.get_snapshot_rows()`.
+- **Analysis: "Right now" comparison** — the live number of stations heard is shown
+  next to what is usual for this UTC hour (median and 25–75 % range) and, when
+  there is enough history, for a similar Juliusruh MUF (same 2 MHz bin), with a
+  verdict: better than usual / typical / below usual. A MUF reading older than
+  3 hours is ignored, and no verdict is given while wspr.live is down.
+- **Analysis: DX windows** — share of snapshots with a reporter beyond 6000 km and
+  the average farthest reporter by UTC hour, plus a month-by-month chart of average
+  stations heard and DX share (tooltips show days, snapshots and average SFI).
+- **Analysis: farthest reporters and replay links** — table of the ten farthest
+  stations of the period (one row per station, with country and grid), and a ▶ button
+  on every row of it and of the storm-day table that opens that exact moment in the
+  History Player. `replay_db.get_top_distances()`; the player now accepts a start
+  moment (`openReplayAt()`).
+- **Analysis: Ionosonde day view** — pick any day and see Juliusruh MUF (and foF2,
+  for days where it was collected) as lines over the stations heard through that
+  day; foF2 history builds up from the day the new foF2 source went live.
 - **History player on the live map** — new sidebar switch **History Player** opens
   a player bar at the bottom of the map: play/pause, time slider, date picker with
   previous/next day that has data, 1/2/4/8/16 frames per second, and **Live ✕** to
