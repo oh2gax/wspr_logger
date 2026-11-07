@@ -38,6 +38,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `doc/src/guide_img_m/`. Second in the Guides list, after the user guide.
 
 ### Changed
+- **About: Availability** — a new row in the About window (`static/js/info.js`) and the phone's
+  About sheet (`templates/app.html`): data comes only while the car's WSPR transmitter is running
+  (30 000 mAh batteries, so sometimes off); typically on 24/7 in the summer season (March–November)
+  and off in the winter season.
 - **`/api/reporter_list`** — each reporter also carries its `country` (used by the phone's
   Reporters search and country bars).
 

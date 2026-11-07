@@ -90,6 +90,7 @@ function aboutHtml() {
         <div class="about-row"><div class="about-lbl">Transmitter</div><div>WSPR transmitter based on the
             <a href="https://www.zachtek.com/1012" target="_blank" rel="noopener">ZachTek desktop transmitter</a>,
             200&nbsp;mW (23&nbsp;dBm) transmit power</div></div>
+        <div class="about-row"><div class="about-lbl">Availability</div><div>Data is available only while the WSPR transmitter in the car is running. It is powered by 30&nbsp;000&nbsp;mAh batteries, so it can sometimes be off. Typically the service runs 24/7 during the summer season (March&ndash;November) and is off during the winter season.</div></div>
         <div class="about-row"><div class="about-lbl">Antenna</div><div>Diamond monoband antenna for 14&nbsp;MHz (20&nbsp;m),
             mounted on a VW Touran car</div></div>
         <div class="about-row"><div class="about-lbl">Home locator</div><div>KP20JG<div class="about-note">The actual location

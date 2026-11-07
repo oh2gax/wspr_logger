@@ -7,6 +7,7 @@ version shown under the page title.
 ## v.07112026 — A phone app, user guides, seven new Analysis cards, longer analysis periods, a cleaner full-screen map and WPRS in two pages
 
 - **WSPR Logger on your phone** — open *wspr.oh2gax.org/app* (or tap *📱 Phone app* under *What's new*): one view at a time filling the screen and every choice in the ☰ menu, as in the Mode-S Wind phone view. Nine views — Live map, Now, Reporters, MUF graph, Replay, History, Statistics, the whole Analysis page and WPRS. A tap on a day's transmission, on ▶ in an Analysis table or on *Replay* in WPRS opens that very moment in Replay. Add it to the home screen and it opens like an app; it keeps itself up to date.
+- **When is there data?** — *About* (on the full page and in the phone app) now says that data comes only while the car's WSPR transmitter is running: it runs on 30 000 mAh batteries and can sometimes be off, and typically it runs around the clock in the summer season (March–November) and is off in the winter.
 - **A user guide for the phone** — *Guides* now has the *Mobile app user guide* right after the user guide: how to open the app, the menu and every view.
 - **WPRS in two pages** — *Guides* now also has a two-page summary of the WPRS paper: how the car reports its position over HF and the key results of three seasons, for a quick read.
 - **WPRS: only the long trips** — the day filter on the WPRS page now also has *150 km* and *200 km*.
