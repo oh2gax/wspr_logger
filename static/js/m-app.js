@@ -68,7 +68,7 @@
   // ── menu ─────────────────────────────────────────────────────────────────
   const drawer = $('app-drawer'), backdrop = $('app-backdrop');
   function menu(open) {
-    if (open) syncChips();
+    if (open) { $('m-o-andays').value = String(_anDays); syncChips(); }   // the period may have stepped on by itself
     drawer.classList.toggle('open', open);
     backdrop.hidden = !open;
     drawer.setAttribute('aria-hidden', String(!open));

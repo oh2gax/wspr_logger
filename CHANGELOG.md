@@ -38,10 +38,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `doc/src/guide_img_m/`. Second in the Guides list, after the user guide.
 
 ### Changed
-- **Analysis: computed ahead, and a loading message** — `_warm_analysis()` computes the default
-  period (90 days, the configured band) of `/api/analysis` and `/api/analysis/more`, and the DX
-  outlook model, in a background thread after the start-up fetch and after every poll (about 3–6 s
-  of CPU every 10 minutes). Those entries are kept 20 minutes instead of 10, so a visitor always
+- **Analysis: 7 d and 14 d, opening at 14 days** — `_ANALYSIS_DAYS` is now 7, 14, 30, 90, 180, 365
+  (and 0 = all); `_analysis_body.html` and the phone menu have *7 d* and *14 d*, and the page opens
+  at 14 days (`analysis.js` `_anDays`). Until a period is chosen by hand, a period without reports
+  (the transmitter is off, usually November–March) steps on to the next longer one, and the dates
+  line says why (*no reports in the last 14 days (transmitter off) — showing 30 days*); a period
+  chosen by hand that has no reports says so instead of *No replay data stored yet*.
+- **Analysis: computed ahead, and a loading message** — `_warm_analysis()` computes the periods
+  opened without a choice — 14 days (the page) and 90 days (the phone's Now view), plus the longer
+  periods the page would step to when 14 days are empty — of `/api/analysis` and
+  `/api/analysis/more`, and the DX outlook model, in a background thread after the start-up fetch
+  and after every poll (about 3–7 s of CPU every 10 minutes). Those entries are kept 20 minutes
+  instead of 10, so a visitor always
   gets the ready one (before: 4–8 s on the first opening in each 10 minutes, the usual case on a
   quiet site). The caches go through `_cached()`, which also lets concurrent requests for the same
   key wait for one computation instead of each running it; the route bodies moved into

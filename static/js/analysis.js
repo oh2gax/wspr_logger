@@ -6,7 +6,11 @@
 
 // ── Propagation analysis page ──────────────────────────────────────────────
 let _anData = null;
-let _anDays = 90;
+let _anDays = 14;                // the period: 7, 14, 30, 90, 180, 365 or 0 (all); the page opens at 14 days
+// Until a period button is pressed, a period without reports (the transmitter is off, usually from
+// November to March) steps on to the next longer one, and the reason is shown beside the dates.
+let _anAuto = true, _anStepNote = '';
+const AN_PERIODS = [7, 14, 30, 90, 180, 365, 0];
 let _anHeatMetric = 'n';
 let _anCharts = {};
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -16,7 +20,7 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 // cards stay, dimmed, with "Loading …" beside the period buttons.  A slower answer for an earlier
 // period never replaces a newer one.
 let _anSeq = 0, _anWaitTimer = null;
-const AN_PERIOD_NAMES = {30: '30 days', 90: '90 days', 180: '6 months', 365: '1 year', 0: 'the whole history'};
+const AN_PERIOD_NAMES = {7: '7 days', 14: '14 days', 30: '30 days', 90: '90 days', 180: '6 months', 365: '1 year', 0: 'the whole history'};
 
 function anBusy(on) {
     const empty = document.getElementById('anEmpty'), body = document.getElementById('anBody');
@@ -59,16 +63,27 @@ async function loadAnalysis() {
         return;
     }
     if (seq !== _anSeq) return;         // the period was changed meanwhile: that answer is on its way
+    const next = AN_PERIODS[AN_PERIODS.indexOf(_anDays) + 1];
+    if (data.empty && data.enabled !== false && _anAuto && next !== undefined) {
+        if (!_anStepNote) _anStepNote = `no reports in the last ${AN_PERIOD_NAMES[_anDays]}`;
+        anSelectPeriod(next);           // the transmitter is off: the next longer period
+        loadAnalysis();
+        return;
+    }
     anBusy(false);
     _anData = data;
     renderAnalysis();
 }
 
 function setAnalysisDays(d) {
-    _anDays = d;
-    [[30,'anP30'],[90,'anP90'],[180,'anP180'],[365,'anP365'],[0,'anP0']].forEach(([n,id]) =>
-        document.getElementById(id).classList.toggle('active-qb', n === d));
+    _anAuto = false; _anStepNote = '';  // a period chosen by hand is shown even when it has no reports
+    anSelectPeriod(d);
     loadAnalysis();
+}
+
+function anSelectPeriod(d) {
+    _anDays = d;
+    AN_PERIODS.forEach(n => document.getElementById('anP' + n).classList.toggle('active-qb', n === d));
 }
 
 function setHeatMetric(m) {
@@ -185,17 +200,22 @@ function drawExcluded() {
 function renderAnalysis() {
     const d = _anData, empty = document.getElementById('anEmpty'), body = document.getElementById('anBody');
     if (!d || d.empty) {
+        document.getElementById('anPeriod').textContent = '';
         body.style.display = 'none';
         empty.style.display = 'block';
         empty.textContent = (d && d.enabled === false)
             ? 'The replay database is disabled in config.ini ([replay] enabled = true), so there is nothing to analyse.'
-            : 'No replay data stored yet.';
+            : _anDays ? `No reports in the last ${AN_PERIOD_NAMES[_anDays]}. The WSPR transmitter in the car has ` +
+                        'probably been off (it usually runs from March to November) — choose a longer period.'
+                      : 'No replay data stored yet.';
         return;
     }
     empty.style.display = 'none';
     body.style.display = 'block';
     const sm = d.summary;
-    document.getElementById('anPeriod').textContent = `${sm.from} → ${sm.to}`;
+    // a default period without reports was stepped over: say why the page shows a longer one
+    document.getElementById('anPeriod').textContent = `${sm.from} → ${sm.to}` +
+        (_anStepNote ? ` · ${_anStepNote} (transmitter off) — showing ${AN_PERIOD_NAMES[_anDays]}` : '');
     const fmt = n => n.toLocaleString();
     const corr = (sm.corr_muf_raw ?? '—') + ' raw / ' + (sm.corr_muf_rel ?? '—') + ' vs. typical hour';
     document.getElementById('anSummary').innerHTML = [

@@ -1192,17 +1192,21 @@ def serve_doc(name):
 
 _analysis_cache: dict = {}          # (days, band) -> (monotonic time, payload)
 _ANALYSIS_TTL = 600                 # seconds
-_ANALYSIS_DAYS = (30, 90, 180, 365) # periods of the Analysis page buttons (30 d, 90 d, 6 m, 1 yr); other ?days= values round up to one of them
-# The default period (90 d) of the configured band is computed in the background after every poll
-# (_warm_analysis), so the Analysis page opens at once.  Its entries are kept twice as long, so that a
-# visitor never meets an expired entry while the next one is being computed.
-_WARM_DAYS = 90
+_ANALYSIS_DAYS = (7, 14, 30, 90, 180, 365)  # periods of the Analysis page buttons (7 d … 1 yr); other ?days= values round up to one of them
+# The Analysis page opens at 14 days (from 2026-11-07); the phone's Now view asks for 90.  Both periods
+# of the configured band are computed in the background after every poll (_warm_analysis), so they
+# open at once.  When the transmitter is off (winter), the page steps on to the first longer period
+# with data, so the warmer also computes those (_warm_keys).  Warmed entries are kept twice as long,
+# so that a visitor never meets an expired entry while the next one is being computed.
+_WARM_DAYS = (14, 90)
+_warm_keys: set = {(d, None) for d in _WARM_DAYS}   # (days, band); band None = the configured band
 _compute_locks: dict = {}           # cache key -> Lock: one computation at a time per key, the others wait for it
 _compute_locks_guard = threading.Lock()
 
 
 def _ttl_of(days: int, band: int) -> int:
-    return 2 * _ANALYSIS_TTL if (days, band) == (_WARM_DAYS, DEFAULT_BAND) else _ANALYSIS_TTL
+    warm = band == DEFAULT_BAND and ((days, None) in _warm_keys or (days, band) in _warm_keys)
+    return 2 * _ANALYSIS_TTL if warm else _ANALYSIS_TTL
 
 
 def _cached(cache: dict, key, ttl: int, compute, force: bool = False):
@@ -1281,7 +1285,7 @@ _outlook_cache: dict = {}           # band -> (monotonic time, {"model", "last_k
 def outlook_state(band: int, force: bool = False) -> dict:
     """The DX outlook model, always fitted on the whole history (the Analysis period buttons do not
     change it: more days make the hour-of-day tables and the back-test more reliable)."""
-    return _cached(_outlook_cache, band, _ttl_of(_WARM_DAYS, band), lambda: _fit_outlook(band), force)
+    return _cached(_outlook_cache, band, _ttl_of(_WARM_DAYS[0], band), lambda: _fit_outlook(band), force)
 
 
 def _fit_outlook(band: int) -> dict:
@@ -1531,18 +1535,33 @@ _warm_busy = threading.Lock()
 
 
 def _warm_analysis() -> None:
-    """Compute the Analysis page's default period (90 days, the configured band) in the background,
-    after each poll has stored a new snapshot: the page then opens at once instead of waiting for the
-    computation (several seconds on a small server).  The other periods are computed when asked.
-    Runs in its own thread so it never delays polling; a run still busy makes the next one skip."""
+    """Compute the Analysis periods that are opened without a choice (14 days: the page's default;
+    90 days: the phone's Now view) for the configured band in the background, after each poll has
+    stored a new snapshot: they then open at once instead of waiting for the computation (several
+    seconds on a small server).  When a default period has no data (the transmitter is off), the page
+    steps on to the next longer period, so that one is computed too.  The other periods are computed
+    when asked.  Runs in its own thread so it never delays polling; a run still busy makes the next skip."""
     if not replay_db.is_enabled() or not _warm_busy.acquire(blocking=False):
         return
     try:
         t0 = time.monotonic()
-        _analysis_payload(_WARM_DAYS, DEFAULT_BAND, force=True)
         outlook_state(DEFAULT_BAND, force=True)
-        _more_payload(_WARM_DAYS, DEFAULT_BAND, force=True)
-        print(f"[INFO] Analysis ({_WARM_DAYS} d) computed in the background in {time.monotonic() - t0:.1f} s")
+        done, keys = [], {(d, None) for d in _WARM_DAYS}
+        for start in _WARM_DAYS:
+            chain = list(_ANALYSIS_DAYS[_ANALYSIS_DAYS.index(start):]) + [0]
+            for days in chain:             # the default, then the longer periods the page would step to
+                keys.add((days, None))
+                if days not in done:
+                    done.append(days)
+                    payload = _analysis_payload(days, DEFAULT_BAND, force=True)
+                    _more_payload(days, DEFAULT_BAND, force=True)
+                else:
+                    payload = _analysis_payload(days, DEFAULT_BAND)
+                if not payload.get("empty"):
+                    break
+        _warm_keys.clear(); _warm_keys.update(keys)
+        print(f"[INFO] Analysis ({', '.join(f'{d} d' if d else 'all' for d in done)}) computed in the background "
+              f"in {time.monotonic() - t0:.1f} s")
     except Exception as e:                  # a failed warm-up only means the next visitor computes it
         print(f"[WARN] Analysis warm-up failed: {e}")
     finally:
