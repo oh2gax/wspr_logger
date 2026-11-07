@@ -170,24 +170,24 @@ function renderWprsTrack(from, to) {
     for (const q of t.squares) {
         L.rectangle([[q.lat - q.hlat, q.lon - q.hlon], [q.lat + q.hlat, q.lon + q.hlon]],
             { color: accent, weight: 1, fillColor: accent, fillOpacity: 0.12 + 0.45 * Math.log(q.n + 1) / Math.log(maxN + 1) })
-            .bindTooltip(`${q.loc} · ${q.n} fix${q.n === 1 ? '' : 'es'} · first ${q.first.slice(5, 16)} UTC`).addTo(wprsLayers);
+            .bindTooltip(`${escHtml(q.loc)} · ${q.n} fix${q.n === 1 ? '' : 'es'} · first ${q.first.slice(5, 16)} UTC`).addTo(wprsLayers);
     }
     const pts = t.fixes.map(f => [f.lat, f.lon]);
     L.polyline(pts, { color: '#94a3b8', weight: 2, opacity: 0.8, dashArray: '4 5' }).addTo(wprsLayers);
     for (const f of t.fixes) {
         L.circleMarker([f.lat, f.lon], { radius: 3, color: accent, weight: 1, fillColor: accent, fillOpacity: 0.9 })
-            .bindTooltip(`${f.t.slice(5, 16)} UTC · ${f.loc} · ${f.n} reporter${f.n === 1 ? '' : 's'} · best ${f.dx.toLocaleString('en-GB')} km`)
+            .bindTooltip(`${f.t.slice(5, 16)} UTC · ${escHtml(f.loc)} · ${f.n} reporter${f.n === 1 ? '' : 's'} · best ${f.dx.toLocaleString('en-GB')} km`)
             .addTo(wprsLayers);
     }
     if (t.home) {
         L.circleMarker([t.home.lat, t.home.lon], { radius: 9, color: '#f87171', weight: 2, fillOpacity: 0 })
-            .bindTooltip(`Home square ${t.home.loc}`).addTo(wprsLayers);
+            .bindTooltip(`Home square ${escHtml(t.home.loc)}`).addTo(wprsLayers);
     }
     const a = t.fixes[0], z = t.fixes[t.fixes.length - 1];
     L.circleMarker([a.lat, a.lon], { radius: 7, color: '#fff', weight: 2, fillColor: '#4ade80', fillOpacity: 1 })
-        .bindTooltip(`Start ${a.t.slice(5, 16)} UTC · ${a.loc}`).addTo(wprsLayers);
+        .bindTooltip(`Start ${a.t.slice(5, 16)} UTC · ${escHtml(a.loc)}`).addTo(wprsLayers);
     L.circleMarker([z.lat, z.lon], { radius: 7, color: '#fff', weight: 2, fillColor: '#f87171', fillOpacity: 1 })
-        .bindTooltip(`End ${z.t.slice(5, 16)} UTC · ${z.loc}`).addTo(wprsLayers);
+        .bindTooltip(`End ${z.t.slice(5, 16)} UTC · ${escHtml(z.loc)}`).addTo(wprsLayers);
 
     wprsPlayed = L.polyline([], { color: '#f59e0b', weight: 4 }).addTo(wprsLayers);
     wprsCursor = L.circleMarker([a.lat, a.lon], { radius: 10, color: '#f59e0b', weight: 3, fillColor: '#ffffff', fillOpacity: 1 }).addTo(wprsLayers);

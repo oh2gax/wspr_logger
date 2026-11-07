@@ -190,9 +190,12 @@ function renderAnalysis() {
             `<td><button class="an-btn" title="Open in the History Player" onclick="openReplayAt('${r.timestamp}')">&#9654;</button></td></tr>`).join('')
         : '<tr><td colspan="5" class="no-data">No data</td></tr>';
 
-    // keep the selected ionosonde day if it is still in range, else the latest day
+    // Ionosonde view: in day mode keep the selected day if it is still in range, else the latest day;
+    // the other modes have their own period, so they are only redrawn (or loaded the first time)
     const dates = d.heatmap.dates;
-    loadIonoDay(_ionoDate && dates.includes(_ionoDate) ? _ionoDate : dates[dates.length - 1]);
+    if (_ionoMode === 'day') loadIonoDay(_ionoDate && dates.includes(_ionoDate) ? _ionoDate : dates[dates.length - 1]);
+    else if (_ionoData) drawIonoChart();
+    else setIonoMode(_ionoMode);
 }
 
 function renderNowCard(n) {
@@ -265,19 +268,60 @@ function drawDxCharts() {
     });
 }
 
-// ── Ionosonde day view (Juliusruh MUF / foF2 vs reporters) ─────────────────
-let _ionoDate = null;
-let _ionoFrames = [];
+// ── Ionosonde view (Juliusruh MUF / foF2 vs reporters) ─────────────────────
+// One day (every snapshot), the last 30 d / 90 d / 6 m / 1 yr / all, or a custom range of days.
+// Longer periods come back from /api/iono averaged over buckets (3 h ... 2 days), at most 500 bars.
+let _ionoMode = 'day';          // 'day' | 30 | 90 | 180 | 365 | 0 | 'custom'
+let _ionoDate = null;           // the day shown in 'day' mode
+let _ionoData = null;           // the last /api/iono answer
+let _ionoSeq  = 0;              // only the newest request may draw
 
-async function loadIonoDay(date) {
+const IONO_BTNS = [['day','ioDay'],[30,'io30'],[90,'io90'],[180,'io180'],[365,'io365'],[0,'io0'],['custom','ioCustom']];
+
+function setIonoMode(m) {
+    _ionoMode = m;
+    IONO_BTNS.forEach(([k, id]) => document.getElementById(id).classList.toggle('active', k === m));
+    document.getElementById('anIonoDayCtl').style.display   = m === 'day'    ? 'flex' : 'none';
+    document.getElementById('anIonoRangeCtl').style.display = m === 'custom' ? 'flex' : 'none';
+    const dates = (_anData && _anData.heatmap) ? _anData.heatmap.dates : [];
+    const last = dates.length ? dates[dates.length - 1] : todayStr();
+    if (m === 'day') {
+        loadIonoDay(_ionoDate || last);
+    } else if (m === 'custom') {
+        const f = document.getElementById('anIonoFrom'), t = document.getElementById('anIonoTo');
+        if (!t.value) t.value = _ionoDate || last;
+        if (!f.value) { const d = new Date(t.value + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 13); f.value = d.toISOString().slice(0, 10); }
+        loadIonoCustom();
+    } else {
+        fetchIono(`days=${m}`);
+    }
+}
+
+async function fetchIono(query) {
+    const seq = ++_ionoSeq;
+    let data = null;
+    try {
+        const r = await fetch(`/api/iono?${query}&band=${currentBand}`);
+        data = await r.json();
+        if (data.error) { showToast(data.error, 'err'); data = null; }
+    } catch(e) { data = null; }
+    if (seq !== _ionoSeq) return;          // a newer request was made meanwhile
+    _ionoData = data;
+    drawIonoChart();
+}
+
+function loadIonoDay(date) {
     if (!date) return;
     _ionoDate = date;
     document.getElementById('anIonoDate').value = date;
-    try {
-        const r = await fetch(`/api/replay/day?date=${date}&band=${currentBand}`);
-        _ionoFrames = (await r.json()).frames || [];
-    } catch(e) { _ionoFrames = []; }
-    drawIonoChart();
+    fetchIono(`from=${date}&to=${date}`);
+}
+
+function loadIonoCustom() {
+    const f = document.getElementById('anIonoFrom').value, t = document.getElementById('anIonoTo').value;
+    if (!f || !t) return;
+    if (t < f) { showToast('The last day is before the first day', 'err'); return; }
+    fetchIono(`from=${f}&to=${t}`);
 }
 
 function shiftIonoDay(dir) {
@@ -287,31 +331,48 @@ function shiftIonoDay(dir) {
     if (j >= 0 && j < dates.length) loadIonoDay(dates[j]);
 }
 
+function ionoBucketText(min) {
+    return min >= 1440 ? (min / 1440) + (min === 1440 ? ' day' : ' days') : min >= 60 ? (min / 60) + ' h' : min + ' min';
+}
+
 function drawIonoChart() {
-    const col = anColors(), fr = _ionoFrames, has = fr.length > 0;
+    const col = anColors(), d = _ionoData, pts = (d && d.points) || [];
+    const has = pts.some(p => p.n !== null || p.muf !== null);
     document.getElementById('anIonoEmpty').style.display = has ? 'none' : 'block';
     document.getElementById('anIono').parentElement.style.display = has ? 'block' : 'none';
+    const raw = d && d.bucket_min <= 10;
+    const sub = document.getElementById('anIonoSub');
+    sub.textContent = !d ? '' : (raw
+        ? 'Bars: stations heard in the 60 minutes before each snapshot. Lines: MUF (D=3000 km) and foF2 in MHz measured at Juliusruh.'
+        : `${d.from} → ${d.to}, averaged over ${ionoBucketText(d.bucket_min)}: bars = average stations heard per snapshot, lines = average MUF (D=3000 km) and foF2 in MHz at Juliusruh.`) +
+        ' MUF and foF2 exist only for the live-logged days (from May 2026); foF2 only after the Juliusruh monitor page became its source.';
     if (!has) { if (_anCharts.anIono) { _anCharts.anIono.destroy(); delete _anCharts.anIono; } return; }
-    const muf  = fr.map(f => f.s && f.s.muf  ? f.s.muf  : null);
-    const fof2 = fr.map(f => f.s && f.s.fof2 ? f.s.fof2 : null);
+    const oneDay = d.from === d.to;
+    const label = t => d.bucket_min >= 1440 ? t.slice(0, 10) : oneDay ? t.slice(11, 16) : t.slice(5, 16);
     const datasets = [
-        { type: 'bar', label: 'Stations heard', data: fr.map(f => f.r.length), yAxisID: 'y', backgroundColor: 'rgba(56,189,248,0.55)' },
-        { type: 'line', label: 'MUF D=3000 km (MHz)', data: muf, yAxisID: 'y2', borderColor: '#f59e0b', backgroundColor: '#f59e0b',
-          borderWidth: 2, pointRadius: 1.5, tension: 0.25, spanGaps: true },
+        { type: 'bar', label: raw ? 'Stations heard' : 'Stations heard (average)', data: pts.map(p => p.n), yAxisID: 'y',
+          backgroundColor: 'rgba(56,189,248,0.55)', categoryPercentage: raw ? 0.8 : 1.0, barPercentage: raw ? 0.9 : 1.0 },
     ];
-    if (fof2.some(v => v !== null)) {
-        datasets.push({ type: 'line', label: 'foF2 (MHz)', data: fof2, yAxisID: 'y2', borderColor: '#4ade80', backgroundColor: '#4ade80',
-                        borderWidth: 2, pointRadius: 1.5, tension: 0.25, spanGaps: true });
+    if (d.has_muf) {
+        datasets.push({ type: 'line', label: 'MUF D=3000 km (MHz)', data: pts.map(p => p.muf), yAxisID: 'y2', borderColor: '#f59e0b',
+                        backgroundColor: '#f59e0b', borderWidth: 2, pointRadius: pts.length > 200 ? 0 : 1.5, tension: 0.25, spanGaps: raw });
+    }
+    if (d.has_fof2) {
+        datasets.push({ type: 'line', label: 'foF2 (MHz)', data: pts.map(p => p.fof2), yAxisID: 'y2', borderColor: '#4ade80',
+                        backgroundColor: '#4ade80', borderWidth: 2, pointRadius: pts.length > 200 ? 0 : 1.5, tension: 0.25, spanGaps: raw });
     }
     anChart('anIono', {
         type: 'bar',
-        data: { labels: fr.map(f => f.ts.slice(11, 16)), datasets },
+        data: { labels: pts.map(p => label(p.t)), datasets },
         options: {
             responsive: true, maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
-            plugins: { legend: { labels: { color: col.text, boxWidth: 12, font: { size: 10 } } } },
+            plugins: { legend: { labels: { color: col.text, boxWidth: 12, font: { size: 10 } } },
+                       tooltip: { callbacks: {
+                           title: it => { const p = pts[it[0].dataIndex]; return raw ? p.t + ' UTC' : `${p.t} UTC + ${ionoBucketText(d.bucket_min)}`; },
+                           afterBody: it => raw ? '' : `${pts[it[0].dataIndex].snaps} snapshots averaged` } } },
             scales: {
-                x:  { ticks: { color: col.text, font: { size: 10 }, maxTicksLimit: 24, maxRotation: 0 }, grid: { display: false },
+                x:  { ticks: { color: col.text, font: { size: 10 }, maxTicksLimit: oneDay ? 24 : 16, maxRotation: 0, autoSkip: true }, grid: { display: false },
                       title: { display: true, text: 'UTC', color: col.text, font: { size: 10 } } },
                 y:  { beginAtZero: true, ticks: { color: col.text, font: { size: 10 }, precision: 0 }, grid: { color: col.grid },
                       title: { display: true, text: 'stations heard', color: col.text, font: { size: 10 } } },

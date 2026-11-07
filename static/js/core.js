@@ -33,6 +33,7 @@ function escHtml(t) {
 
 let _reporterListData = [];
 let _latestMuf        = 0;    // most recent J-MUF value in MHz (0 = unknown)
+let _liveDx6          = 0;    // current reporters beyond 6000 km, from /api/latest (the "& DX" mark)
 let _rlSortKey        = 'snr';   // 'snr' | 'dist'
 let _hgramMode        = 'snr';   // 'snr' | 'dist'
 let hgramChart        = null;

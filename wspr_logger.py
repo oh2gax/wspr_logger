@@ -112,10 +112,15 @@ _cached_fof2      = None   # Latest foF2 value from GIRO (MHz)
 # Helper: Maidenhead → lat/lon
 # ---------------------------------------------------------------------------
 
+_LOCATOR6 = re.compile(r"[A-R]{2}[0-9]{2}[A-X]{2}")
+
+
 def maidenhead_to_latlon(grid: str):
-    if len(grid) < 6:
+    """Centre of a six-character Maidenhead subsquare; (None, None) for anything that is not a valid
+    locator (field letters A-R, digits, subsquare letters A-X), so a garbled locator never becomes a fix."""
+    g = (grid or "")[:6].upper()
+    if not _LOCATOR6.fullmatch(g):
         return None, None
-    g = grid.upper()
     try:
         lon = (ord(g[0]) - ord('A')) * 20 - 180
         lat = (ord(g[1]) - ord('A')) * 10 - 90
@@ -510,28 +515,15 @@ def callsign_to_country(sign: str, grid: str = "") -> str:
     return base[:2] if len(base) >= 2 else base  # fallback: show prefix
 
 
-def fetch_reporter_countries(callsign: str, band: int) -> list:
+def countries_of(reporters: list) -> list:
     """
-    Return [{country, count}, …] for the most recent transmission,
-    sorted by count descending.
+    [{country, count}, …] of the stations in a reporter list (fetch_reporter_list(), one entry per
+    callsign and grid heard in the past 60 minutes), sorted by count descending.  Worked out here
+    instead of with a second wspr.live query: the list holds exactly the same (callsign, grid) pairs.
     """
-    sql = f"""
-        SELECT DISTINCT rx_sign, rx_loc
-        FROM wspr.rx
-        WHERE tx_sign = '{callsign}'
-          AND band    = {band}
-          AND time > subtractMinutes(now(), 60)
-    """
-    rows = wsprlive_query(sql)
-    if not rows:
-        return []
-
     counts: dict = {}
-    for row in rows:
-        country = callsign_to_country(
-            row.get("rx_sign", "??"),
-            row.get("rx_loc", "")
-        )
+    for r in reporters:
+        country = callsign_to_country(r.get("callsign") or "??", r.get("grid") or "")
         counts[country] = counts.get(country, 0) + 1
 
     return sorted(
@@ -920,13 +912,32 @@ def index():
     )
 
 
+MUF_MAX_AGE = timedelta(hours=3)     # an older MUF reading is not shown as the present one
+
+
+def _latest_muf() -> float | None:
+    """The newest stored Juliusruh MUF, or None when there is none from the last MUF_MAX_AGE
+    (GIRO and the Juliusruh page both stalled): a stale value must not look like the present one."""
+    rows = db.get_muf_last_24h(1)
+    if not rows:
+        return None
+    try:
+        if datetime.utcnow() - datetime.strptime(rows[-1]["timestamp"], "%Y-%m-%d %H:%M:%S") > MUF_MAX_AGE:
+            return None
+    except ValueError:
+        return None
+    return rows[-1]["muf"]
+
+
 @app.route('/api/latest')
 def api_latest():
-    """Latest spot + cached reporter countries."""
+    """Latest spot, cached reporter countries, the number of current reporters beyond 6000 km
+    (for the "& DX" mark of the Propagation card) and the present MUF (for "HIGH MUF")."""
     band = _band_arg()
     spot = db.get_latest_spot(band)
     with _state_lock:
         countries = list(_cached_countries)
+        dx6 = sum(1 for r in _cached_reporter_list if (r.get("distance") or 0) > 6000)
     wspr_down = _wspr_live_down
     spot_out = None
     if spot:
@@ -939,7 +950,8 @@ def api_latest():
             "reporter_count": spot["reporter_count"],
             "max_distance":   spot["max_distance"],
         }
-    return jsonify({"spot": spot_out, "countries": countries, "wspr_down": wspr_down})
+    return jsonify({"spot": spot_out, "countries": countries, "wspr_down": wspr_down,
+                    "dx6": dx6, "muf": _latest_muf()})
 
 
 @app.route('/api/positions')
@@ -997,11 +1009,9 @@ def api_solar():
     solar = fetch_solar_data()
     with _state_lock:
         fof2 = _cached_fof2
-    muf_rows   = db.get_muf_last_24h(1)
-    latest_muf = muf_rows[-1]["muf"] if muf_rows else None
     result      = dict(solar)
     result["fof2"] = fof2
-    result["muf"]  = latest_muf
+    result["muf"]  = _latest_muf()          # None (shown as —) when the newest reading is over 3 h old
     return jsonify(result)
 
 
@@ -1222,15 +1232,7 @@ def api_analysis():
 
     out = {k: v for k, v in payload.items() if not k.startswith("_")}      # "right now" is never cached
     if not out.get("empty"):
-        muf_rows = db.get_muf_last_24h(1)
-        muf = None
-        if muf_rows:                      # ignore a MUF reading older than 3 hours
-            try:
-                age = datetime.utcnow() - datetime.strptime(muf_rows[-1]["timestamp"], "%Y-%m-%d %H:%M:%S")
-                if age <= timedelta(hours=3):
-                    muf = muf_rows[-1]["muf"]
-            except ValueError:
-                pass
+        muf = _latest_muf()               # None when the newest reading is older than 3 hours
         with _state_lock:
             live_n = len(_cached_reporter_list)
         if live_n == 0 and _wspr_live_down:
@@ -1250,6 +1252,83 @@ def api_analysis():
                 pass
         out["outlook"] = outlook.forecast(model, datetime.utcnow(), muf, k_now)
     return jsonify(out)
+
+
+_iono_cache: dict = {}              # (kind, range, band) -> (monotonic time, payload)
+_IONO_BUCKETS = (10, 60, 180, 360, 720, 1440, 2880, 10080)   # minutes; the smallest that gives <= _IONO_MAX_POINTS
+_IONO_MAX_POINTS = 500
+_EPOCH = datetime(1970, 1, 1)
+
+
+@app.route('/api/iono')
+def api_iono():
+    """Stations heard, Juliusruh MUF and foF2 over a period, for the Ionosonde view of the Analysis page.
+
+    Query params: from=YYYY-MM-DD&to=YYYY-MM-DD (UTC days, both included), or days=<n> (rounded up to
+    30, 90, 180 or 365 like /api/analysis; 0 = the whole history), band=<int>.
+    One day comes back as single snapshots (10 min); longer periods are averaged over buckets of up to
+    a week so that there are at most 500 points.  Empty buckets are included (null), so gaps show.
+    Cached for 10 minutes.
+    """
+    band = _band_arg()
+    if not replay_db.is_enabled():
+        return jsonify({"enabled": False, "points": []})
+    now = datetime.utcnow()
+    d_from, d_to = request.args.get('from'), request.args.get('to')
+    if d_from or d_to:
+        try:
+            a = datetime.strptime(d_from or d_to, "%Y-%m-%d")
+            b = datetime.strptime(d_to or d_from, "%Y-%m-%d") + timedelta(days=1)
+        except (ValueError, OverflowError):
+            return jsonify({"error": "from/to must be YYYY-MM-DD"}), 400
+        if b <= a:
+            return jsonify({"error": "to must not be before from"}), 400
+        # keep the range within the data (first snapshot .. tomorrow): a range of centuries would
+        # otherwise produce tens of thousands of empty points
+        first = replay_db.get_first_timestamp(band)
+        if first:
+            a = max(a, datetime.strptime(first[:10], "%Y-%m-%d"))
+        b = min(b, datetime.strptime(now.strftime("%Y-%m-%d"), "%Y-%m-%d") + timedelta(days=1))
+        if b <= a:
+            return jsonify({"enabled": True, "from": d_from, "to": d_to, "bucket_min": 10, "points": [],
+                            "has_muf": False, "has_fof2": False})
+        key = ("range", a, b, band)
+    else:
+        days = request.args.get('days', 30, type=int)
+        days = 0 if days <= 0 else next((d for d in _ANALYSIS_DAYS if days <= d), _ANALYSIS_DAYS[-1])
+        b = now
+        if days:
+            a = now - timedelta(days=days)
+        else:
+            first = replay_db.get_first_timestamp(band)
+            a = datetime.strptime(first[:10], "%Y-%m-%d") if first else now - timedelta(days=1)
+        key = ("days", days, band)
+    hit = _iono_cache.get(key)
+    if hit and time.monotonic() - hit[0] < _ANALYSIS_TTL:
+        return jsonify(hit[1])
+
+    span_min = (b - a).total_seconds() / 60
+    bucket = next((m for m in _IONO_BUCKETS if span_min / m <= _IONO_MAX_POINTS), _IONO_BUCKETS[-1])
+    off = 8 if bucket == 10 else 0            # single snapshots: buckets start at the poll minutes :08, :18, ...
+    fmt = "%Y-%m-%d %H:%M:%S"
+    rows = {r["k"]: r for r in replay_db.get_iono_series(a.strftime(fmt), b.strftime(fmt), band, bucket, off)}
+    step, shift = bucket * 60, off * 60
+    k0 = -int(-((a - _EPOCH).total_seconds() - shift) // step)      # first bucket that starts at or after `a`
+    k1 = int(((b - _EPOCH).total_seconds() - shift - 1) // step)
+    def rnd(v):
+        return None if v is None else round(v, 1)
+    points = []
+    for k in range(k0, k1 + 1):
+        r = rows.get(k)
+        points.append({"t": (_EPOCH + timedelta(seconds=k * step + shift)).strftime("%Y-%m-%d %H:%M"),
+                       "n": rnd(r["n"]) if r else None, "muf": rnd(r["muf"]) if r else None,
+                       "fof2": rnd(r["fof2"]) if r else None, "snaps": r["snaps"] if r else 0})
+    payload = {"enabled": True, "from": a.strftime("%Y-%m-%d"), "to": (b - timedelta(seconds=1)).strftime("%Y-%m-%d"),
+               "bucket_min": bucket, "points": points,
+               "has_muf": any(p["muf"] is not None for p in points),
+               "has_fof2": any(p["fof2"] is not None for p in points)}
+    _cache_put(_iono_cache, key, (time.monotonic(), payload))
+    return jsonify(payload)
 
 
 @app.route('/api/stats')
@@ -1295,7 +1374,7 @@ def update_thread():
         store_spots(fetch_recent_spots(CALLSIGN, DEFAULT_BAND))
         init_reporters = fetch_reporter_list(CALLSIGN, DEFAULT_BAND)
         with _state_lock:
-            _cached_countries     = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
+            _cached_countries     = countries_of(init_reporters)
             _cached_reporter_list = init_reporters
         check_wsprlive_health()
         muf_init = fetch_giro_mufd()
@@ -1328,8 +1407,8 @@ def update_thread():
             print(f"[INFO] Polling WSPR.live at {now.strftime('%H:%M:%S')} UTC")
             try:
                 rows          = fetch_recent_spots(CALLSIGN, DEFAULT_BAND)
-                countries     = fetch_reporter_countries(CALLSIGN, DEFAULT_BAND)
                 reporter_list = fetch_reporter_list(CALLSIGN, DEFAULT_BAND)
+                countries     = countries_of(reporter_list)
                 check_wsprlive_health()
                 with _state_lock:
                     _cached_countries     = countries

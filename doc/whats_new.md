@@ -7,7 +7,11 @@ version shown under the page title.
 ## v.07112026 — A cleaner full-screen map, longer analysis periods and WPRS in two pages
 
 - **WPRS in two pages** — *Guides* now also has a two-page summary of the WPRS paper: how the car reports its position over HF and the key results of three seasons, for a quick read.
+- **Ionosonde view over any period** — the MUF and foF2 chart on the Analysis page can now show one day, the last 30 days, 90 days, 6 months, a year, all history or any range of days you choose. Longer periods are shown as averages, and the night-time MUF is no longer missing on the day view.
 - **Analysis over 6 months or a year** — next to 30 d, 90 d and All, the Propagation Analysis page now has *6 m* and *1 yr* buttons.
+- **Fixes from a code review** — *& DX* and ⚡ *HIGH MUF* on the Propagation card now work whatever layers are switched on; an old MUF reading is no longer shown as the present one; the History Player no longer skips the hours when nobody heard the car; reporters with a four-character locator appear at the right place on the Reporter Plot; and the logger asks wspr.live one question less every ten minutes.
+- **Fixed: Analysis missed many stations** — a few hours of reports with an unknown distance in May 2025 made 42 ordinary European stations look implausible, and the Analysis page left them out of everything. They are counted again, so the averages are now higher and correct; only three genuinely inconsistent stations stay excluded. The *Farthest reporters* table now sits at the bottom of the page, full width.
+- **Reporter Countries the same width as Propagation** — a Reporter Countries window that had been moved could be wider than the cards above it; it now always matches them.
 - **Hide the menu completely** — the ◀ button at the top of the menu now hides the whole menu, so the map gets the full window. A large ▶ handle on the left edge of the page opens it again.
 
 ## v.06112026 — The WPRS page and trips, three seasons of history, grey line and DX outlook in Analysis, movable windows, an Auto / Dark / Light button, and an easier installation

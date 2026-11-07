@@ -267,7 +267,7 @@ def get_available_dates(band: int = 14) -> list[str]:
 def get_day_frames(date_str: str, band: int = 14) -> list[dict]:
     """
     Return every stored snapshot of one UTC day (oldest first) for the
-    replay player.  Each frame is
+    replay player, including polls that heard nobody (no reporters, solar row only).  Each frame is
         {"ts": "YYYY-MM-DD HH:MM:SS",
          "reporters": [(callsign, grid, snr, distance), ...],
          "solar": {sfi, kindex, aindex, xray, bz, solarwind, aurora,
@@ -292,17 +292,19 @@ def get_day_frames(date_str: str, band: int = 14) -> list[dict]:
             WHERE timestamp >= ? AND timestamp < datetime(?, '+1 day')
         """, (date_str, date_str)).fetchall()
 
-    solar_by_ts = {r["timestamp"]: dict(r) for r in sol}
-    frames: dict[str, dict] = {}
+    solar_by_ts = {}
+    for r in sol:
+        s = dict(r)
+        solar_by_ts[s.pop("timestamp")] = s
+    # A poll that heard nobody stores only its solar row; it is still a frame (with no reporters), so the
+    # player does not jump over the night and the Solar panel shows the conditions of those hours too.
+    frames: dict[str, dict] = {ts: {"ts": ts, "reporters": [], "solar": s} for ts, s in solar_by_ts.items()}
     for r in rep:
         f = frames.get(r["timestamp"])
         if f is None:
-            s = solar_by_ts.get(r["timestamp"])
-            if s is not None:
-                s.pop("timestamp", None)
-            f = frames[r["timestamp"]] = {"ts": r["timestamp"], "reporters": [], "solar": s}
+            f = frames[r["timestamp"]] = {"ts": r["timestamp"], "reporters": [], "solar": None}
         f["reporters"].append((r["callsign"], r["grid"], r["snr"], r["distance"]))
-    return list(frames.values())
+    return [frames[ts] for ts in sorted(frames)]
 
 
 def _exclusion(exclude) -> tuple:
@@ -314,13 +316,16 @@ def _exclusion(exclude) -> tuple:
 
 
 def get_reporter_pairs(band: int = 14) -> list[dict]:
-    """Every (callsign, grid) pair with its smallest and largest reported distance."""
+    """Every (callsign, grid) pair with its smallest and largest reported distance.
+    A distance of 0 means "not known", not "0 km": wspr.live delivered 0 for every report of a few
+    hours (7 May 2025), and taking it as a distance made ordinary stations look implausible and
+    dropped them from the whole analysis.  Such rows are left out of this check."""
     if not _enabled:
         return []
     with _connect() as conn:
         rows = conn.execute("""
             SELECT callsign, grid, MIN(distance) AS dmin, MAX(distance) AS dmax, COUNT(*) AS n
-            FROM reporters_log WHERE band = ? GROUP BY callsign, grid
+            FROM reporters_log WHERE band = ? AND distance > 0 GROUP BY callsign, grid
         """, (band,)).fetchall()
     return [dict(r) for r in rows]
 
@@ -376,6 +381,50 @@ def get_snapshot_rows(days: int = 90, band: int = 14, exclude=None) -> list[tupl
             ORDER BY s.ts
         """, args).fetchall()
     return [tuple(r) for r in rows]
+
+
+def get_first_timestamp(band: int = 14) -> str | None:
+    """Timestamp of the oldest reporter snapshot of the band, or None."""
+    if not _enabled:
+        return None
+    with _connect() as conn:
+        row = conn.execute("SELECT MIN(timestamp) FROM reporters_log WHERE band = ?", (band,)).fetchone()
+    return row[0] if row else None
+
+
+def get_iono_series(start: str, end: str, band: int = 14, bucket_min: int = 10, offset_min: int = 0) -> list[dict]:
+    """
+    Stations heard, Juliusruh MUF and foF2 between start and end ('YYYY-MM-DD HH:MM:SS', end
+    excluded), averaged over buckets of bucket_min minutes.  Bucket k covers the epoch seconds
+    [k * bucket + offset, (k + 1) * bucket + offset).  A poll whose solar row exists but that heard
+    nobody counts as 0 stations (the night), so the MUF line is not lost where the band is closed.
+    MUF / foF2 readings of 0 or less are feed failures and are ignored.
+    Each row: {k, snaps, n (mean stations heard), muf, fof2}.
+    """
+    if not _enabled:
+        return []
+    b, off = int(bucket_min) * 60, int(offset_min) * 60
+    with _connect() as conn:
+        rows = conn.execute(f"""
+            WITH snaps AS (
+                SELECT timestamp AS ts, COUNT(*) AS n FROM reporters_log
+                WHERE band = ? AND timestamp >= ? AND timestamp < ?
+                GROUP BY timestamp),
+            allts AS (
+                SELECT ts FROM snaps
+                UNION
+                SELECT timestamp FROM solar_log WHERE timestamp >= ? AND timestamp < ?)
+            SELECT (CAST(strftime('%s', a.ts) AS INTEGER) - {off}) / {b} AS k,
+                   COUNT(*) AS snaps,
+                   AVG(COALESCE(s.n, 0)) AS n,
+                   AVG(CASE WHEN l.muf  > 0 THEN l.muf  END) AS muf,
+                   AVG(CASE WHEN l.fof2 > 0 THEN l.fof2 END) AS fof2
+            FROM allts a
+            LEFT JOIN snaps s ON s.ts = a.ts
+            LEFT JOIN solar_log l ON l.timestamp = a.ts
+            GROUP BY k ORDER BY k
+        """, (band, start, end, start, end)).fetchall()
+    return [dict(r) for r in rows]
 
 
 def get_top_distances(days: int = 90, band: int = 14, limit: int = 10, exclude=None) -> list[dict]:

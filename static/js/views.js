@@ -159,7 +159,7 @@ function renderHistMap(spots) {
         const m = L.circleMarker([s.lat, s.lon], {
             radius, color, fillColor:color, fillOpacity:.85, weight:2
         }).addTo(histMap).bindPopup(
-            `<strong>${s.tx_loc}</strong><br>
+            `<strong>${escHtml(s.tx_loc)}</strong><br>
              ${s.timestamp}<br>
              Reporters: ${s.reporter_count}<br>
              Max DX: ${s.max_distance} km`

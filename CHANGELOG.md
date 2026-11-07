@@ -12,6 +12,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   now 30 d, 90 d, 6 m, 1 yr and All. `/api/analysis` rounds `days` up to 30, 90, 180 or 365
   (was 30, 90, 180 or 400), so the *1 yr* button is exactly one year; the *Farthest reporters*
   title names the period ("last 6 months", "last year").
+- **Analysis: Ionosonde view over longer periods** — the *Ionosonde day view* became the
+  *Ionosonde view* with its own buttons: *Day* (as before, every snapshot of one day), *30 d*,
+  *90 d*, *6 m*, *1 yr*, *All* and *Custom* (first and last day). Longer periods are averaged
+  over buckets of 1 h, 3 h, 6 h, 12 h, 1 day or 2 days so that there are at most 500 bars; empty
+  buckets stay empty, so gaps such as the winters show. New endpoint
+  `/api/iono?from=&to=` / `?days=` (cached 10 minutes) and `replay_db.get_iono_series()`,
+  `replay_db.get_first_timestamp()`. Polls that heard no station now count as 0 stations
+  (before, the day view skipped them), so the MUF line no longer breaks off at night.
 - **WPRS two-page summary under Guides** — `doc/WPRS_Two_Page_Summary.pdf`: the idea, how
   a fix travels, the station, a table of the key measurements, the position map and the
   availability figure, where WPRS fits, limitations and operating tips. Built from the new
@@ -26,6 +34,51 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   buttons and the left-hand panels, on every page. The ◀ and theme buttons in the menu header are
   a little larger (26 px). After the menu opens or closes the maps are resized, moved panels are
   kept inside the map and the Analysis heatmap is redrawn to the new width.
+
+- **Analysis: Farthest reporters below the Ionosonde view** — the card moved to the bottom of the
+  page and is now full width, so the *When (UTC)* column and the ▶ replay buttons are no longer cut off.
+
+### Fixed
+- **Code audit, 7 November** — findings of a review of the whole program, each tested with the
+  real databases:
+  - *Invalid locators became positions* — `maidenhead_to_latlon()` converted anything six
+    characters long, so a garbled locator such as `ZZ99zz` gave latitude 170°. It now accepts only
+    valid locators (A–R, digits, A–X) and returns nothing otherwise; the live poll and
+    `tools/backfill.py` skip such spots.
+  - *`/api/iono` crashed on extreme dates* (`to=9999-12-31` gave a 500) and a range of centuries
+    produced 10,000+ empty points. Bad dates are a 400, and the range is limited to the data
+    (first snapshot to today).
+  - *A stale MUF was shown as the present one* — `/api/solar` (J-MUF in the Solar panel) and
+    ⚡ HIGH MUF used the newest stored reading however old (16 hours in the test). A reading older
+    than 3 hours is now shown as —, the same rule the Analysis page already used
+    (`_latest_muf()`, shared by `/api/latest`, `/api/solar` and `/api/analysis`).
+  - *"& DX" and ⚡ HIGH MUF depended on other switches* — the Propagation card counted reporters
+    beyond 6000 km from the reporter list, which was only fetched with the Reporter List, Plot or
+    Histogram on, and took the MUF from the Solar panel. `/api/latest` now carries `dx6` and `muf`,
+    so both work with any layers.
+  - *The History Player skipped every poll that heard nobody* — 51 of 96 frames on 6 November; the
+    slider jumped over the night and the Solar panel had no night values. Such polls are now frames
+    with an empty reporter list (`replay_db.get_day_frames()`).
+  - *Reporter Plot put 4-character locators in the corner of their square* — the subsquare offset
+    was added to a square without a subsquare; they are now placed at the centre of the 2° × 1° square.
+  - *One wspr.live query fewer per poll* — the reporter countries were fetched with a separate
+    query for exactly the same stations as the reporter list; they are now worked out from the list
+    (`countries_of()` replaces `fetch_reporter_countries()`).
+  - The beacon's locator in map popups and WPRS tooltips goes through `escHtml()` like other
+    text from wspr.live.
+- **Analysis left out 42 ordinary stations (about 19 % of the reports)** — on 7 May 2025
+  (10:08–15:58 UTC, a season rebuilt from wspr.live) wspr.live delivered a distance of 0 for 98
+  reports. The outlier check took 0 km as a reported distance, found it contradicting the
+  stations' own locators and excluded those 42 European stations (DL7KST, G4FUI, HB9VQQ, …) from
+  the whole history: 581,947 of 3.09 million reports. `replay_db.get_reporter_pairs()` now leaves
+  distances of 0 out of the check, so only the three real contradictions remain excluded
+  (G8LZI/2, SM4HVP, SV1CDN, the same three as in the papers, whose `analyze.py` was not
+  affected). Effect on the page, whole history: average stations heard per snapshot 46.6 → 56.3,
+  snapshots 53,914 → 54,868; last 90 days 57.8 → 65.2.
+- **Reporter Countries window too wide after it was moved** — a moved window is restored with the
+  width saved together with its position, and older versions of the page saved a wider one
+  (before the right-hand column got its fixed width). A moved Reporter Countries window now always
+  has the width of the column, 238 px, the same as the Current Position and Propagation cards.
 
 ---
 

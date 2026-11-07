@@ -71,12 +71,14 @@ function maidenheadToLatLon(grid) {
         let lat = (g.charCodeAt(1) - 65) * 10 - 90;
         lon += (g.charCodeAt(2) - 48) * 2;
         lat += (g.charCodeAt(3) - 48) * 1;
-        if (g.length >= 6) {
-            lon += (g.charCodeAt(4) - 65) * (2.0 / 24.0);
-            lat += (g.charCodeAt(5) - 65) * (1.0 / 24.0);
+        if (g.length >= 6 && /^[A-X]{2}$/.test(g.slice(4, 6))) {
+            lon += (g.charCodeAt(4) - 65) * (2.0 / 24.0) + (2.0 / 24.0) / 2;     // centre of the subsquare
+            lat += (g.charCodeAt(5) - 65) * (1.0 / 24.0) + (1.0 / 24.0) / 2;
+        } else {
+            lon += 1.0;                                                        // centre of the 2° x 1° square
+            lat += 0.5;
         }
-        lon += (2.0 / 24.0) / 2;
-        lat += (1.0 / 24.0) / 2;
+        if (!(lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180)) return null;
         return [lat, lon];
     } catch(e) { return null; }
 }

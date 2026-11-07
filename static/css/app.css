@@ -819,6 +819,9 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
 .drag-handle { pointer-events: auto; cursor: grab; user-select: none; touch-action: none; }
 body.panel-dragging, body.panel-dragging .drag-handle { cursor: grabbing; user-select: none; }
 .pinned { position: absolute; z-index: 500; transition: none !important; }
+/* A moved Reporter Countries window keeps the width of the right-hand column (Current Position /
+   Propagation), whatever width an older version of the page saved with its position. */
+.map-overlay.pinned { width: 238px !important; }
 .panel-reset { cursor: pointer; font-size: 11px; color: var(--text-muted); }
 .panel-reset:hover { color: var(--accent); }
 
@@ -902,6 +905,8 @@ body.panel-dragging, body.panel-dragging .drag-handle { cursor: grabbing; user-s
 .an-card-sub { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4; }
 .an-chart { position: relative; height: 240px; }
 .an-head-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.iono-ctl { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.iono-sel { display: flex; align-items: center; gap: 6px; }
 .an-legend { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); margin-top: 6px; }
 .an-legend-bar {
     width: 160px; height: 8px; border-radius: 4px;

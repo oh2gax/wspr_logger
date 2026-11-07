@@ -11,6 +11,10 @@ async function fetchLatest() {
         const data = await r.json();
         if (_replayActive) return;   // replay owns the panels until the user leaves it
 
+        // Used by the Propagation card whatever layers are on (before, "& DX" needed a reporter layer
+        // and HIGH MUF the Solar panel, because only those fetched the data).
+        _liveDx6   = data.dx6 || 0;
+        _latestMuf = data.muf || 0;
         if (data.spot) {
             latestSpot = data.spot;
             updateLiveDisplay(data.spot);
@@ -78,8 +82,8 @@ function updateLiveDisplay(spot) {
     document.getElementById('ovBand').style.color      = staleColor;
 
     // Beacon marker
-    const popup = `<strong>${CALLSIGN}</strong><br>
-        Locator: ${tx_loc}<br>
+    const popup = `<strong>${escHtml(CALLSIGN)}</strong><br>
+        Locator: ${escHtml(tx_loc)}<br>
         Time: ${timestamp}<br>
         Reporters: ${reporter_count}<br>
         Max DX: ${max_distance} km`;
@@ -196,7 +200,8 @@ function updatePropagation(reporter_count, stale = false, wspr_down = false) {
     const c = getPropCondition(n);
 
     // Append "& DX" at any level when 2 or more reporters are beyond 6000 km
-    const dxCount = _reporterListData.filter(r => r.distance > 6000).length;
+    // (live: counted by the server; replay: from the replayed reporter list)
+    const dxCount = _replayActive ? _reporterListData.filter(r => r.distance > 6000).length : _liveDx6;
     const hasDX   = dxCount >= 2;
 
     el.innerHTML = hasDX

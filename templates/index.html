@@ -486,7 +486,38 @@
                     <div class="an-gl-grid" id="anGlBody"></div>
                     <div class="an-card-sub" id="anGlNote" style="margin:10px 0 0;"></div>
                 </div>
-                <div class="an-card">
+                <div class="an-card wide">
+                    <div class="an-head-row">
+                        <div style="flex:1;min-width:260px;">
+                            <div class="an-card-title">Ionosonde view &mdash; Juliusruh MUF and foF2 vs. reporters</div>
+                            <div class="an-card-sub" id="anIonoSub">Bars: stations heard. Lines: MUF (D=3000 km) and foF2 in MHz measured at Juliusruh.</div>
+                        </div>
+                        <div class="iono-ctl">
+                            <div class="muf-period-btns">
+                                <button class="muf-period-btn active" id="ioDay"  onclick="setIonoMode('day')" title="One day, every snapshot">Day</button>
+                                <button class="muf-period-btn" id="io30"  onclick="setIonoMode(30)"  title="Last 30 days">30 d</button>
+                                <button class="muf-period-btn" id="io90"  onclick="setIonoMode(90)"  title="Last 90 days">90 d</button>
+                                <button class="muf-period-btn" id="io180" onclick="setIonoMode(180)" title="Last 6 months">6 m</button>
+                                <button class="muf-period-btn" id="io365" onclick="setIonoMode(365)" title="Last year">1 yr</button>
+                                <button class="muf-period-btn" id="io0"   onclick="setIonoMode(0)"   title="The whole history">All</button>
+                                <button class="muf-period-btn" id="ioCustom" onclick="setIonoMode('custom')" title="Choose the first and the last day">Custom</button>
+                            </div>
+                            <div class="iono-sel" id="anIonoDayCtl">
+                                <span class="quick-btn" onclick="shiftIonoDay(-1)" title="Previous day">&#9664;</span>
+                                <input type="date" class="replay-input" id="anIonoDate" onchange="loadIonoDay(this.value)">
+                                <span class="quick-btn" onclick="shiftIonoDay(1)" title="Next day">&#9654;</span>
+                            </div>
+                            <div class="iono-sel" id="anIonoRangeCtl" style="display:none;">
+                                <input type="date" class="replay-input" id="anIonoFrom" onchange="loadIonoCustom()" title="First day">
+                                <span style="color:var(--text-muted);font-size:11px;">to</span>
+                                <input type="date" class="replay-input" id="anIonoTo" onchange="loadIonoCustom()" title="Last day">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="an-chart" style="height:280px;"><canvas id="anIono"></canvas></div>
+                    <div class="an-empty" id="anIonoEmpty" style="display:none;padding:12px 0;">No snapshots in this period.</div>
+                </div>
+                <div class="an-card wide">
                     <div class="an-card-title" id="anRecTitle">Farthest reporters</div>
                     <div class="an-card-sub">One row per station (its longest distance in the period). &#9654; opens that moment in the History Player.</div>
                     <div style="max-height:300px;overflow:auto;">
@@ -494,21 +525,6 @@
                         <tbody id="anRecBody"></tbody></table>
                     </div>
                     <div class="an-card-sub" id="anExcluded" style="margin:8px 0 0;"></div>
-                </div>
-                <div class="an-card wide">
-                    <div class="an-head-row">
-                        <div>
-                            <div class="an-card-title">Ionosonde day view &mdash; Juliusruh MUF and foF2 vs. reporters</div>
-                            <div class="an-card-sub">Bars: stations heard. Lines: MUF (D=3000 km) and foF2 in MHz measured at Juliusruh. foF2 is only available for days after the Juliusruh monitor page became the source (a few weeks of history will build up).</div>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <span class="quick-btn" onclick="shiftIonoDay(-1)" title="Previous day">&#9664;</span>
-                            <input type="date" class="replay-input" id="anIonoDate" onchange="loadIonoDay(this.value)">
-                            <span class="quick-btn" onclick="shiftIonoDay(1)" title="Next day">&#9654;</span>
-                        </div>
-                    </div>
-                    <div class="an-chart" style="height:280px;"><canvas id="anIono"></canvas></div>
-                    <div class="an-empty" id="anIonoEmpty" style="display:none;padding:12px 0;">No snapshots for this date.</div>
                 </div>
             </div>
             <div class="an-note">
