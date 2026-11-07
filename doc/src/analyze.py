@@ -22,7 +22,6 @@ import re
 import json
 import math
 import os
-import statistics as st
 import sqlite3
 import sys
 

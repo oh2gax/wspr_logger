@@ -723,7 +723,7 @@
 
   // ══ History ═════════════════════════════════════════════════════════════
   const HO = lsJson('wspr_app_hist', { map: true, chart: true });
-  const HD = { date: today(), stats: null, spots: [] };
+  const HD = { date: today(), stats: null, spots: [], seq: 0 };
   let hmap = null, hmLayer = null;
   function initHistMap() {
     if (hmap) return;
@@ -737,13 +737,15 @@
     $('m-hd-next').disabled = HD.date >= today();
     $('app-sub').textContent = niceDay(HD.date, 'long');
     $('m-hd-title').textContent = niceDay(HD.date, 'long');
+    const seq = ++HD.seq, date = HD.date;
     try {
       const [st, pos] = await Promise.all([
-        getJson(`/api/stats?date=${HD.date}&band=${currentBand}`),
-        getJson(`/api/positions?date=${HD.date}&band=${currentBand}`),
+        getJson(`/api/stats?date=${date}&band=${currentBand}`),
+        getJson(`/api/positions?date=${date}&band=${currentBand}`),
       ]);
+      if (seq !== HD.seq) return;                // a later date was chosen meanwhile
       HD.stats = st.stats || {}; HD.spots = Array.isArray(pos) ? pos : [];
-    } catch (_) { showToast('Failed to load history', 'err'); return; }
+    } catch (_) { if (seq === HD.seq) showToast('Failed to load history', 'err'); return; }
     if (view === 'hist') drawHist(true);
   }
   function drawHist(fit) {

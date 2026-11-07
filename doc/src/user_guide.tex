@@ -37,7 +37,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\small\itshape WSPR Logger --- how to read and use the web page}
-\fancyhead[R]{\small\itshape User guide, version 1.0 --- November 2026}
+\fancyhead[R]{\small\itshape User guide, version 1.1 --- November 2026}
 \fancyfoot[C]{\small\thepage}
 \renewcommand{\headrulewidth}{0.3pt}
 \hypersetup{pdftitle={WSPR Logger - User guide},pdfauthor={Otso Laakso, OH2GAX}}
@@ -62,7 +62,7 @@
 \begin{document}
 \thispagestyle{plain}
 \begin{center}
-{\small WSPR Logger project \quad$\cdot$\quad User guide, version 1.0 \quad$\cdot$\quad 7 November 2026}\par\vspace{10pt}
+{\small WSPR Logger project \quad$\cdot$\quad User guide, version 1.1 \quad$\cdot$\quad 7 November 2026}\par\vspace{10pt}
 {\LARGE\bfseries WSPR Logger}\par\vspace{5pt}
 {\large\bfseries How to read and use the web page:\\ the live map, history, statistics, propagation analysis and the car's track}\par\vspace{8pt}
 {\normalsize Otso Laakso (OH2GAX)}\par
@@ -440,7 +440,7 @@ Where was the car on a day? & WPRS, History & track, squares and trips \\\bottom
 \item \textbf{Space weather is a feed.} The solar indices come from hamqsl.com and are only as fresh as their source; a K value is a three-hour value.
 \item \textbf{Associations, not causes.} The charts show what happened together. The index method removes the daily rhythm but not, for example, the season.
 \item \textbf{Small samples.} Groups with few snapshots are noisy; hover for the count. The Analysis page leaves out groups with fewer than 15 snapshots and days with fewer than 36 daytime snapshots.
-\item \textbf{Implausible reports.} The Analysis page leaves out stations whose distance contradicts their locator. The History and Statistics pages and the all-time records do not yet do this, so the all-time Best DX there can come from such a report (in November 2026 it showed 17\,038\,km from SM4HVP, whose locator is 538\,km away).
+\item \textbf{Implausible reports.} The Analysis page leaves out stations whose distance contradicts their locator (\emph{Excluded reports}). Everywhere else, a transmission whose farthest station was such a report shows its best distance as unknown (---), and it counts neither for the day's best nor for the all-time record. Until 7 November 2026 the all-time Best DX showed 17\,038\,km from SM4HVP, whose locator is only 538\,km away; the record is now 15\,619\,km.
 \item \textbf{Position.} The WPRS track has the resolution of a subsquare (about 5\,km) and gaps when nobody hears the car.
 \end{itemize}
 
@@ -472,5 +472,5 @@ Links & \texttt{\#history=DATE}, \texttt{\#stats=DATE}, \texttt{\#analysis}, \te
 \lead{More to read.} The \ui{Guides} tab also holds two papers written from this station's data: \emph{Twenty-metre WSPR propagation study} (three seasons in detail, with the methods behind the Analysis page) and \emph{WPRS --- Whisper Position Reporting System} (position beaconing with WSPR), with its two-page summary. The program and its documentation are at \url{https://github.com/oh2gax/wspr_logger}.
 
 \vfill
-{\small\textbf{Version history.}\quad 1.0, 7 November 2026: first version.}
+{\small\textbf{Version history.}\quad 1.0, 7 November 2026: first version. \quad 1.1, 7 November 2026: the Analysis periods 7\,d and 14\,d and the opening at 14 days; implausible reports left out of the records too; country names from the locator; new screenshots of the live map, Statistics and the info window.}
 \end{document}

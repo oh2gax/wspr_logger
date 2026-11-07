@@ -330,6 +330,20 @@ def get_reporter_pairs(band: int = 14) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def get_pair_distances(pairs, band: int = 14) -> dict:
+    """{(callsign, grid): [distinct reported distances > 0]} for the given (callsign, grid) pairs."""
+    pairs = list(pairs)
+    if not _enabled or not pairs:
+        return {}
+    out: dict = {}
+    with _connect() as conn:
+        for call, grid in pairs:
+            out[(call, grid)] = [r[0] for r in conn.execute(
+                "SELECT DISTINCT distance FROM reporters_log WHERE band = ? AND callsign = ? AND grid = ? AND distance > 0",
+                (band, call, grid))]
+    return out
+
+
 def get_dx_reports(days: int = 90, band: int = 14, exclude=None, min_km: int = 6000) -> list[tuple]:
     """One row per (UTC day, hour, callsign, grid) with a report beyond min_km:
     (day, hour, callsign, grid, farthest distance).  days = 0 -> all."""

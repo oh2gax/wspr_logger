@@ -25,8 +25,6 @@ def dbfile(name):
 
 
 OUT = os.path.join(HERE, "out")
-sys.path.insert(0, REPO)
-import wspr_logger as w
 
 DATA = sqlite3.connect(f"file:{dbfile('wspr_data.db')}?mode=ro&immutable=1", uri=True)
 REPLAY = sqlite3.connect(f"file:{dbfile('wspr_replay.db')}?mode=ro&immutable=1", uri=True)

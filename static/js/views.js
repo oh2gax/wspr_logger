@@ -108,13 +108,18 @@ function setHistDate(offset) {
     document.getElementById('histDate').value = d.toISOString().split('T')[0];
 }
 
+// A slower answer for an earlier date must not replace the date chosen last (stepping quickly through days).
+let _histSeq = 0, _statsSeq = 0;
+
 async function loadHistory() {
     const date = document.getElementById('histDate').value;
     if (!date) return;
     setHash('history=' + date);
+    const seq = ++_histSeq;
     try {
         const r     = await fetch(`/api/positions?date=${date}&band=${currentBand}`);
         const spots = await r.json();
+        if (seq !== _histSeq) return;
         renderHistTable(spots);
         renderHistMap(spots);
     } catch(e) { showToast('Failed to load history', 'err'); }
@@ -200,12 +205,14 @@ async function loadStats() {
     const date = document.getElementById('statsDate').value;
     if (!date) return;
     setHash('stats=' + date);
+    const seq = ++_statsSeq;
     try {
         const [data, pos, daily] = await Promise.all([
             fetch(`/api/stats?date=${date}&band=${currentBand}`).then(r => r.json()),
             fetch(`/api/positions?date=${date}&band=${currentBand}`).then(r => r.json()),
             fetch(`/api/daily_summary?band=${currentBand}`).then(r => r.json()),
         ]);
+        if (seq !== _statsSeq) return;
         const s  = data.stats || {};
         const at = data.all_time || {};
         _stDay   = Array.isArray(pos) ? pos : [];

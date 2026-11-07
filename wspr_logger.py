@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 
 from flask import Flask, Response, abort, jsonify, make_response, render_template, request, send_from_directory
 
-from core import analysis, analysis_more, changelog, db, greyline, guides, outlook, replay_db, wprs
+from core import analysis, analysis_more, changelog, db, greyline, grid_country, guides, outlook, replay_db, wprs
 
 try:
     from api_keys import CARTO_API_KEY
@@ -320,6 +320,14 @@ _COUNTRY_MAP = {
     'TZ':'Mali',     '5N':'Nigeria',  '5O':'Guinea',
     '6W':'Senegal',  'TL':'C. African Rep.',
     'TR':'Gabon',    'TJ':'Cameroon', '9Q':'DR Congo',
+    # ── added 2026-11-07: ITU prefixes that were missing (seen in the replay history) ──
+    'EU':'Belarus',   'EV':'Belarus',   'HF':'Poland',    'YT':'Serbia',
+    '5P':'Denmark',   '5Q':'Denmark',   '9H':'Malta',     'JW':'Svalbard',  'JX':'Jan Mayen',
+    'BD':'China',     'BZ':'China',     'BW':'Taiwan',    'BX':'Taiwan',
+    'AH':'USA',       'AJ':'USA',       'UU':'Ukraine',   'UV':'Ukraine',   'UW':'Ukraine',
+    'UO':'Kazakhstan','DE':'Germany',   'DI':'Germany',
+    'SB':'Sweden',    'SC':'Sweden',    'SD':'Sweden',    'SE':'Sweden',    'SF':'Sweden',
+    'SG':'Sweden',    'SH':'Sweden',    'SI':'Sweden',
 }
 
 
@@ -416,6 +424,7 @@ _COUNTRY_ZONE = {
     'Venezuela':'s_america',
     # Europe
     'Finland':'europe',      'Sweden':'europe',        'Norway':'europe',
+    'Malta':'europe',        'Svalbard':'europe',      'Jan Mayen':'europe',
     'Denmark':'europe',      'Faroe Is.':'europe',     'Iceland':'europe',
     'Greenland':'n_america',
     'UK':'europe',           'Scotland':'europe',      'Wales':'europe',
@@ -481,28 +490,50 @@ _REGION_ZONE = {
     'Europe':'europe',       'Africa':'africa',         'Asia':'asia',
 }
 
-def callsign_to_country(sign: str, grid: str = "") -> str:
-    """Return a country/region name for a given callsign.
+# Countries of the prefix table that the locator table (core/grid_country.py) counts as part of another
+_GRID_SAME = {"Scotland": "UK", "Wales": "UK", "N. Ireland": "UK", "Ceuta/Melilla": "Spain",
+              "Svalbard": "Norway", "Jan Mayen": "Norway"}
 
-    Non-standard callsigns (those containing no digit), known placeholder
-    callsigns, and callsigns whose prefix country is geographically
-    incompatible with their grid locator all fall back to grid-based lookup.
+
+def _grid_place(grid: str):
+    """The country of a locator (core/grid_country.py), or the coarse region when it is at sea; None
+    without a usable locator."""
+    country = grid_country.country_of(grid)
+    if country:
+        return country
+    lat, lon = _grid_to_latlon(grid)
+    return _latlon_to_region(lat, lon) if lat is not None else None
+
+
+def callsign_to_country(sign: str, grid: str = "") -> str:
+    """Return a country (or, at sea, a region) for a reporter's callsign and locator.
+
+    The prefix gives the country when its country reaches into the reporter's 4-character locator
+    square (so Scotland, the Canary Islands or a station near a border keep their own name).  The
+    locator gives it (core/grid_country.py, Natural Earth borders, to the 6-character subsquare along
+    borders) when the callsign cannot tell: no digit (SWL names such as WESSEX), a placeholder (N0CALL),
+    an unknown prefix (CB numbers such as 14CA5740) or a prefix whose country is not at the locator (a
+    station abroad, an SDR named after its locator).  For a locator at sea the old continent check and
+    the coarse region are used.  Revised 2026-11-07: before, these cases showed a region ("W. Europe",
+    "N. Africa" for Greece) or the first two characters ("14", "HF").
     """
     base = sign.upper().strip().split('/')[0]   # strip /P /M suffixes
     # Validate: real amateur callsigns always contain at least one digit,
     # and must not be a known placeholder.
     if not any(c.isdigit() for c in base) or base in _FAKE_CALLSIGNS:
-        lat, lon = _grid_to_latlon(grid)
-        if lat is not None:
-            return _latlon_to_region(lat, lon)
-        return "Special Station"
+        return _grid_place(grid) or "Special Station"
     for length in (3, 2, 1):
         if len(base) >= length:
             country = _COUNTRY_MAP.get(base[:length])
             if country:
-                # Cross-check: verify the country zone matches the grid zone.
-                # Skip check when either zone is undefined (large/spanning countries).
                 if grid:
+                    here = grid_country.countries_of(grid)
+                    if here:                    # the locator is on land: does the prefix fit it?
+                        if _GRID_SAME.get(country, country) in here:
+                            return country
+                        return grid_country.country_of(grid)
+                    # At sea (or a short locator): the continent check — trust the grid on a mismatch.
+                    # Skipped when either zone is undefined (large/spanning countries).
                     lat, lon = _grid_to_latlon(grid)
                     if lat is not None:
                         grid_region  = _latlon_to_region(lat, lon)
@@ -512,7 +543,8 @@ def callsign_to_country(sign: str, grid: str = "") -> str:
                                 and grid_zone != country_zone):
                             return grid_region  # mismatch — trust the grid
                 return country
-    return base[:2] if len(base) >= 2 else base  # fallback: show prefix
+    # an unknown prefix (CB and listener numbers, unallocated prefixes): the locator, else the prefix
+    return _grid_place(grid) or (base[:2] if len(base) >= 2 else base)
 
 
 def countries_of(reporters: list) -> list:
@@ -1015,7 +1047,7 @@ def api_latest():
             "lon":            spot["lon"],
             "band":           spot["band"],
             "reporter_count": spot["reporter_count"],
-            "max_distance":   spot["max_distance"],
+            "max_distance":   _clean_dx([spot], band)[0]["max_distance"],
         }
     return jsonify({"spot": spot_out, "countries": countries, "wspr_down": wspr_down,
                     "dx6": dx6, "muf": _latest_muf()})
@@ -1041,7 +1073,7 @@ def api_positions():
         rows = db.get_spots_by_date(date_str, band)
     else:
         rows = db.get_spots_by_date(datetime.utcnow().strftime("%Y-%m-%d"), band)
-    return jsonify(rows)
+    return jsonify(_clean_dx(rows, band))
 
 
 @app.route('/api/reporters')
@@ -1150,7 +1182,7 @@ def api_whatsnew():
 def api_wprs_days():
     """Home square and one movement summary per logged UTC day (newest first)."""
     band = _band_arg()
-    spots = db.get_all_spots(band)
+    spots = _clean_dx(db.get_all_spots(band), band)
     home = wprs.home_of(spots)
     return jsonify({"home": home, "days": wprs.summarize_days(spots, home), "trips": wprs.build_trips(spots, home)})
 
@@ -1169,7 +1201,7 @@ def api_wprs_track():
     if b < a or (b - a).days > 6:
         return jsonify({"error": "range must be 1 to 7 days"}), 400
     home = wprs.home_of(db.get_all_spots(band))
-    rows = db.get_spots_range(a.strftime("%Y-%m-%d 00:00:00"), b.strftime("%Y-%m-%d 23:59:59"), band)
+    rows = _clean_dx(db.get_spots_range(a.strftime("%Y-%m-%d 00:00:00"), b.strftime("%Y-%m-%d 23:59:59"), band), band)
     return jsonify(wprs.build_track(rows, home))
 
 
@@ -1259,6 +1291,36 @@ def _scan_outliers(band: int) -> list:
                 out.append({"callsign": p["callsign"], "grid": grid, "reports": p["n"],
                             "reported_km": p["dmax"] if d_far else p["dmin"], "grid_km": round(gd)})
     return out
+
+
+_suspect_cache: dict = {}           # band -> (monotonic time, frozenset of km)
+
+
+def suspect_dx(band: int) -> frozenset:
+    """The distances (km) that the implausible reporters (find_outliers) reported beyond what their own
+    grid allows.  A logged transmission whose farthest distance is one of these took it from such a
+    report: e.g. SM4HVP with a stale locator, 17 038 km reported, 538 km by its grid, which made a
+    false all-time Best DX.  Such a farthest distance is shown as unknown (0) and left out of every
+    record and daily best (/api/stats, /api/daily_summary, /api/positions, /api/latest, WPRS).
+    The databases are not changed.  Cached for an hour, as the outlier scan."""
+    return _cached(_suspect_cache, band, _OUTLIER_TTL, lambda: _scan_suspect_dx(band))
+
+
+def _scan_suspect_dx(band: int) -> frozenset:
+    outs = find_outliers(band)
+    dists = replay_db.get_pair_distances([(o["callsign"], o["grid"]) for o in outs], band)
+    vals = set()
+    for o in outs:
+        vals.update(int(d) for d in dists.get((o["callsign"], o["grid"]), []) if d - o["grid_km"] > OUTLIER_TOL_KM)
+    return frozenset(vals)
+
+
+def _clean_dx(spots: list, band: int) -> list:
+    """The spots with a farthest distance taken from an implausible report set to 0 (unknown)."""
+    sus = suspect_dx(band)
+    if not sus:
+        return spots
+    return [dict(s, max_distance=0) if s.get("max_distance") in sus else s for s in spots]
 
 
 def _outlier_keys(outliers: list) -> set:
@@ -1504,10 +1566,11 @@ def api_stats():
     """Daily statistics (spot count, max DX, max reporters)."""
     date_str = request.args.get('date', datetime.utcnow().strftime("%Y-%m-%d"))
     band     = _band_arg()
-    stats    = db.get_stats_by_date(date_str, band)
+    sus      = suspect_dx(band)            # farthest distances from implausible reports are left out
+    stats    = db.get_stats_by_date(date_str, band, exclude_dx=sus)
     return jsonify({
         "stats":           stats,
-        "all_time":        db.get_all_time_stats(),
+        "all_time":        db.get_all_time_stats(exclude_dx=sus),
         "available_dates": db.get_available_dates(band),
     })
 
@@ -1516,7 +1579,7 @@ def api_stats():
 def api_daily_summary():
     """Per-day totals (spots, best DX, max reporters) for the Statistics charts."""
     band = _band_arg()
-    return jsonify(db.get_daily_summary(band))
+    return jsonify(db.get_daily_summary(band, exclude_dx=suspect_dx(band)))
 
 
 # ---------------------------------------------------------------------------
@@ -1545,6 +1608,7 @@ def _warm_analysis() -> None:
         return
     try:
         t0 = time.monotonic()
+        suspect_dx(DEFAULT_BAND)            # (and the outlier scan) recomputed here when an hour old, not in a visitor's request
         outlook_state(DEFAULT_BAND, force=True)
         done, keys = [], {(d, None) for d in _WARM_DAYS}
         for start in _WARM_DAYS:

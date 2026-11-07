@@ -35,7 +35,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **Collapsible sidebar** — the ◀ button hides the menu completely for a full-screen map view (handy on mobile); a large ▶ handle on the left edge of the page brings it back
 - **Config-file driven** — all settings managed in `config.ini`; no settings UI exposed to the browser
 - **SQLite storage** — one database file, WAL mode, indexed for fast date-range queries; separate table for MUF history
-- **Expanded callsign→country mapping** — 350+ prefix entries covering all of Europe (including full Balkans: 9A, S5, YU, E7, Z3, 4O, ZA, Z6), complete German D* series, UK Foundation/Intermediate calls (2E/2M/2W/2I), French TM special events, Caucasus, Central Asia, and more; raw prefix shown as fallback for truly unknown callsigns; non-standard station identifiers that contain no digit (e.g. monitoring beacons such as WESSEX) are automatically identified by their grid locator instead of the callsign prefix, preventing misclassification
+- **Expanded callsign→country mapping** — 350+ prefix entries covering all of Europe (including full Balkans: 9A, S5, YU, E7, Z3, 4O, ZA, Z6), complete German D* series, UK Foundation/Intermediate calls (2E/2M/2W/2I), French TM special events, Caucasus, Central Asia, and more; raw prefix shown as fallback for truly unknown callsigns; non-standard station identifiers that contain no digit (e.g. monitoring beacons such as WESSEX) are automatically identified by their grid locator instead of the callsign prefix, preventing misclassification Since 2026-11-07 the reporter's locator decides when the callsign cannot: a table of every 4-character Maidenhead square and its countries (`core/grid_country.py`, from the Natural Earth 1:50m borders, to the 6-character subsquare along borders) names SWL and CB identifiers, unknown prefixes and stations whose prefix does not fit their locator; the prefix keeps its own name (Scotland, Canary Is. …) whenever its country is at the locator
 
 ---
 
@@ -78,7 +78,7 @@ No other Python packages are required. The frontend loads Leaflet.js and Chart.j
 ### 1 — Clone or copy the files
 
 ```bash
-git clone https://github.com/your-username/wspr_logger.git
+git clone https://github.com/oh2gax/wspr_logger.git
 cd wspr_logger
 ```
 
@@ -351,6 +351,9 @@ sudo ufw allow 5008/tcp
 | Element | Description |
 |---------|-------------|
 | **◀ button** (top right of the menu) | Hide the menu completely to give the map the whole window; the **▶ handle** that then appears on the left edge of the page opens it again |
+| **🌓 / 🌙 / ☀️ Theme button** (top of the menu, beside the ◀ button) | Cycles Auto (follow the system), Dark and Light; saved across sessions and shared with the phone app |
+| **✨ What's new** (under the title) | Opens the What's new / User guides / About window; the version label shows *NEW* until the current notes are opened |
+| **📱 Phone app** (under What's new) | Opens the phone view `/app` (see [Phone app](#phone-app-app)) |
 | **Status dot** | Green = live data (< 20 min old) · Amber = stale · Red = no recent data |
 | **Locator** | Current 6-character Maidenhead grid square; turns red when last spot is older than 1 hour |
 | **Latitude / Longitude** | Decimal coordinates derived from the locator |
@@ -369,7 +372,6 @@ sudo ufw allow 5008/tcp
 | **1h / Today tabs** | Switch the mini-stats cards between the full UTC day (default) and the last 60 minutes |
 
 *The Map Layers switches above and the 1h / Today tab, MUF period, histogram tab and reporter-list sort are remembered per browser (stored in `localStorage` under `wspr_layers`). Each browser or device keeps its own settings; clearing the site data resets them to the defaults (only Position Trail and Last Fix Label on).*
-| **🌓 / 🌙 / ☀️ Theme button** (top of the sidebar, beside the collapse arrow) | Cycles Auto (follow the system), Dark and Light; saved across sessions. Hidden while the sidebar is collapsed |
 
 ### Live Map
 
@@ -545,8 +547,10 @@ wspr_logger/
 │   ├── wprs.py             — drive detector, trips and track building for the WPRS page
 │   ├── sun.py              — solar elevation and sunrise / sunset
 │   ├── greyline.py         — grey-line test for the Analysis page
-│   └── outlook.py          — DX outlook model and its back-test
+│   ├── outlook.py          — DX outlook model and its back-test
+│   └── grid_country.py     — the countries of every 4-character locator square (generated, do not edit)
 ├── tools/backfill.py       — fills the replay database from wspr.live history
+├── tools/make_grid_country.py — builds core/grid_country.py from the Natural Earth borders (needs shapely; run once)
 ├── requirements.txt        — Python dependencies (flask)
 ├── update.sh               — server update: pull from GitHub, back up databases, restart, verify
 ├── data/                   — the SQLite databases; gitignored, created automatically
@@ -590,12 +594,12 @@ The `band` parameter accepts the WSPR bands (3, 7, 10, 14, 18, 21, 24, 28) and t
 | Endpoint | Method | Parameters | Description |
 |----------|--------|------------|-------------|
 | `/api/latest` | GET | `band` | Most recent spot, cached reporter countries, `wspr_down` (wspr.live unreachable), `dx6` (current reporters beyond 6000 km, for *& DX*) and `muf` (latest Juliusruh MUF, `null` when older than 3 hours) |
-| `/api/positions` | GET | `date`, or `from`+`to`, `band` | List of spots for a date or time range |
-| `/api/stats` | GET | `date`, `band` | Aggregated stats for a date, all-time records and the list of logged dates |
+| `/api/positions` | GET | `date`, or `from`+`to`, `band` | List of spots for a date or time range (a farthest distance taken from an implausible report is given as 0 = unknown) |
+| `/api/stats` | GET | `date`, `band` | Aggregated stats for a date, all-time records and the list of logged dates; the best DX leaves out distances from implausible reports (`suspect_dx`) |
 | `/api/analysis` | GET | `days` (0 = all, default 90; rounded up to 7, 14, 30, 90, 180 or 365), `band` | Heatmap, typical-day profile, MUF / K / SFI bins, storm days, excluded reports, grey-line test and DX outlook computed from the replay database; cached 10 min |
 | `/api/analysis/more` | GET | `days` (as `/api/analysis`), `band` | The second set of Analysis cards: `geo` (stations and reports per distance ring and 22.5° sector), `dist`, `open` (opening / closing per day with sunrise and sunset), `seasons`, `monthly`, `snr` (by hour and by 1000 km), `unusual` (best / worst days) and `loyal`; cached 10 min (whole-history inputs 1 h) |
 | `/api/iono` | GET | `from`+`to` (YYYY-MM-DD, both included) or `days` (as `/api/analysis`; 0 = all), `band` | Stations heard, Juliusruh MUF and foF2 for the Ionosonde view: single snapshots for one day, longer periods averaged over buckets of 1 h to 1 week (at most 500 points, empty buckets included); cached 10 min |
-| `/api/daily_summary` | GET | `band` | Per-day totals (transmissions, best DX, max reporters) for the Statistics chart |
+| `/api/daily_summary` | GET | `band` | Per-day totals (transmissions, best DX, max reporters) for the Statistics chart; best DX as in `/api/stats` |
 | `/api/whatsnew` | GET | — | Version label and the latest releases parsed from `doc/whats_new.md` |
 | `/api/wprs/days` | GET | `band` | Home square, one movement summary per logged UTC day (squares, moved, path, distance from home) and the trips |
 | `/api/wprs/track` | GET | `from`, `to` (YYYY-MM-DD, up to 7 days), `band` | Fixes, visited squares and statistics for those days |

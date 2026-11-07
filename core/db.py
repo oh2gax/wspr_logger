@@ -169,30 +169,29 @@ def get_all_spots(band: int = None) -> list[dict]:
         return [dict(r) for r in rows]
 
 
-def get_stats_by_date(date_str: str, band: int = None) -> dict | None:
+def _max_dx(exclude_dx) -> tuple[str, list]:
+    """SQL for the largest max_distance, leaving out the distances in exclude_dx (the inflated
+    distances of implausible reporters, see wspr_logger.suspect_dx): (expression, its arguments)."""
+    vals = sorted(int(v) for v in (exclude_dx or ()))
+    if not vals:
+        return "MAX(max_distance)", []
+    return f"MAX(CASE WHEN max_distance IN ({','.join('?' * len(vals))}) THEN 0 ELSE max_distance END)", vals
+
+
+def get_stats_by_date(date_str: str, band: int = None, exclude_dx=()) -> dict | None:
+    dx, dx_args = _max_dx(exclude_dx)
+    where, args = ("date(timestamp) = ? AND band = ?", [date_str, band]) if band else ("date(timestamp) = ?", [date_str])
     with _connect() as conn:
-        if band:
-            row = conn.execute("""
-                SELECT
-                    COUNT(*)        AS spot_count,
-                    MAX(reporter_count) AS max_reporters,
-                    MAX(max_distance)   AS max_distance,
-                    MIN(timestamp)      AS first_spot,
-                    MAX(timestamp)      AS last_spot
-                FROM spots
-                WHERE date(timestamp) = ? AND band = ?
-            """, (date_str, band)).fetchone()
-        else:
-            row = conn.execute("""
-                SELECT
-                    COUNT(*)        AS spot_count,
-                    MAX(reporter_count) AS max_reporters,
-                    MAX(max_distance)   AS max_distance,
-                    MIN(timestamp)      AS first_spot,
-                    MAX(timestamp)      AS last_spot
-                FROM spots
-                WHERE date(timestamp) = ?
-            """, (date_str,)).fetchone()
+        row = conn.execute(f"""
+            SELECT
+                COUNT(*)            AS spot_count,
+                MAX(reporter_count) AS max_reporters,
+                {dx}                AS max_distance,
+                MIN(timestamp)      AS first_spot,
+                MAX(timestamp)      AS last_spot
+            FROM spots
+            WHERE {where}
+        """, dx_args + args).fetchone()
         return dict(row) if row else None
 
 
@@ -259,36 +258,35 @@ def get_spots_last_24h(band: int = None, days: int = 1) -> list[dict]:
         return [dict(r) for r in rows]
 
 
-def get_all_time_stats() -> dict:
+def get_all_time_stats(exclude_dx=()) -> dict:
+    dx, dx_args = _max_dx(exclude_dx)
     with _connect() as conn:
-        row = conn.execute("""
+        row = conn.execute(f"""
             SELECT
                 COUNT(*)            AS total_spots,
                 MAX(reporter_count) AS best_reporters,
-                MAX(max_distance)   AS best_dx,
+                {dx}                AS best_dx,
                 MIN(timestamp)      AS first_ever,
                 MAX(timestamp)      AS last_ever,
                 COUNT(DISTINCT date(timestamp)) AS active_days
             FROM spots
-        """).fetchone()
+        """, dx_args).fetchone()
         return dict(row) if row else {}
 
 
-def get_daily_summary(band: int = None) -> list[dict]:
+def get_daily_summary(band: int = None, exclude_dx=()) -> list[dict]:
     """One row per UTC day (oldest first): date, spots, max_dx, max_reporters."""
+    dx, dx_args = _max_dx(exclude_dx)
+    where, args = ("WHERE band = ?", [band]) if band else ("", [])
     with _connect() as conn:
-        sql = """
+        rows = conn.execute(f"""
             SELECT date(timestamp) AS date,
                    COUNT(*)            AS spots,
-                   MAX(max_distance)   AS max_dx,
+                   {dx}                AS max_dx,
                    MAX(reporter_count) AS max_reporters
             FROM spots
             {where}
             GROUP BY date(timestamp)
             ORDER BY date(timestamp)
-        """
-        if band:
-            rows = conn.execute(sql.format(where="WHERE band = ?"), (band,)).fetchall()
-        else:
-            rows = conn.execute(sql.format(where="")).fetchall()
+        """, dx_args + args).fetchall()
         return [dict(r) for r in rows]
