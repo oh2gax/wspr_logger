@@ -487,7 +487,7 @@ Choose `--from` so that it does not reach back to a time when the callsign was s
 | **Analysis** | The full page's Propagation Analysis: the same markup (`templates/_analysis_body.html`) and scripts (`analysis.js`, `analysis-more.js`), in one column |
 | **WPRS** | Days and trips, the track on a map with a fix slider and a *Replay* button |
 
-Only the shown view is refreshed and nothing while the app is in the background. Back on the page after more than an hour, or when `/api/app/build` reports a newer build (a deploy), it reloads itself; the view and all options are kept in `localStorage` (`wspr_app_*`). It can be added to the home screen (`/app/manifest.webmanifest`, icons in `static/icons/`).
+The phone's Back works as in an app: it closes the menu or a sheet, otherwise it returns to the previous view (e.g. from Replay opened in History back to that day); in the first view it leaves the app. Only the shown view is refreshed and nothing while the app is in the background. Back on the page after more than an hour, or when `/api/app/build` reports a newer build (a deploy), it reloads itself; the view and all options are kept in `localStorage` (`wspr_app_*`). It can be added to the home screen (`/app/manifest.webmanifest`, icons in `static/icons/`).
 
 ### Guides
 

@@ -67,12 +67,24 @@
 
   // ── menu ─────────────────────────────────────────────────────────────────
   const drawer = $('app-drawer'), backdrop = $('app-backdrop');
-  function menu(open) {
+  // The phone's Back (from 2026-11-07): every step is a history entry — the menu open, a sheet open,
+  // a view chosen.  Back closes the menu or the sheet, otherwise it returns to the previous view; in the
+  // first view it leaves the app as before.  A view or a sheet chosen from the menu takes over the
+  // menu's entry, so Back never lands on a closed menu.  hist(): the entry on top ({app, view}).
+  const hist = () => (history.state && history.state.app) ? history.state : {};
+  function histPush(state) {
+    try { if (hist().app === 'menu') history.replaceState(state, ''); else history.pushState(state, ''); } catch (_) { /* */ }
+  }
+  // fromHistory: closed by Back (the entry is gone already) or replaced by a view / sheet chosen in it
+  function menu(open, fromHistory) {
+    const was = drawer.classList.contains('open');
     if (open) { $('m-o-andays').value = String(_anDays); syncChips(); }   // the period may have stepped on by itself
     drawer.classList.toggle('open', open);
     backdrop.hidden = !open;
     drawer.setAttribute('aria-hidden', String(!open));
     $('app-menu-btn').setAttribute('aria-expanded', String(open));
+    if (open && !was && hist().app !== 'menu') { try { history.pushState({ app: 'menu', view }, ''); } catch (_) { /* */ } }
+    if (!open && was && !fromHistory && hist().app === 'menu') { try { history.back(); } catch (_) { /* */ } }
   }
   $('app-menu-btn').addEventListener('click', () => menu(!drawer.classList.contains('open')));
   $('app-menu-close').addEventListener('click', () => menu(false));
@@ -1043,10 +1055,15 @@
     timer = setInterval(refresh, every);
   }
   // noLoad: the caller loads the view itself (openReplay)
-  function setView(v, fromMenu, noLoad) {
+  // fromHistory: shown by Back / Forward (or at the start), so no new history entry
+  function setView(v, fromMenu, noLoad, fromHistory) {
     if (view === 'replay' && v !== 'replay') rpPause();
     if (view === 'wprs' && v !== 'wprs') wPause();
-    view = VIEWS[v] ? v : 'map';
+    v = VIEWS[v] ? v : 'map';
+    // a new view takes a history entry (over the menu's, when chosen there); the same view only closes the menu
+    const tookMenuEntry = !fromHistory && v !== view && hist().app === 'menu';
+    if (!fromHistory && v !== view) histPush({ app: 'view', view: v });
+    view = v;
     lsSet('wspr_app_view', view);
     const cfg = VIEWS[view];
     for (const k of Object.keys(VIEWS)) $(VIEWS[k].el).hidden = VIEWS[k].el !== cfg.el;
@@ -1070,7 +1087,7 @@
       delete themeDirty[view];
     }
     startTimer();
-    if (fromMenu) setTimeout(() => menu(false), 150);
+    if (fromMenu) setTimeout(() => menu(false, tookMenuEntry), 150);
   }
   document.querySelectorAll('.app-tile').forEach(t => t.addEventListener('click', () => setView(t.dataset.view, true)));
   window.MApp = { openReplay, setView: v => setView(v) };
@@ -1124,7 +1141,7 @@
   // while it is open).  What's new: doc/whats_new.md, as the full page's window; a red dot on ☰ and the
   // buttons until the current version has been opened (wspr_seen_version, shared with the full page).
   const sheet = $('app-sheet');
-  let sheetHist = false, guidesLoaded = false, newsLoaded = false;
+  let guidesLoaded = false, newsLoaded = false;
   function newsDots() {
     const unseen = !!APP_VERSION && lsGet('wspr_seen_version', null) !== APP_VERSION;
     $('app-menu-dot').hidden = !unseen; $('app-news-dot').hidden = !unseen; $('app-news-dot2').hidden = !unseen;
@@ -1189,16 +1206,16 @@
       if (APP_VERSION) lsSet('wspr_seen_version', APP_VERSION);
       newsDots();
     }
+    const wasOpen = !sheet.hidden;
     sheet.hidden = false;
     $('app-sheet-body').scrollTop = 0;
-    menu(false);
-    if (!sheetHist) { try { history.pushState({ appSheet: kind }, ''); sheetHist = true; } catch (_) { /* */ } }
+    if (!wasOpen) histPush({ app: 'sheet', view });    // switching between the three keeps one entry
+    menu(false, true);
   }
-  function closeSheet(fromPop) {
+  function closeSheet(fromHistory) {
     if (sheet.hidden) return;
     sheet.hidden = true;
-    if (sheetHist && !fromPop) { sheetHist = false; try { history.back(); } catch (_) { /* */ } }
-    sheetHist = false;
+    if (!fromHistory && hist().app === 'sheet') { try { history.back(); } catch (_) { /* */ } }
   }
   $('app-news-btn').addEventListener('click', () => openSheet('news'));
   $('app-news-btn2').addEventListener('click', () => openSheet('news'));
@@ -1208,8 +1225,15 @@
   $('app-sheet-alt').addEventListener('click', e => openSheet(e.currentTarget.dataset.kind));
   $('app-sheet-alt2').addEventListener('click', e => openSheet(e.currentTarget.dataset.kind));
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(false); });
-  window.addEventListener('popstate', () => closeSheet(true));
+  // Back / Forward: close what the entry below does not have open, show its view
+  window.addEventListener('popstate', () => {
+    const s = hist();
+    if (s.app !== 'sheet') closeSheet(true);
+    if (s.app !== 'menu') menu(false, true);
+    if (s.view && s.view !== view) setView(s.view, false, false, true);
+  });
 
   if (view !== 'map' && view !== 'now' && view !== 'rep') fetchLatest();   // the status dot (those views fetch it themselves)
-  setView(view);
+  try { history.replaceState({ app: 'view', view }, ''); } catch (_) { /* */ }
+  setView(view, false, false, true);
 })();

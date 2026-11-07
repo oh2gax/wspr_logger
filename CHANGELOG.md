@@ -40,6 +40,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `https://github.com/oh2gax/wspr_logger.git`.
 
 ### Changed
+- **Phone app: Back** — every step is a history entry (`m-app.js`: the menu open, a sheet open, a
+  view chosen; a view or sheet chosen in the menu takes over the menu's entry, choosing the shown
+  view only closes the menu). The phone's Back closes the menu or the sheet, otherwise returns to
+  the previous view (Replay opened from History, Analysis or WPRS goes back there); in the first
+  view it leaves the app. Before, Back only closed the sheets and otherwise left the app.
 - **User guides 1.1** — both guides: the 7 d / 14 d periods and the opening at 14 days, the
   implausible reports left out of the records (the limitation is gone); the main guide has new
   screenshots of the live map (country names, *Phone app* link), Statistics and the info window,
