@@ -675,6 +675,7 @@
   function rpApply(recenter) {
     const f = RP.frames[RP.idx];
     $('m-rp-slider').value = RP.idx;
+    tickUtc();
     const ds = RP.dates || [];
     $('m-rp-pday').disabled = !ds.some(d => d < RP.date);
     $('m-rp-nday').disabled = !ds.some(d => d > RP.date);
@@ -1078,6 +1079,7 @@
     });
     $('app-title').textContent = cfg.title;
     $('app-sub').textContent = '';
+    tickUtc();                                   // the replayed moment in Replay, the present time elsewhere
     // a map made while hidden, or the screen turned meanwhile: Leaflet measures again
     setTimeout(() => {
       for (const m of [lmap, rmap, hmap, wmap]) if (m && m.getContainer().offsetParent) m.invalidateSize();
@@ -1132,7 +1134,15 @@
   window.addEventListener('pageshow', e => { if (e.persisted) wake(); });
 
   // ══ UTC clock of the top bar ════════════════════════════════════════════
-  function tickUtc() { const d = new Date(); $('app-utc-t').textContent = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; }
+  // in the Replay view the replayed moment instead, in amber and labelled REPLAY (from 2026-11-07)
+  function tickUtc() {
+    const f = view === 'replay' ? RP.frames[RP.idx] : null, d = new Date();
+    const el = $('app-utc'), lbl = f ? 'Replayed moment, UTC' : 'Current time, UTC';
+    el.classList.toggle('replay', !!f);
+    el.title = lbl; el.setAttribute('aria-label', lbl);
+    $('app-utc-t').textContent = f ? f.ts.slice(11, 16) : `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+    $('app-utc-l').textContent = f ? 'REPLAY' : 'UTC';
+  }
   function scheduleUtc() { tickUtc(); setTimeout(scheduleUtc, 60000 - (Date.now() % 60000) + 50); }
   scheduleUtc();
 

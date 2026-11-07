@@ -39,8 +39,8 @@
 <header class="app-bar">
   <button id="app-menu-btn" class="app-icon-btn" type="button" aria-label="Menu" aria-controls="app-drawer" aria-expanded="false">☰<span id="app-menu-dot" class="app-news-dot app-menu-dot" hidden></span></button>
   <div class="app-title"><span id="app-title">WSPR Logger</span><small id="app-sub"></small></div>
-  <!-- the current UTC time: all times of WSPR Logger are UTC -->
-  <div id="app-utc" class="app-utc" title="Current time, UTC" aria-label="Current time, UTC"><b id="app-utc-t">--:--</b><small>UTC</small></div>
+  <!-- the current UTC time: all times of WSPR Logger are UTC; in Replay the replayed moment, labelled REPLAY -->
+  <div id="app-utc" class="app-utc" title="Current time, UTC" aria-label="Current time, UTC"><b id="app-utc-t">--:--</b><small id="app-utc-l">UTC</small></div>
   <!-- theme: the icon shows the setting in use — moon Dark, sun Light, half circle Auto (follows the phone);
        a tap steps Dark → Light → Auto → Dark.  The same setting as the full page. -->
   <button id="app-theme-btn" class="app-icon-btn app-theme-btn" type="button" aria-label="Theme" title="Theme">

@@ -226,13 +226,18 @@ nav {
 /* Sidebar scrollable body */
 .sb-body {
     flex: 1;
-    overflow-y: auto;
+    min-height: 0;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
 }
-.sb-body::-webkit-scrollbar { width: 4px; }
-.sb-body::-webkit-scrollbar-track { background: var(--bg-surface); }
-.sb-body::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
+/* the position card and Map Layers: they scroll when the window is short, so that the History Player
+   card and Today below them always stay in view (from 2026-11-07) */
+.sb-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.sb-scroll::-webkit-scrollbar { width: 4px; }
+.sb-scroll::-webkit-scrollbar-track { background: var(--bg-surface); }
+.sb-scroll::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
+.sb-body > .replay-card, .sb-body > .mini-stats { flex: none; }
 
 /* Info panel */
 .info-panel {
@@ -312,10 +317,21 @@ select:focus, input:focus { border-color: var(--accent); }
 }
 .sw.on::after { left: 19px; background: var(--accent); }
 
+/* History Player card: at the bottom of the left pane with Today (the free space goes above both) */
+.replay-card { border-top: 1px solid var(--border); border-bottom: 0; }
+.replay-card.on { background: color-mix(in srgb, #f59e0b 8%, transparent); }
+.rc-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rc-date { flex: 1; min-width: 0; }
+.rc-go { white-space: nowrap; border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.rc-note { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.rc-state { margin-bottom: 5px; font-variant-numeric: tabular-nums; }
+.rc-frame { font-size: 10.5px; color: var(--text-muted); }
+#rcNow { font-family: monospace; font-size: 13px; font-weight: 600; color: #f59e0b; margin-top: 1px; }
+#replayCard .replay-btn { padding: 3px 7px; font-size: 11.5px; }
+
 /* Today mini-stats */
 .mini-stats {
     padding: 7px 14px 9px;
-    margin-top: auto;
     border-top: 1px solid var(--border);
 }
 .mini-stats-hdr {
@@ -397,6 +413,10 @@ select:focus, input:focus { border-color: var(--accent); }
 .ov-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: var(--text-muted); margin-bottom: 4px; }
 .ov-locator { font-size: 28px; font-weight: 700; color: var(--accent); font-family: monospace; letter-spacing: 4px; }
 .ov-time { font-size: 14px; color: var(--text); margin-top: 2px; font-family: monospace; }
+/* the History Player: the box's date and time show the replayed moment (main.js updateClock) */
+.utc-replay { display: none; font-size: 11px; letter-spacing: 1px; color: #f59e0b; }
+#utcClock.replay .utc-replay { display: block; }
+#utcClock.replay #utcDate, #utcClock.replay #utcTime { color: #f59e0b !important; }
 .ov-stats { display: flex; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
 .ov-stat { flex: 1; }
 .ov-stat-lbl { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }

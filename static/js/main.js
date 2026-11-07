@@ -20,6 +20,26 @@ function todayStr() {
     return new Date().toISOString().split('T')[0];
 }
 
+// ── The date and time at the top of the Current Position box ───────────────
+// The UTC clock, every second; in the History Player the replayed moment instead, in amber with a
+// REPLAY tag (from 2026-11-07), so the box never shows the present time over a replayed map.
+function updateClock() {
+    const f = _replayActive ? _replayFrames[_replayIdx] : null;
+    document.getElementById('utcClock').classList.toggle('replay', !!f);
+    let date, time;
+    if (f) {
+        date = f.ts.slice(0, 10);
+        time = f.ts.slice(11, 19) + ' UTC';
+    } else {
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        date = `${now.getUTCFullYear()}-${pad(now.getUTCMonth()+1)}-${pad(now.getUTCDate())}`;
+        time = `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())} UTC`;
+    }
+    document.getElementById('utcDate').textContent = date;
+    document.getElementById('utcTime').textContent = time;
+}
+
 // ── Bootstrap ─────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
@@ -32,17 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
     restoreLayerPrefs();    // after the map exists (Day/Night needs it), before the first fetch
     fetchLatest();
     setInterval(fetchLatest, 60_000);
+    syncReplayCard();       // the History Player card: today's date ready to replay
     applyHash();            // open the view a shared link points to
 
-    // UTC clock — updates every second
-    function tickUtcClock() {
-        const now = new Date();
-        const pad = n => String(n).padStart(2, '0');
-        document.getElementById('utcDate').textContent =
-            `${now.getUTCFullYear()}-${pad(now.getUTCMonth()+1)}-${pad(now.getUTCDate())}`;
-        document.getElementById('utcTime').textContent =
-            `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())} UTC`;
-    }
-    tickUtcClock();
-    setInterval(tickUtcClock, 1000);
+    // UTC clock (or the replayed moment) — updates every second
+    updateClock();
+    setInterval(updateClock, 1000);
 });

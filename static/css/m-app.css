@@ -37,6 +37,8 @@ body.app-body {
            color: var(--text-1); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .app-utc b { font-size: 14px; font-weight: 600; }
 .app-utc small { font-size: 10px; color: var(--text-2); }
+.app-utc.replay b, .app-utc.replay small { color: var(--amber); }
+.app-utc.replay small { font-weight: 700; letter-spacing: .5px; }
 .app-theme-btn { display: inline-flex; align-items: center; justify-content: center; color: var(--text-2); margin-right: 2px; }
 .app-theme-btn svg { display: none; }
 :root[data-theme-mode="dark"] .app-theme-btn .ic-moon,

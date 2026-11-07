@@ -48,12 +48,26 @@ async function fetchLatest() {
 }
 
 function updateLiveDisplay(spot) {
+    const stale = Date.now() - new Date(spot.timestamp.replace(' ', 'T') + 'Z') > 3600000;   // > 1 hour
+    showPosition(spot, stale);
+    if (!liveMarker.getTooltip()) {
+        liveMarker.bindTooltip('', { permanent: true, direction: 'right', offset: [12, 0], className: 'fixage', interactive: false });
+    }
+    updateFixAge();
+
+    // Propagation
+    updatePropagation(spot.reporter_count, stale);
+
+    // Trail
+    if (showTrail) refreshTrail();
+}
+
+// The position card of the left pane, the Current Position box on the map and the car marker: the
+// latest spot when live, the replayed spot in the History Player (history-player.js, from 2026-11-07).
+// stale: shown red (live: nothing heard for an hour; replay: no spot within 25 min of the snapshot).
+function showPosition(spot, stale) {
     const { lat, lon, tx_loc, timestamp, reporter_count, max_distance } = spot;
     _txLat = lat; _txLon = lon;   // used by reporter plot
-
-    // Age-based state
-    const ageMs   = Date.now() - new Date(timestamp.replace(' ', 'T') + 'Z');
-    const stale   = ageMs > 3600000;                      // > 1 hour
     const dotColor = stale ? '#ef4444' : '#4ade80';       // red or green
 
     // Sidebar info panel
@@ -90,7 +104,7 @@ function updateLiveDisplay(spot) {
 
     if (liveMarker) {
         liveMarker.setLatLng([lat, lon])
-                  .setStyle({ fillColor: dotColor, color: dotColor })
+                  .setStyle({ fillColor: dotColor, color: dotColor, opacity: 1, fillOpacity: 1 })
                   .setPopupContent(popup);
     } else {
         liveMarker = L.circleMarker([lat, lon], {
@@ -102,16 +116,19 @@ function updateLiveDisplay(spot) {
         }).addTo(liveMap).bindPopup(popup);
         liveMap.panTo([lat, lon]);
     }
-    if (!liveMarker.getTooltip()) {
-        liveMarker.bindTooltip('', { permanent: true, direction: 'right', offset: [12, 0], className: 'fixage', interactive: false });
+}
+
+// A replayed day without any logged position (e.g. the transmitter off, only solar data stored):
+// dashes in the box and the left pane, the marker hidden — never the live position under a replayed clock.
+function showNoPosition() {
+    for (const id of ['infoLocator', 'ovLocator']) { const el = document.getElementById(id); el.textContent = '——'; el.style.color = ''; }
+    for (const id of ['infoLat', 'infoLon', 'infoReporters', 'infoMaxDist', 'ovReporters', 'ovDX']) {
+        const el = document.getElementById(id); el.textContent = '—'; el.style.color = '';
     }
-    updateFixAge();
-
-    // Propagation
-    updatePropagation(reporter_count, stale);
-
-    // Trail
-    if (showTrail) refreshTrail();
+    document.getElementById('infoTime').textContent = 'no position this day';
+    document.getElementById('ovTime').textContent = 'no position this day';
+    showFixAgeLines('', 0);
+    if (liveMarker) liveMarker.setStyle({ opacity: 0, fillOpacity: 0 });
 }
 
 // How old the latest fix is: a label at the marker and a line in the position card.
@@ -132,9 +149,15 @@ function updateFixAge() {
             el.style.display = (_replayActive || !showFixAge) ? 'none' : '';
         }
     }
-    document.getElementById('ovAge').textContent = _replayActive ? '' : 'last fix ' + txt;
-    const ia = document.getElementById('infoAge');          // the same in the left pane, under "Last Spot (UTC)"
-    ia.textContent = _replayActive ? '' : 'Last fix ' + txt;
+    if (_replayActive) return;                               // the History Player writes the age lines itself
+    showFixAgeLines('last fix ' + txt, min);
+}
+
+// The age line in the Current Position box and under "Last Spot (UTC)" in the left pane.
+function showFixAgeLines(text, min) {
+    document.getElementById('ovAge').textContent = text;
+    const ia = document.getElementById('infoAge');
+    ia.textContent = text ? text.charAt(0).toUpperCase() + text.slice(1) : '';
     ia.classList.toggle('warn', min > 25 && min <= 60);
     ia.classList.toggle('old', min > 60);
 }

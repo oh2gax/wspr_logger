@@ -138,9 +138,10 @@ Section~\ref{sec:wspr} explains WSPR as far as needed to read the page; Section~
 \item the \textbf{pages}: Live Map, History, Statistics, Analysis, WPRS and Guides;
 \item the \textbf{Locator} block: the car's latest locator and coordinates, the stations and farthest station of the latest transmission, and how old the latest fix is;
 \item the \textbf{Map Layers} switches of the live map (Section~\ref{sec:live});
+\item the \textbf{History Player} card: pick a day and press \ui{$\blacktriangleright$ Replay} (Section~\ref{sec:replay}); while it plays, the card shows the replayed moment with play / pause, the day steps and \ui{Live $\times$};
 \item the \textbf{Today / 1h} cards: transmissions heard, best DX, most stations in one transmission and the band, for the UTC day or the last hour.
 \end{itemize}
-The switches and their settings (MUF period, histogram tab, list order, Today/1h, the place of panels you moved) are remembered in your browser; another browser or device keeps its own.
+The History Player card and Today always stay at the bottom; on a short window the part above them scrolls. \ui{Phone app} under \ui{What's new} opens the phone view (see the \emph{Mobile app user guide}). The switches and their settings (MUF period, histogram tab, list order, Today/1h, the place of panels you moved) are remembered in your browser; another browser or device keeps its own.
 \end{minipage}
 \caption{The menu on the left, with all Map Layers switched on.}
 \end{figure}
@@ -149,7 +150,7 @@ The switches and their settings (MUF period, histogram tab, list order, Today/1h
 
 \lead{Links to a view.} The address in the browser follows what you look at: a History or Statistics day, the Analysis page, or a WPRS day and fix. Copy it and send it to someone, and the page opens on the same view (for example \texttt{\#wprs=2026-10-14\&days=5\&fix=120}).
 
-\lead{Phones and small screens.} The page works on a phone. Hide the menu with \ui{$\blacktriangleleft$} to give the map the whole screen; on the Analysis page the cards are stacked in one column.
+\lead{Phones and small screens.} On a phone, use the phone view instead: \url{https://wspr.oh2gax.org/app} (\ui{Phone app} under \ui{What's new}), with one view at a time and every choice in a menu; it is described in the \emph{Mobile app user guide}. This page works on a small screen too: hide the menu with \ui{$\blacktriangleleft$} to give the map the whole screen; on the Analysis page the cards are stacked in one column.
 
 \section{The live map}\label{sec:live}
 \fig{live_overview.jpg}{1.0}{The live map on 13 October 2026 at 12:14 UTC with every layer switched on: the MUF graph across the top, Solar Conditions, the Reporter List and the SNR histogram on the left, the reporters as great-circle arcs on the map with the day/night terminator (dashed), and the Current Position, Propagation and Reporter Countries cards on the right.\label{fig:live}}
@@ -228,7 +229,7 @@ A MUF reading older than 3 hours is shown as \textbf{---}, because an old value 
 \section{The History Player}\label{sec:replay}
 \fig{replay.jpg}{0.92}{The History Player on 13 October 2026 at 05:28 UTC: the terminator crosses Europe, only two stations (Italy, Russia) and a Greek station hear the car before the band opens. The bar at the bottom controls the replay.}
 \fig{replay_bar.jpg}{0.8}{The player bar: play / pause, the time slider, the time and frame number, previous day, date, next day, speed and \ui{Live $\times$}.}
-Switch on \ui{History Player} in the menu to replay any stored day on the live map, one frame for every ten-minute snapshot (including the polls when nobody heard the car, so the night is not skipped). The layers you have switched on show the replayed moment: the Reporter List, histogram and plot, Reporter Countries, Solar Conditions (with the MUF and foF2 of that moment), Day / Night (the terminator of that moment) and the Propagation card (from the spot logged at that time). The Current Position card keeps showing the live position. Play at 1--16 frames per second, drag the slider, or step to the previous or next day that has data. \ui{Live $\times$} returns to the present. The $\blacktriangleright$ buttons on the Analysis page open the History Player at a chosen moment.
+Pick a day in the \ui{History Player} card at the bottom of the menu and press \ui{$\blacktriangleright$ Replay} to replay it on the live map (a day without stored data opens the nearest earlier one), one frame for every ten-minute snapshot (including the polls when nobody heard the car, so the night is not skipped). The layers you have switched on show the replayed moment: the Reporter List, histogram and plot, Reporter Countries, Solar Conditions (with the MUF and foF2 of that moment), Day / Night (the terminator of that moment) and the Propagation card (from the spot logged at that time). The Current Position box follows the replay too: its date and time show the replayed moment in amber under \ui{REPLAY}, and below them the car's position at that moment, its stations and farthest station, and how old that fix was then; the car marker moves with it. A day without any logged position says so instead of showing the live position. Play at 1--16 frames per second, drag the slider, or step to the previous or next day that has data. \ui{Live $\times$}, in the bar or in the card, returns to the present. The $\blacktriangleright$ buttons on the Analysis page open the History Player at a chosen moment.
 
 \infobox{Try this.}{Replay a summer day at 4 frames per second with Reporter Plot and Day / Night on: watch the band open in the morning as the terminator passes, the arcs spread over Europe at midday, and the long arcs to North America in the early morning or to Africa and Australia in the afternoon.}
 
@@ -472,5 +473,5 @@ Links & \texttt{\#history=DATE}, \texttt{\#stats=DATE}, \texttt{\#analysis}, \te
 \lead{More to read.} The \ui{Guides} tab also holds two papers written from this station's data: \emph{Twenty-metre WSPR propagation study} (three seasons in detail, with the methods behind the Analysis page) and \emph{WPRS --- Whisper Position Reporting System} (position beaconing with WSPR), with its two-page summary. The program and its documentation are at \url{https://github.com/oh2gax/wspr_logger}.
 
 \vfill
-{\small\textbf{Version history.}\quad 1.0, 7 November 2026: first version. \quad 1.1, 7 November 2026: the Analysis periods 7\,d and 14\,d and the opening at 14 days; implausible reports left out of the records too; country names from the locator; new screenshots of the live map, Statistics and the info window.}
+{\small\textbf{Version history.}\quad 1.0, 7 November 2026: first version. \quad 1.1, 7 November 2026: the Analysis periods 7\,d and 14\,d and the opening at 14 days; implausible reports left out of the records too; country names from the locator; the History Player card in the menu and the replayed moment in the Current Position box; new screenshots of the live map, the History Player, Statistics and the info window.}
 \end{document}

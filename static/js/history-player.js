@@ -16,6 +16,29 @@ let _replayIdx    = 0;
 let _replayTimer  = null;
 let _replayFps    = 4;
 
+// The History Player card of the left pane: idle — a day and ▶ Replay; playing — the replayed moment,
+// play / pause, day steps and Live ✕ (the bar at the bottom of the map has the full controls).
+function syncReplayCard() {
+    const card = document.getElementById('replayCard');
+    card.classList.toggle('on', _replayActive);
+    document.getElementById('rcIdle').style.display = _replayActive ? 'none' : '';
+    document.getElementById('rcActive').style.display = _replayActive ? '' : 'none';
+    const f = _replayActive ? _replayFrames[_replayIdx] : null;
+    document.getElementById('rcFrame').textContent = f ? `· ${_replayIdx + 1}/${_replayFrames.length}` : '';
+    document.getElementById('rcNow').textContent = f
+        ? `${f.ts.slice(0, 16)} UTC`
+        : (_replayActive ? `${document.getElementById('replayDate').value || ''} — no data` : '');
+    document.getElementById('rcPlay').innerHTML = _replayTimer ? '&#10074;&#10074;' : '&#9654;';
+    const d = document.getElementById('rcDate');
+    if (!d.value) d.value = todayStr();
+    d.max = todayStr();
+}
+
+function replayFromCard() {
+    const d = document.getElementById('rcDate').value;
+    return enterReplay(d || undefined);
+}
+
 async function toggleReplay() {
     if (_replayActive) exitReplay(); else await enterReplay();
 }
@@ -30,12 +53,17 @@ async function enterReplay(date, ts) {
     } catch(e) { showToast('Could not load replay data', 'err'); return; }
 
     _replayActive = true;
-    document.getElementById('swReplay').className = 'sw on';
+    document.getElementById('ovLbl').textContent = 'Replay position';
+    updateFixAge();                              // hides the live "last fix … ago" label at the marker
+    syncReplayCard();
     document.getElementById('replayBar').style.display = 'flex';
     const di = document.getElementById('replayDate');
     di.min = _replayDates[_replayDates.length - 1];
     di.max = _replayDates[0];
-    const start = (date && _replayDates.includes(date)) ? date : _replayDates[0];
+    // a day without stored data: the nearest earlier day that has some (the dates are newest first)
+    const start = !date ? _replayDates[0]
+        : _replayDates.includes(date) ? date
+        : (_replayDates.find(d => d < date) || _replayDates[_replayDates.length - 1]);
     if (date && start !== date) showToast('No replay data for ' + date + ' — showing ' + start, 'err');
     await replayLoadDate(start, start === date ? ts : null);
 }
@@ -45,7 +73,9 @@ function exitReplay() {
     _replayActive = false;
     _replayFrames = [];
     _replaySpots  = [];
-    document.getElementById('swReplay').className = 'sw';
+    document.getElementById('ovLbl').textContent = 'Current Position';
+    updateClock();                               // the live UTC clock again (the position follows with fetchLatest)
+    syncReplayCard();
     document.getElementById('replayBar').style.display = 'none';
     // Clear replayed data, then let the normal live refresh repaint everything
     _reporterListData = [];
@@ -103,11 +133,20 @@ function applyReplayFrame() {
         let sp = null;
         for (const s of _replaySpots) { if (s.timestamp <= f.ts) sp = s; else break; }
         if (!sp) sp = _replaySpots[0] || null;
-        if (sp) { _txLat = sp.lat; _txLon = sp.lon; }
         const ageMs = sp ? Date.parse(f.ts.replace(' ', 'T') + 'Z') - Date.parse(sp.timestamp.replace(' ', 'T') + 'Z') : Infinity;
         const fresh = sp && ageMs >= 0 && ageMs <= 25 * 60000;
+        if (sp) {                                // the box on the map, the left pane and the marker follow the replay
+            showPosition(sp, !fresh);
+            const min = Math.round(ageMs / 60000);     // the fix's age at the replayed moment
+            showFixAgeLines(min >= 0 ? `last fix ${min} min before` : `no fix yet this day (first at ${sp.timestamp.slice(11, 16)})`,
+                            min >= 0 ? min : 999);
+        } else showNoPosition();
         updatePropagation(fresh ? sp.reporter_count : 0, !fresh);
+    } else {
+        showNoPosition();
     }
+    updateClock();                               // the box's date and time: the replayed moment
+    syncReplayCard();
     if (showReporterList) renderReporterList();
     if (showHistogram)    renderHistogram();
     if (showReporterPlot) renderReporterPlot();
@@ -128,12 +167,14 @@ function replayPlay() {
         if (_replayIdx >= _replayFrames.length - 1) { replayPause(); return; }
         replaySeek(_replayIdx + 1);
     }, 1000 / _replayFps);
+    syncReplayCard();
 }
 
 function replayPause() {
     if (_replayTimer) { clearInterval(_replayTimer); _replayTimer = null; }
     const b = document.getElementById('replayPlayBtn');
     if (b) b.innerHTML = '&#9654;';
+    if (document.getElementById('rcPlay')) syncReplayCard();
 }
 
 function replaySetSpeed(v) {

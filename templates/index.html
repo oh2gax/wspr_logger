@@ -46,6 +46,8 @@
     </nav>
 
     <div class="sb-body">
+        <!-- the upper part scrolls on a short window; the History Player card and Today stay at the bottom -->
+        <div class="sb-scroll">
         <!-- Current position info -->
         <div class="info-panel">
             <div class="lbl">Locator</div>
@@ -105,12 +107,32 @@
                 <span>Day / Night</span>
                 <div class="sw" id="swDayNight" onclick="toggleDayNight()"></div>
             </div>
-            <div class="toggle-row">
-                <span>History Player</span>
-                <div class="sw" id="swReplay" onclick="toggleReplay()"></div>
-            </div>
             <div class="toggle-row" style="justify-content:flex-start;">
                 <span class="panel-reset" onclick="resetAllPanels()" title="Put every panel back to its default place">&#8634; Reset panel positions</span>
+            </div>
+        </div>
+        </div><!-- /sb-scroll -->
+
+        <!-- History Player (from 2026-11-07 a card of its own instead of a Map Layers switch): pick a day and
+             press Replay; while it plays the card shows the replayed moment, play / pause and Live.  The bar
+             at the bottom of the map keeps the full controls (history-player.js). -->
+        <div class="sb-section replay-card" id="replayCard">
+            <div class="sb-section-lbl">&#9194; History Player</div>
+            <div id="rcIdle">
+                <div class="rc-row">
+                    <input type="date" class="replay-input rc-date" id="rcDate" title="The day to replay (UTC); a day without stored data opens the nearest earlier one">
+                    <button class="replay-btn rc-go" onclick="replayFromCard()" title="Replay this day on the map">&#9654; Replay</button>
+                </div>
+                <div class="rc-note">Replay a stored day on the map, in 10-minute steps.</div>
+            </div>
+            <div id="rcActive" style="display:none;">
+                <div class="rc-state"><span class="replay-badge">REPLAYING</span> <span class="rc-frame" id="rcFrame"></span><div id="rcNow">&mdash;</div></div>
+                <div class="rc-row">
+                    <button class="replay-btn" id="rcPlay" onclick="replayTogglePlay()" title="Play / pause">&#9654;</button>
+                    <button class="replay-btn" onclick="replayShiftDay(-1)" title="Previous day with data">&#9664; day</button>
+                    <button class="replay-btn" onclick="replayShiftDay(1)" title="Next day with data">day &#9654;</button>
+                    <button class="replay-btn replay-live" onclick="exitReplay()" title="Leave replay and return to live data">Live &#10005;</button>
+                </div>
             </div>
         </div>
 
@@ -208,10 +230,11 @@
         <div class="map-overlays">
             <div class="map-overlay" id="mapOverlay">
                 <div id="utcClock" style="font-family:monospace;font-weight:600;color:var(--text);margin-bottom:6px;line-height:1.4;">
+                    <div class="utc-replay" title="The History Player is on: the box shows the replayed moment">⏪ REPLAY</div>
                     <div id="utcDate" style="font-size:14px;letter-spacing:1px;">—</div>
                     <div id="utcTime" style="font-size:20px;letter-spacing:2px;">—</div>
                 </div>
-                <div class="ov-lbl">Current Position</div>
+                <div class="ov-lbl" id="ovLbl">Current Position</div>
                 <div class="ov-locator" id="ovLocator">——</div>
                 <div class="ov-time"    id="ovTime">No data yet</div>
                 <div class="ov-age"     id="ovAge"></div>

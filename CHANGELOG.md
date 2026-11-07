@@ -40,15 +40,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `https://github.com/oh2gax/wspr_logger.git`.
 
 ### Changed
+- **History Player card** — the History Player is no longer a Map Layers switch but a card of its
+  own at the bottom of the left pane, above Today (`index.html` `#replayCard`, `history-player.js`
+  `syncReplayCard()`, `replayFromCard()`): a date (today) and **▶ Replay**; while playing, the
+  replayed moment and frame, play / pause (in step with the bar), previous / next day and **Live ✕**.
+  A day without data now opens the nearest earlier day with data (before: the newest). The left
+  pane's upper part (position card and Map Layers, `.sb-scroll`) scrolls on a short window, so the
+  card and Today always stay in view.
+- **The Current Position box follows the History Player** — its date and time show the replayed
+  moment in amber under *⏪ REPLAY* (`main.js` `updateClock()`), and the position card, the box and
+  the car marker show the car at that moment (`live.js` `showPosition()`, shared with the live
+  view; the age line says how old the fix was then). A replayed day without any logged position
+  shows dashes and hides the marker (`showNoPosition()`) instead of the live position. Before, the
+  box kept the live clock and the last live position, and the marker stayed at the live position
+  while the arcs started from the replayed one.
+- **Phone app: Replay clock** — in the Replay view the top-bar clock shows the replayed moment, in
+  amber and labelled *REPLAY*.
 - **Phone app: Back** — every step is a history entry (`m-app.js`: the menu open, a sheet open, a
   view chosen; a view or sheet chosen in the menu takes over the menu's entry, choosing the shown
   view only closes the menu). The phone's Back closes the menu or the sheet, otherwise returns to
   the previous view (Replay opened from History, Analysis or WPRS goes back there); in the first
   view it leaves the app. Before, Back only closed the sheets and otherwise left the app.
 - **User guides 1.1** — both guides: the 7 d / 14 d periods and the opening at 14 days, the
-  implausible reports left out of the records (the limitation is gone); the main guide has new
-  screenshots of the live map (country names, *Phone app* link), Statistics and the info window,
-  the phone guide of its Statistics and Reporters views.
+  implausible reports left out of the records (the limitation is gone), the History Player card and
+  the replayed moment in the Current Position box (the phone guide: the Replay clock and Back); the
+  main guide has new screenshots of the live map (country names, *Phone app* link, the History
+  Player card), the History Player, Statistics and the info window, the phone guide of its
+  Statistics, Reporters and Replay views.
 
 ### Added
 - **Phone app `/app`** — a view for phones with the user interface of the Mode-S Wind phone view:
