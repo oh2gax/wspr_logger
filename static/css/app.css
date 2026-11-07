@@ -906,6 +906,15 @@ body.panel-dragging, body.panel-dragging .drag-handle { cursor: grabbing; user-s
 .an-chart { position: relative; height: 240px; }
 .an-head-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .iono-ctl { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+/* second set of Analysis cards (analysis-more.js) */
+#amPolar { display: block; margin: 4px auto 0; cursor: crosshair; }
+.am-tip { position: absolute; display: none; pointer-events: none; z-index: 5; background: var(--overlay-bg); border: 1px solid var(--border);
+          border-radius: 4px; padding: 4px 7px; font-size: 11px; color: var(--text-primary); white-space: nowrap; }
+.am-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.am-sub-title { font-size: 11px; font-weight: 600; margin: 2px 0 4px; }
+.am-sub-title.good { color: #4ade80; } .am-sub-title.bad { color: #f59e0b; }
+.am-tbl td, .am-tbl th { padding: 3px 5px; font-size: 11px; }
+.am-loading { opacity: .45; }
 .iono-sel { display: flex; align-items: center; gap: 6px; }
 .an-legend { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); margin-top: 6px; }
 .an-legend-bar {

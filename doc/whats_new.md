@@ -4,9 +4,11 @@ Short notes for users of the web page, newest first. Each version is one day of 
 (v.DDMMYYYY). The full technical history is in CHANGELOG.md. The newest heading gives the
 version shown under the page title.
 
-## v.07112026 — A cleaner full-screen map, longer analysis periods and WPRS in two pages
+## v.07112026 — A user guide, seven new Analysis cards, longer analysis periods, a cleaner full-screen map and WPRS in two pages
 
 - **WPRS in two pages** — *Guides* now also has a two-page summary of the WPRS paper: how the car reports its position over HF and the key results of three seasons, for a quick read.
+- **A user guide** — *Guides* now starts with a 25-page user guide: how WSPR and the logger work, every part of the live map, the History Player, the History and Statistics pages, and above all how to read each chart of the Analysis page, with examples from this station's own data.
+- **Seven new things to look at on the Analysis page** — a compass chart of *where* you are heard (direction and distance), how the stations spread over distance, when the band opens and closes each day next to sunrise and sunset, the seasons side by side month by month, how many stations (and how many new ones) hear you each month, signal strength by hour and by distance, the most unusual days with a button to replay them, and the stations that hear you most faithfully.
 - **Analysis in a new order** — *Right now* is followed by the Ionosonde view, the band-open heatmap and the DX outlook, so the present conditions and the ionosphere come first.
 - **Ionosonde view over any period** — the MUF and foF2 chart on the Analysis page can now show one day, the last 30 days, 90 days, 6 months, a year, all history or any range of days you choose. Longer periods are shown as averages, and the night-time MUF is no longer missing on the day view.
 - **Day and night in the History Player** — with the *Day / Night* layer on, the History Player now shows where the terminator was at the replayed moment, so you can watch the grey line move across the map. The player bar also fits on one line again.

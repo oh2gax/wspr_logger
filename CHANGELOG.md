@@ -8,6 +8,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [2026-11-07]
 
 ### Added
+- **User guide** — `doc/WSPR_Logger_User_Guide.pdf` (25 pages, version 1.0), in the style of the
+  Mode-S Wind user guides: WSPR in a nutshell and how the logger collects its data, the page and the
+  menu, the live map and every layer, the History Player, the History and Statistics pages, the
+  Propagation Analysis page card by card (what each chart shows, how to read it, what this
+  station's data says, what to watch out for), the WPRS page, questions and where to look,
+  limitations and a quick reference. All figures are screenshots of the page with the station's
+  own data. Source `doc/src/user_guide.tex`, screenshots in `doc/src/guide_img/`. The Guides list
+  is now in a fixed order: the user guide, the WPRS two-page summary, the WPRS paper and the
+  propagation study.
+- **Analysis: seven new cards** — computed by the new module `core/analysis_more.py` and the
+  endpoint `/api/analysis/more` (cached 10 minutes; the whole-history inputs for an hour), drawn by
+  the new script `static/js/analysis-more.js`. They load separately from the rest of the page.
+  - *Where you are heard* — polar chart of the stations by direction from the home square
+    (16 sectors) and distance (rings at 1000, 2000, 3000, 6000 and 10 000 km), stations or reports,
+    with hover details and a summary of the busiest directions.
+  - *Distance distribution* — stations per 500 km (logarithmic) and the share of reports.
+  - *Band opening and closing* — the first and last transmission of each UTC day heard by 3 or
+    more stations, with sunrise and sunset at the home square.
+  - *Season against season* — the same months of each year side by side: median daytime
+    (08–17 UTC) stations per snapshot or the share of snapshots with DX beyond 6000 km.
+  - *Stations per month* — different stations per month and stations never heard before.
+  - *Signal strength* — SNR median and 25–75 % range by UTC hour and by 1000 km of distance.
+  - *Unusual days* — the eight best and worst days of the period, daytime stations against what is
+    typical for that month of the year and hour, with ▶ links into the History Player.
+  - *Most loyal reporters* — the 15 stations heard in the largest share of snapshots, with
+    distance, average and best SNR and the first day heard.
+  New queries `replay_db.get_station_stats()`, `get_month_stations()`, `get_snr_table()`.
 - **Day / Night in the History Player** — the Day / Night layer drew the terminator of the
   present moment even while an old snapshot was replayed. It now follows the replayed time
   (`dayNightTime()`), redraws with every frame, and returns to the present on *Live ✕*.
@@ -45,6 +72,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   page and is now full width, so the *When (UTC)* column and the ▶ replay buttons are no longer cut off.
 
 ### Fixed
+- **Mini-stats title said "Last 1h" while showing today** — the page starts on the *Today* tab
+  (the default), but the card title said *Last 1h* until a tab was clicked. The README also called
+  the 1-hour view the default.
 - **History Player bar on four rows** — a general rule that makes date fields and select boxes
   full width also stretched the date and speed fields of the History Player bar, which then
   wrapped onto four rows (166 px high instead of 49 px). In the History Player and drive replay

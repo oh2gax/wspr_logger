@@ -3,10 +3,11 @@
   db         live database: one record per heard transmission, MUF readings
   replay_db  replay database: reporter snapshots and the solar log
   analysis   propagation analysis computed from the replay database
+  analysis_more  the second set of Analysis cards (direction, distance, SNR, seasons, unusual days, ...)
   greyline   grey-line (twilight) test for the Analysis page
   outlook    DX outlook model and its back-test
   sun        solar elevation and sunrise / sunset
   wprs       drive detector, trips and track building for the WPRS page
   guides     lists the PDF documents in doc/
-  changelog  reads CHANGELOG.md for the What's new window
+  changelog  reads doc/whats_new.md for the What's new window
 """

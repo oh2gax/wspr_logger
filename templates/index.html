@@ -116,7 +116,7 @@
         <!-- Today's mini-stats -->
         <div class="mini-stats">
             <div class="mini-stats-hdr">
-                <div class="mini-stats-title" id="miniStatsTitle">Last 1h</div>
+                <div class="mini-stats-title" id="miniStatsTitle">Today</div>
                 <div class="ms-tabs">
                     <span class="ms-tab active" id="tabToday" onclick="setStatsWindow('today')">Today</span>
                     <span class="ms-tab"        id="tab1h"    onclick="setStatsWindow('1h')">1h</span>
@@ -517,6 +517,75 @@
                     <div class="an-gl-grid" id="anGlBody"></div>
                     <div class="an-card-sub" id="anGlNote" style="margin:10px 0 0;"></div>
                 </div>
+                <div class="an-card" id="amGeoCard">
+                    <div class="an-head-row">
+                        <div>
+                            <div class="an-card-title">Where you are heard</div>
+                            <div class="an-card-sub">Stations by direction (from the home square, north up) and distance. Darker = fewer, yellow = most.</div>
+                        </div>
+                        <div class="muf-period-btns">
+                            <button class="muf-period-btn active" id="amGeoSt" onclick="setGeoMetric('stations')">Stations</button>
+                            <button class="muf-period-btn"        id="amGeoRep" onclick="setGeoMetric('reports')">Reports</button>
+                        </div>
+                    </div>
+                    <div style="position:relative;"><canvas id="amPolar"></canvas><div class="am-tip" id="amPolarTip"></div></div>
+                    <div class="an-card-sub" id="amGeoSum" style="margin:6px 0 0;"></div>
+                </div>
+                <div class="an-card" id="amDistCard">
+                    <div class="an-card-title">Distance distribution</div>
+                    <div class="an-card-sub">Bars: stations per 500 km (logarithmic scale). Line: share of all reports. Dashed: 6000 km and 10&nbsp;000 km.</div>
+                    <div class="an-chart"><canvas id="amDist"></canvas></div>
+                    <div class="an-card-sub" id="amDistSum" style="margin:6px 0 0;"></div>
+                </div>
+                <div class="an-card wide" id="amOpenCard">
+                    <div class="an-card-title">Band opening and closing (UTC)</div>
+                    <div class="an-card-sub" id="amOpenSub">First and last transmission of each day heard by several stations, with sunrise and sunset at the home square.</div>
+                    <div class="an-chart" style="height:260px;"><canvas id="amOpen"></canvas></div>
+                </div>
+                <div class="an-card" id="amSeasonCard">
+                    <div class="an-head-row">
+                        <div>
+                            <div class="an-card-title">Season against season</div>
+                            <div class="an-card-sub" id="amSeasonSub">The same months of each year side by side (always the whole history).</div>
+                        </div>
+                        <div class="muf-period-btns">
+                            <button class="muf-period-btn active" id="amSeaN"  onclick="setSeasonMetric('median')">Stations heard</button>
+                            <button class="muf-period-btn"        id="amSeaDx" onclick="setSeasonMetric('dx')">DX &gt; 6000 km</button>
+                        </div>
+                    </div>
+                    <div class="an-chart"><canvas id="amSeason"></canvas></div>
+                </div>
+                <div class="an-card" id="amMonthlyCard">
+                    <div class="an-card-title">Stations per month</div>
+                    <div class="an-card-sub">Bars: different stations that heard you in the month; green: stations never heard before.</div>
+                    <div class="an-chart"><canvas id="amMonthly"></canvas></div>
+                </div>
+                <div class="an-card" id="amSnrHourCard">
+                    <div class="an-card-title">Signal strength by hour (UTC)</div>
+                    <div class="an-card-sub">SNR of the reports (dB in 2500 Hz): median and the 25&ndash;75 % range per UTC hour. Decoding stops near &minus;30 dB.</div>
+                    <div class="an-chart"><canvas id="amSnrHour"></canvas></div>
+                </div>
+                <div class="an-card" id="amSnrDistCard">
+                    <div class="an-card-title">Signal strength by distance</div>
+                    <div class="an-card-sub">SNR median and 25&ndash;75 % range per 1000 km (distance bands with at least 20 reports).</div>
+                    <div class="an-chart"><canvas id="amSnrDist"></canvas></div>
+                </div>
+                <div class="an-card wide" id="amUnusualCard">
+                    <div class="an-card-title">Unusual days</div>
+                    <div class="an-card-sub" id="amUnusualSub">Daytime (06&ndash;18 UTC) stations heard against what is typical for that month and hour (100 = typical). &#9654; opens the day in the History Player.</div>
+                    <div class="am-two">
+                        <div><div class="am-sub-title good">Best</div><table class="htbl am-tbl"><thead><tr><th>Date</th><th>Index</th><th>Avg</th><th>Max km</th><th></th></tr></thead><tbody id="amBestBody"></tbody></table></div>
+                        <div><div class="am-sub-title bad">Worst</div><table class="htbl am-tbl"><thead><tr><th>Date</th><th>Index</th><th>Avg</th><th>Max K</th><th></th></tr></thead><tbody id="amWorstBody"></tbody></table></div>
+                    </div>
+                </div>
+                <div class="an-card wide" id="amLoyalCard">
+                    <div class="an-card-title">Most loyal reporters</div>
+                    <div class="an-card-sub">The stations that heard you in the largest share of the snapshots of the period.</div>
+                    <div style="max-height:340px;overflow:auto;">
+                        <table class="htbl"><thead><tr><th>#</th><th>Station</th><th>Heard in</th><th>Distance</th><th>SNR avg / best</th><th>First heard</th></tr></thead>
+                        <tbody id="amLoyalBody"></tbody></table>
+                    </div>
+                </div>
                 <div class="an-card wide">
                     <div class="an-card-title" id="anRecTitle">Farthest reporters</div>
                     <div class="an-card-sub">One row per station (its longest distance in the period). &#9654; opens that moment in the History Player.</div>
@@ -631,6 +700,7 @@ window.WSPR_CONFIG = {
 <script src="{{ url_for('static', filename='js/history-player.js', v=asset_v) }}"></script>
 <script src="{{ url_for('static', filename='js/views.js', v=asset_v) }}"></script>
 <script src="{{ url_for('static', filename='js/analysis.js', v=asset_v) }}"></script>
+<script src="{{ url_for('static', filename='js/analysis-more.js', v=asset_v) }}"></script>
 <script src="{{ url_for('static', filename='js/info.js', v=asset_v) }}"></script>
 <script src="{{ url_for('static', filename='js/wprs.js', v=asset_v) }}"></script>
 <script src="{{ url_for('static', filename='js/main.js', v=asset_v) }}"></script>

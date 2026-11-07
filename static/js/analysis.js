@@ -1,6 +1,6 @@
 // Analysis page: charts, DX outlook, grey-line card and the ionosonde day view.
 // Part of the WSPR Logger page. The scripts in templates/index.html are loaded in this order and share one scope,
-// so keep the order: core, live, panels, map-layers, history-player, views, analysis, info, wprs, main.
+// so keep the order: core, live, panels, map-layers, history-player, views, analysis, analysis-more, info, wprs, main.
 
 'use strict';
 
@@ -12,6 +12,7 @@ let _anCharts = {};
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 async function loadAnalysis() {
+    loadAnalysisMore();                 // the second set of cards loads on its own (analysis-more.js)
     try {
         const r = await fetch(`/api/analysis?days=${_anDays}&band=${currentBand}`);
         _anData = await r.json();
@@ -196,6 +197,7 @@ function renderAnalysis() {
     if (_ionoMode === 'day') loadIonoDay(_ionoDate && dates.includes(_ionoDate) ? _ionoDate : dates[dates.length - 1]);
     else if (_ionoData) drawIonoChart();
     else setIonoMode(_ionoMode);
+    if (_amData) renderAnalysisMore();      // e.g. after a theme change: redraw with the new colours
 }
 
 function renderNowCard(n) {

@@ -427,6 +427,61 @@ def get_iono_series(start: str, end: str, band: int = 14, bucket_min: int = 10, 
     return [dict(r) for r in rows]
 
 
+def _period_where(days: int, band: int, exclude) -> tuple:
+    """WHERE clause and arguments for one band, the last `days` days (0 = all) and the exclusions."""
+    where = "WHERE band = ?"
+    args: list = [band]
+    if days and days > 0:
+        where += " AND timestamp >= datetime('now', ?)"
+        args.append(f"-{int(days)} days")
+    frag, extra = _exclusion(exclude)
+    return where + frag, args + extra
+
+
+def get_station_stats(days: int = 90, band: int = 14, exclude=None) -> list[dict]:
+    """One row per (callsign, grid) heard in the period: snapshots it appears in, mean / largest
+    distance, mean / best SNR and the first time it was seen in the period."""
+    if not _enabled:
+        return []
+    where, args = _period_where(days, band, exclude)
+    with _connect() as conn:
+        rows = conn.execute(f"""
+            SELECT callsign, grid, COUNT(*) AS n, AVG(NULLIF(distance, 0)) AS dist, MAX(distance) AS dmax,
+                   AVG(snr) AS snr, MAX(snr) AS snr_max, MIN(timestamp) AS first
+            FROM reporters_log {where}
+            GROUP BY callsign, grid
+        """, args).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_month_stations(band: int = 14, exclude=None) -> list[tuple]:
+    """(month 'YYYY-MM', callsign) for every station heard in each month of the whole history."""
+    if not _enabled:
+        return []
+    where, args = _period_where(0, band, exclude)
+    with _connect() as conn:
+        rows = conn.execute(f"""
+            SELECT substr(timestamp, 1, 7) AS m, callsign FROM reporters_log {where}
+            GROUP BY m, callsign ORDER BY m
+        """, args).fetchall()
+    return [tuple(r) for r in rows]
+
+
+def get_snr_table(days: int = 90, band: int = 14, exclude=None) -> list[tuple]:
+    """(UTC hour, distance // 1000 km, SNR, number of reports) for the period: enough for SNR by hour
+    and SNR by distance.  Reports with an unknown distance (0) are left out."""
+    if not _enabled:
+        return []
+    where, args = _period_where(days, band, exclude)
+    with _connect() as conn:
+        rows = conn.execute(f"""
+            SELECT CAST(substr(timestamp, 12, 2) AS INTEGER) AS h, distance / 1000 AS b, snr, COUNT(*) AS c
+            FROM reporters_log {where} AND distance > 0
+            GROUP BY h, b, snr
+        """, args).fetchall()
+    return [tuple(r) for r in rows]
+
+
 def get_top_distances(days: int = 90, band: int = 14, limit: int = 10, exclude=None) -> list[dict]:
     """
     The farthest reporters: one row per callsign (its longest distance),

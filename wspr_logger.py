@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 
 from flask import Flask, abort, jsonify, make_response, render_template, request, send_from_directory
 
-from core import analysis, changelog, db, greyline, guides, outlook, replay_db, wprs
+from core import analysis, analysis_more, changelog, db, greyline, guides, outlook, replay_db, wprs
 
 try:
     from api_keys import CARTO_API_KEY
@@ -1252,6 +1252,67 @@ def api_analysis():
                 pass
         out["outlook"] = outlook.forecast(model, datetime.utcnow(), muf, k_now)
     return jsonify(out)
+
+
+_more_cache: dict = {}              # (days, band) -> (monotonic time, payload) for /api/analysis/more
+_history_cache: dict = {}           # band -> (monotonic time, {...}): whole-history inputs, kept for an hour
+_HISTORY_TTL = 3600
+
+
+def _history_inputs(band: int, excl: set) -> dict:
+    """Inputs that always cover the whole history (season comparison, typical day of the year, months):
+    they change slowly, so they are cached for an hour."""
+    hit = _history_cache.get(band)
+    if hit and time.monotonic() - hit[0] < _HISTORY_TTL:
+        return hit[1]
+    data = {"rows": replay_db.get_snapshot_rows(0, band, exclude=excl),
+            "month_stations": replay_db.get_month_stations(band, exclude=excl)}
+    _cache_put(_history_cache, band, (time.monotonic(), data))
+    return data
+
+
+@app.route('/api/analysis/more')
+def api_analysis_more():
+    """The second set of Analysis cards: where the beacon is heard (direction and distance), the distance
+    distribution, band opening and closing times, unusual days, SNR by hour and distance, the seasons side
+    by side, stations per month and the most loyal reporters.
+
+    Query params: days (as /api/analysis: rounded up to 30, 90, 180 or 365; 0 = all), band=<int>.
+    The season comparison and the stations per month always use the whole history.  Cached 10 minutes.
+    """
+    days = request.args.get('days', 90, type=int)
+    days = 0 if days <= 0 else next((d for d in _ANALYSIS_DAYS if days <= d), _ANALYSIS_DAYS[-1])
+    band = _band_arg()
+    if not replay_db.is_enabled():
+        return jsonify({"enabled": False, "empty": True})
+    key = (days, band)
+    hit = _more_cache.get(key)
+    if hit and time.monotonic() - hit[0] < _ANALYSIS_TTL:
+        return jsonify(hit[1])
+
+    excl = _outlier_keys(find_outliers(band))
+    hist = _history_inputs(band, excl)
+    rows = replay_db.get_snapshot_rows(days, band, exclude=excl) if days else hist["rows"]
+    if not rows:
+        payload = {"enabled": True, "empty": True}
+    else:
+        spots = db.get_all_spots(band)
+        home = wprs.home_of(spots)
+        since = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S") if days else None
+        stations = replay_db.get_station_stats(days, band, exclude=excl)
+        payload = {
+            "enabled": True, "empty": False, "days": days, "home": home,
+            "geo": analysis_more.geography(stations, home),
+            "dist": analysis_more.distance_hist(stations, home),
+            "loyal": analysis_more.loyal(stations, len(rows), callsign_to_country),
+            "monthly": analysis_more.monthly(hist["month_stations"], since[:7] if since else None),
+            "snr": analysis_more.snr(replay_db.get_snr_table(days, band, exclude=excl)),
+            "open": analysis_more.open_close(spots, home, since),
+            "unusual": analysis_more.unusual_days(rows, hist["rows"]),
+            "seasons": analysis_more.seasons(hist["rows"]),
+        }
+    _cache_put(_more_cache, key, (time.monotonic(), payload))
+    return jsonify(payload)
 
 
 _iono_cache: dict = {}              # (kind, range, band) -> (monotonic time, payload)

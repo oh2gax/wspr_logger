@@ -1,15 +1,21 @@
 [
   {
-    "file": "WPRS_Whisper_Position_Reporting_System.pdf",
-    "title": "WPRS – Whisper Position Reporting System",
-    "description": "How a 200 mW WSPR transmitter with GPS and a car-roof 14 MHz antenna reports its position over HF without any mobile or VHF coverage; design, position accuracy, availability, power and battery measurements, and a comparison of the 2024, 2025 and 2026 seasons.",
-    "date": "2026-11-06"
+    "file": "WSPR_Logger_User_Guide.pdf",
+    "title": "WSPR Logger – User guide",
+    "description": "How to read and use the page: WSPR in a nutshell, the live map and its layers (propagation, MUF graph, solar conditions, reporter list, histogram and plot, day/night), the History Player, the History and Statistics pages, every chart of the Propagation Analysis page explained with examples from this station's data, the WPRS page, questions you can answer, limitations and a quick reference.",
+    "date": "2026-11-07"
   },
   {
     "file": "WPRS_Two_Page_Summary.pdf",
     "title": "WPRS – two-page summary",
     "description": "The WPRS paper in two pages: how a GPS-equipped 200 mW WSPR transmitter on a car reports its position over HF, the key measurements of the 2024–2026 seasons (availability, confirmation, accuracy, reach at lower power), where the technique fits and practical tips.",
     "date": "2026-11-07"
+  },
+  {
+    "file": "WPRS_Whisper_Position_Reporting_System.pdf",
+    "title": "WPRS – Whisper Position Reporting System",
+    "description": "How a 200 mW WSPR transmitter with GPS and a car-roof 14 MHz antenna reports its position over HF without any mobile or VHF coverage; design, position accuracy, availability, power and battery measurements, and a comparison of the 2024, 2025 and 2026 seasons.",
+    "date": "2026-11-06"
   },
   {
     "file": "WSPR_Propagation_Study_OH2GAX.pdf",

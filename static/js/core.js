@@ -1,6 +1,6 @@
 // Constants, state, tile layers, map initialisation, theme and the remembered map-layer settings.
 // Part of the WSPR Logger page. The scripts in templates/index.html are loaded in this order and share one scope,
-// so keep the order: core, live, panels, map-layers, history-player, views, analysis, info, wprs, main.
+// so keep the order: core, live, panels, map-layers, history-player, views, analysis, analysis-more, info, wprs, main.
 
 'use strict';
 
