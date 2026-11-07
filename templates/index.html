@@ -26,6 +26,7 @@
         <div class="sb-title">📡 WSPR Logger</div>
         <div class="sb-sub">Tracking: <strong>{{ callsign }}</strong></div>
         <div class="sb-whatsnew" id="navWhatsNew" onclick="openWhatsNew()" title="What's new in this version">✨ What's new <span class="nav-badge" id="navVersion"></span></div>
+        <a class="sb-app" href="/app" title="The phone view: one view at a time, every choice in the ☰ menu (open it on your phone, or add it to the home screen)">📱 Phone app</a>
         <button id="themeBtn" onclick="cycleTheme()" title="Theme: Auto">🌓</button>
         <button id="sbToggleBtn" onclick="toggleSidebar()" title="Hide the menu">◀</button>
     </div>
@@ -398,211 +399,7 @@
 
     <!-- ── ANALYSIS VIEW ── -->
     <div class="view" id="analysis-view">
-        <div class="view-header">
-            <span class="view-title">🔬 Propagation Analysis</span>
-            <span class="quick-btn" id="anP30"  onclick="setAnalysisDays(30)"  title="Last 30 days">30 d</span>
-            <span class="quick-btn active-qb" id="anP90" onclick="setAnalysisDays(90)" title="Last 90 days">90 d</span>
-            <span class="quick-btn" id="anP180" onclick="setAnalysisDays(180)" title="Last 6 months (180 days)">6 m</span>
-            <span class="quick-btn" id="anP365" onclick="setAnalysisDays(365)" title="Last year (365 days)">1 yr</span>
-            <span class="quick-btn" id="anP0"   onclick="setAnalysisDays(0)"   title="The whole history">All</span>
-            <span id="anPeriod" style="font-size:11px;color:var(--text-muted);"></span>
-        </div>
-        <div id="anEmpty" class="an-empty" style="display:none;"></div>
-        <div id="anBody" style="display:none;">
-            <div class="stats-grid" id="anSummary"></div>
-            <div class="an-grid">
-                <div class="an-card wide">
-                    <div class="an-card-title">Right now</div>
-                    <div class="an-card-sub" id="anNowSub">&nbsp;</div>
-                    <div class="an-now">
-                        <div><div class="an-now-lbl">Stations heard (last 60 min)</div><div class="an-now-val" id="anNowLive">—</div><div class="an-now-sub">live</div></div>
-                        <div><div class="an-now-lbl">Typical at this hour</div><div class="an-now-val" id="anNowTyp">—</div><div class="an-now-sub" id="anNowTypSub"></div></div>
-                        <div><div class="an-now-lbl">Typical at this MUF</div><div class="an-now-val" id="anNowMuf">—</div><div class="an-now-sub" id="anNowMufSub"></div></div>
-                        <div><div class="an-now-lbl">Compared with history</div><div class="an-now-val" id="anNowVerdict">—</div><div class="an-now-sub" id="anNowBasis"></div></div>
-                    </div>
-                </div>
-                <div class="an-card wide">
-                    <div class="an-head-row">
-                        <div style="flex:1;min-width:260px;">
-                            <div class="an-card-title">Ionosonde view &mdash; Juliusruh MUF and foF2 vs. reporters</div>
-                            <div class="an-card-sub" id="anIonoSub">Bars: stations heard. Lines: MUF (D=3000 km) and foF2 in MHz measured at Juliusruh.</div>
-                        </div>
-                        <div class="iono-ctl">
-                            <div class="muf-period-btns">
-                                <button class="muf-period-btn active" id="ioDay"  onclick="setIonoMode('day')" title="One day, every snapshot">Day</button>
-                                <button class="muf-period-btn" id="io30"  onclick="setIonoMode(30)"  title="Last 30 days">30 d</button>
-                                <button class="muf-period-btn" id="io90"  onclick="setIonoMode(90)"  title="Last 90 days">90 d</button>
-                                <button class="muf-period-btn" id="io180" onclick="setIonoMode(180)" title="Last 6 months">6 m</button>
-                                <button class="muf-period-btn" id="io365" onclick="setIonoMode(365)" title="Last year">1 yr</button>
-                                <button class="muf-period-btn" id="io0"   onclick="setIonoMode(0)"   title="The whole history">All</button>
-                                <button class="muf-period-btn" id="ioCustom" onclick="setIonoMode('custom')" title="Choose the first and the last day">Custom</button>
-                            </div>
-                            <div class="iono-sel" id="anIonoDayCtl">
-                                <span class="quick-btn" onclick="shiftIonoDay(-1)" title="Previous day">&#9664;</span>
-                                <input type="date" class="replay-input" id="anIonoDate" onchange="loadIonoDay(this.value)">
-                                <span class="quick-btn" onclick="shiftIonoDay(1)" title="Next day">&#9654;</span>
-                            </div>
-                            <div class="iono-sel" id="anIonoRangeCtl" style="display:none;">
-                                <input type="date" class="replay-input" id="anIonoFrom" onchange="loadIonoCustom()" title="First day">
-                                <span style="color:var(--text-muted);font-size:11px;">to</span>
-                                <input type="date" class="replay-input" id="anIonoTo" onchange="loadIonoCustom()" title="Last day">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="an-chart" style="height:280px;"><canvas id="anIono"></canvas></div>
-                    <div class="an-empty" id="anIonoEmpty" style="display:none;padding:12px 0;">No snapshots in this period.</div>
-                </div>
-                <div class="an-card wide">
-                    <div class="an-head-row">
-                        <div>
-                            <div class="an-card-title">Band-open heatmap</div>
-                            <div class="an-card-sub">UTC hour (rows) by date (columns). Grey cells have no data.</div>
-                        </div>
-                        <div class="muf-period-btns">
-                            <button class="muf-period-btn active" id="anHmN"  onclick="setHeatMetric('n')">Reporters</button>
-                            <button class="muf-period-btn"        id="anHmMx" onclick="setHeatMetric('dist')">Farthest km</button>
-                        </div>
-                    </div>
-                    <div style="position:relative;"><canvas id="anHeat"></canvas><div id="anTip"></div></div>
-                    <div class="an-legend"><span>0</span><div class="an-legend-bar"></div><span id="anHeatMax"></span></div>
-                </div>
-                <div class="an-card wide" id="anOutlookCard" style="display:none;">
-                    <div class="an-card-title">DX outlook &mdash; next 12 hours (UTC)</div>
-                    <div class="an-card-sub">Chance that at least one reporter beyond 6000 km from the region is heard in that hour, from how often it has happened in the same hour of the day, adjusted for the present MUF level and K-index.</div>
-                    <div class="ol-cond" id="anOlCond"></div>
-                    <div style="overflow-x:auto;"><table class="ol-table" id="anOlTable"></table></div>
-                    <div class="an-card-sub" id="anOlNote" style="margin:8px 0 0;"></div>
-                </div>
-                <div class="an-card wide">
-                    <div class="an-card-title">Typical day (UTC)</div>
-                    <div class="an-card-sub">Stations heard in the last 60 minutes, by hour of day: median and the 25&ndash;75 % range over the period, with the latest day on top.</div>
-                    <div class="an-chart"><canvas id="anProfile"></canvas></div>
-                </div>
-                <div class="an-card">
-                    <div class="an-card-title">Reporters vs. Juliusruh MUF (D=3000 km)</div>
-                    <div class="an-card-sub">Bars: reporters compared with what is typical for the same UTC hour (dashed line = 100 = typical). Line: share of snapshots with a reporter beyond 6000 km.</div>
-                    <div class="an-chart"><canvas id="anMuf"></canvas></div>
-                </div>
-                <div class="an-card">
-                    <div class="an-card-title">Reporters vs. K-index</div>
-                    <div class="an-card-sub">Same scale: 100 = typical for the hour. Geomagnetic disturbance (K) lowers it.</div>
-                    <div class="an-chart"><canvas id="anK"></canvas></div>
-                </div>
-                <div class="an-card">
-                    <div class="an-card-title">Reporters vs. solar flux (SFI)</div>
-                    <div class="an-card-sub">Same scale: 100 = typical for the hour.</div>
-                    <div class="an-chart"><canvas id="anSfi"></canvas></div>
-                </div>
-                <div class="an-card">
-                    <div class="an-card-title" id="anStormTitle">Geomagnetic storm days</div>
-                    <div class="an-card-sub">Days when K reached the storm level, and how many reporters you had compared with a typical day (100 = typical). Days with few snapshots are less reliable.</div>
-                    <div style="max-height:240px;overflow:auto;">
-                        <table class="htbl"><thead><tr><th>Date</th><th>Max K</th><th>Avg reporters</th><th>vs. typical</th><th>Snapshots</th><th></th></tr></thead>
-                        <tbody id="anStormBody"></tbody></table>
-                    </div>
-                </div>
-                <div class="an-card">
-                    <div class="an-card-title">DX windows by hour (UTC)</div>
-                    <div class="an-card-sub">Bars: share of snapshots in which at least one reporter was beyond 6000 km. Line: average farthest reporter (km).</div>
-                    <div class="an-chart"><canvas id="anDxHour"></canvas></div>
-                </div>
-                <div class="an-card">
-                    <div class="an-card-title">Month by month</div>
-                    <div class="an-card-sub">Bars: average stations heard. Line: share of snapshots with a reporter beyond 6000 km. The current month may be incomplete (see tooltip).</div>
-                    <div class="an-chart"><canvas id="anDxMonth"></canvas></div>
-                </div>
-                <div class="an-card wide" id="anGlCard" style="display:none;">
-                    <div class="an-card-title">Grey line and long-distance windows</div>
-                    <div class="an-card-sub" id="anGlSub"></div>
-                    <div class="an-gl-grid" id="anGlBody"></div>
-                    <div class="an-card-sub" id="anGlNote" style="margin:10px 0 0;"></div>
-                </div>
-                <div class="an-card" id="amGeoCard">
-                    <div class="an-head-row">
-                        <div>
-                            <div class="an-card-title">Where you are heard</div>
-                            <div class="an-card-sub">Stations by direction (from the home square, north up) and distance. Darker = fewer, yellow = most.</div>
-                        </div>
-                        <div class="muf-period-btns">
-                            <button class="muf-period-btn active" id="amGeoSt" onclick="setGeoMetric('stations')">Stations</button>
-                            <button class="muf-period-btn"        id="amGeoRep" onclick="setGeoMetric('reports')">Reports</button>
-                        </div>
-                    </div>
-                    <div style="position:relative;"><canvas id="amPolar"></canvas><div class="am-tip" id="amPolarTip"></div></div>
-                    <div class="an-card-sub" id="amGeoSum" style="margin:6px 0 0;"></div>
-                </div>
-                <div class="an-card" id="amDistCard">
-                    <div class="an-card-title">Distance distribution</div>
-                    <div class="an-card-sub">Bars: stations per 500 km (logarithmic scale). Line: share of all reports. Dashed: 6000 km and 10&nbsp;000 km.</div>
-                    <div class="an-chart"><canvas id="amDist"></canvas></div>
-                    <div class="an-card-sub" id="amDistSum" style="margin:6px 0 0;"></div>
-                </div>
-                <div class="an-card wide" id="amOpenCard">
-                    <div class="an-card-title">Band opening and closing (UTC)</div>
-                    <div class="an-card-sub" id="amOpenSub">First and last transmission of each day heard by several stations, with sunrise and sunset at the home square.</div>
-                    <div class="an-chart" style="height:260px;"><canvas id="amOpen"></canvas></div>
-                </div>
-                <div class="an-card" id="amSeasonCard">
-                    <div class="an-head-row">
-                        <div>
-                            <div class="an-card-title">Season against season</div>
-                            <div class="an-card-sub" id="amSeasonSub">The same months of each year side by side (always the whole history).</div>
-                        </div>
-                        <div class="muf-period-btns">
-                            <button class="muf-period-btn active" id="amSeaN"  onclick="setSeasonMetric('median')">Stations heard</button>
-                            <button class="muf-period-btn"        id="amSeaDx" onclick="setSeasonMetric('dx')">DX &gt; 6000 km</button>
-                        </div>
-                    </div>
-                    <div class="an-chart"><canvas id="amSeason"></canvas></div>
-                </div>
-                <div class="an-card" id="amMonthlyCard">
-                    <div class="an-card-title">Stations per month</div>
-                    <div class="an-card-sub">Bars: different stations that heard you in the month; green: stations never heard before.</div>
-                    <div class="an-chart"><canvas id="amMonthly"></canvas></div>
-                </div>
-                <div class="an-card" id="amSnrHourCard">
-                    <div class="an-card-title">Signal strength by hour (UTC)</div>
-                    <div class="an-card-sub">SNR of the reports (dB in 2500 Hz): median and the 25&ndash;75 % range per UTC hour. Decoding stops near &minus;30 dB.</div>
-                    <div class="an-chart"><canvas id="amSnrHour"></canvas></div>
-                </div>
-                <div class="an-card" id="amSnrDistCard">
-                    <div class="an-card-title">Signal strength by distance</div>
-                    <div class="an-card-sub">SNR median and 25&ndash;75 % range per 1000 km (distance bands with at least 20 reports).</div>
-                    <div class="an-chart"><canvas id="amSnrDist"></canvas></div>
-                </div>
-                <div class="an-card wide" id="amUnusualCard">
-                    <div class="an-card-title">Unusual days</div>
-                    <div class="an-card-sub" id="amUnusualSub">Daytime (06&ndash;18 UTC) stations heard against what is typical for that month and hour (100 = typical). &#9654; opens the day in the History Player.</div>
-                    <div class="am-two">
-                        <div><div class="am-sub-title good">Best</div><table class="htbl am-tbl"><thead><tr><th>Date</th><th>Index</th><th>Avg</th><th>Max km</th><th></th></tr></thead><tbody id="amBestBody"></tbody></table></div>
-                        <div><div class="am-sub-title bad">Worst</div><table class="htbl am-tbl"><thead><tr><th>Date</th><th>Index</th><th>Avg</th><th>Max K</th><th></th></tr></thead><tbody id="amWorstBody"></tbody></table></div>
-                    </div>
-                </div>
-                <div class="an-card wide" id="amLoyalCard">
-                    <div class="an-card-title">Most loyal reporters</div>
-                    <div class="an-card-sub">The stations that heard you in the largest share of the snapshots of the period.</div>
-                    <div style="max-height:340px;overflow:auto;">
-                        <table class="htbl"><thead><tr><th>#</th><th>Station</th><th>Heard in</th><th>Distance</th><th>SNR avg / best</th><th>First heard</th></tr></thead>
-                        <tbody id="amLoyalBody"></tbody></table>
-                    </div>
-                </div>
-                <div class="an-card wide">
-                    <div class="an-card-title" id="anRecTitle">Farthest reporters</div>
-                    <div class="an-card-sub">One row per station (its longest distance in the period). &#9654; opens that moment in the History Player.</div>
-                    <div style="max-height:300px;overflow:auto;">
-                        <table class="htbl"><thead><tr><th>#</th><th>Station</th><th>Distance</th><th>When (UTC)</th><th></th></tr></thead>
-                        <tbody id="anRecBody"></tbody></table>
-                    </div>
-                    <div class="an-card-sub" id="anExcluded" style="margin:8px 0 0;"></div>
-                </div>
-            </div>
-            <div class="an-note">
-                A &ldquo;snapshot&rdquo; is one poll cycle (about every 10 minutes); its reporter count is the number of different stations heard in the preceding 60 minutes.
-                MUF and reporter counts both follow the day/night cycle, so the raw correlation overstates the link; the bar charts therefore compare each snapshot with the typical value for its UTC hour.
-                MUF is measured at the Juliusruh ionosonde in northern Germany, which only roughly represents your paths. Snapshots where the solar feed returned 0 are ignored for that chart.
-                All figures are computed from the local replay database; nothing is queried from wspr.live.
-            </div>
-        </div>
+{% include "_analysis_body.html" %}
     </div>
 
 
@@ -628,6 +425,8 @@
                         <option value="10" selected>10 km</option>
                         <option value="25">25 km</option>
                         <option value="100">100 km</option>
+                        <option value="150">150 km</option>
+                        <option value="200">200 km</option>
                     </select>
                     show
                     <select class="replay-input" id="wprsSpan" onchange="wprsSelect(wprsSel)">

@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- WSPR Logger phone view /app (from 2026-11-07): one view at a time, full screen, every choice in the
+     ☰ menu — the user interface of the MODE-S Wind phone view (static/js/m-app.js, static/css/m-app.css).
+     The menu's selects marked data-chips are shown as tap buttons by m-app.js. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WSPR Logger &mdash; {{ callsign }}</title>
+<meta name="theme-color" content="#111827">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WSPR Logger">
+<link rel="manifest" href="{{ url_for('app_manifest') }}">
+<link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/app-192.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+(function () {
+    // the theme before the first paint: the same setting as the full page (wspr_theme_mode: auto / dark / light)
+    try {
+        var m = localStorage.getItem('wspr_theme_mode');
+        if (m !== 'dark' && m !== 'light') m = 'auto';
+        var light = m === 'light' || (m === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+        if (light) document.documentElement.classList.add('light');
+        document.documentElement.dataset.themeMode = m;
+    } catch (e) {}
+})();
+</script>
+<!-- the full page's styles (colours, the Analysis cards), then the phone's own -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css', v=asset_v) }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/m-app.css', v=asset_v) }}">
+</head>
+<body class="app-body">
+
+<header class="app-bar">
+  <button id="app-menu-btn" class="app-icon-btn" type="button" aria-label="Menu" aria-controls="app-drawer" aria-expanded="false">☰<span id="app-menu-dot" class="app-news-dot app-menu-dot" hidden></span></button>
+  <div class="app-title"><span id="app-title">WSPR Logger</span><small id="app-sub"></small></div>
+  <!-- the current UTC time: all times of WSPR Logger are UTC -->
+  <div id="app-utc" class="app-utc" title="Current time, UTC" aria-label="Current time, UTC"><b id="app-utc-t">--:--</b><small>UTC</small></div>
+  <!-- theme: the icon shows the setting in use — moon Dark, sun Light, half circle Auto (follows the phone);
+       a tap steps Dark → Light → Auto → Dark.  The same setting as the full page. -->
+  <button id="app-theme-btn" class="app-icon-btn app-theme-btn" type="button" aria-label="Theme" title="Theme">
+    <svg class="ic-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.3M12 19.2v2.3M2.5 12h2.3M19.2 12h2.3M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <svg class="ic-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M20.2 14.6A8.3 8.3 0 0 1 9.4 3.8a8.3 8.3 0 1 0 10.8 10.8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+    <svg class="ic-auto" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.8a8.2 8.2 0 0 0 0 16.4z" fill="currentColor"/></svg>
+  </button>
+  <div id="app-theme-note" class="app-theme-note" role="status" aria-live="polite" hidden></div>
+  <!-- the beacon: green heard in the last 20 min, amber within 2 h, red older (as the full page's status dot) -->
+  <span id="app-health" class="app-health" title="Beacon status"></span>
+</header>
+
+<div class="app-main" role="main">
+
+  <!-- Live map: the latest position, the trail of the day, the reporters' arcs and day / night -->
+  <section id="v-map" class="app-view app-mapview" hidden>
+    <div class="app-mapbox"><div id="m-map" class="app-map"></div></div>
+    <div class="app-live-card" id="m-live-card">
+      <div class="lc-row1"><b id="m-lc-loc" class="mono">——</b><span id="m-lc-age" class="lc-age"></span><span id="m-lc-band" class="lc-band"></span></div>
+      <div class="lc-prop"><span id="m-lc-prop">—</span></div>
+      <div class="lc-bar"><div id="m-lc-bar"></div></div>
+      <div class="lc-row2"><span><b id="m-lc-rep">—</b> reporters</span><span>best DX <b id="m-lc-dx">—</b></span><span id="m-lc-time" class="lc-time"></span></div>
+    </div>
+  </section>
+
+  <!-- Now: propagation, position, today / last hour, solar conditions and how this compares with history -->
+  <section id="v-now" class="app-view app-now" hidden>
+    <div class="m-card">
+      <div class="m-card-hd">Propagation <span class="m-badge" id="m-now-highmuf" hidden>HIGH MUF</span></div>
+      <div class="m-prop" id="m-now-prop">—</div>
+      <div class="lc-bar"><div id="m-now-bar"></div></div>
+      <div class="m-small" id="m-now-rep"></div>
+    </div>
+    <div class="m-card">
+      <div class="m-card-hd">Position <span class="m-hd-r" id="m-now-age"></span></div>
+      <div class="m-tiles">
+        <div><span>Locator</span><b id="m-now-loc" class="mono acc">——</b></div>
+        <div><span>Latitude</span><b id="m-now-lat">—</b></div>
+        <div><span>Longitude</span><b id="m-now-lon">—</b></div>
+        <div><span>Reporters</span><b id="m-now-n" class="grn">—</b></div>
+        <div><span>Max DX</span><b id="m-now-dx" class="grn">—</b></div>
+        <div><span>Last spot (UTC)</span><b id="m-now-time" class="sm">—</b></div>
+      </div>
+    </div>
+    <div class="m-card">
+      <div class="m-card-hd"><span id="m-now-win-t">Today</span> <span class="m-hd-r" id="m-now-band"></span></div>
+      <div class="m-tiles m-tiles3">
+        <div><span>Spots</span><b id="m-now-spots">—</b></div>
+        <div><span>Best DX</span><b id="m-now-best">—</b></div>
+        <div><span>Max reporters</span><b id="m-now-maxr">—</b></div>
+      </div>
+    </div>
+    <div class="m-card">
+      <div class="m-card-hd">Solar conditions <span class="m-hd-r" id="m-sol-upd"></span></div>
+      <div class="m-tiles m-sol">
+        <div><span>SFI</span><b id="m-sol-sfi">—</b></div>
+        <div><span>K-index</span><b id="m-sol-k">—</b></div>
+        <div><span>A-index</span><b id="m-sol-a">—</b></div>
+        <div><span>X-ray</span><b id="m-sol-x">—</b></div>
+        <div><span>Bz (nT)</span><b id="m-sol-bz">—</b></div>
+        <div><span>Solar wind</span><b id="m-sol-sw">—</b></div>
+        <div><span>Aurora</span><b id="m-sol-au">—</b></div>
+        <div><span>Proton flux</span><b id="m-sol-pf">—</b></div>
+        <div><span>foF2 (MHz)</span><b id="m-sol-fof2">—</b></div>
+        <div><span>J-MUF (MHz)</span><b id="m-sol-muf">—</b></div>
+      </div>
+    </div>
+    <div class="m-card" id="m-now-hist">
+      <div class="m-card-hd">Compared with history</div>
+      <div class="m-small" id="m-rn-sub">&nbsp;</div>
+      <div class="m-tiles">
+        <div><span>Heard (60 min)</span><b id="m-rn-live">—</b></div>
+        <div><span>Typical, this hour</span><b id="m-rn-typ">—</b><small id="m-rn-typs"></small></div>
+        <div><span>Typical, this MUF</span><b id="m-rn-muf">—</b><small id="m-rn-mufs"></small></div>
+        <div class="w2"><span>Verdict</span><b id="m-rn-v">—</b><small id="m-rn-vb"></small></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Reporters: the stations that heard the beacon in the last 60 minutes -->
+  <section id="v-rep" class="app-view app-rep" hidden>
+    <div class="app-hist-bar">
+      <input type="search" id="m-rep-q" class="app-hist-q" placeholder="Search callsign, grid, country" autocomplete="off" spellcheck="false">
+      <span id="m-rep-n" class="app-hist-n"></span>
+    </div>
+    <div id="m-rep-secs">
+      <div class="m-card" data-sec="list"><div class="m-card-hd">Reporters <span class="m-hd-r" id="m-rep-sorted"></span></div><div id="m-rep-list" class="m-rlist"></div></div>
+      <div class="m-card" data-sec="countries"><div class="m-card-hd">Countries <span class="m-hd-r" id="m-rep-cn"></span></div><div id="m-rep-countries" class="m-cbars"></div></div>
+      <div class="m-card" data-sec="hgram"><div class="m-card-hd" id="m-rep-hgt">SNR distribution</div><div class="m-chart m-chart-s"><canvas id="m-rep-hg"></canvas></div></div>
+    </div>
+  </section>
+
+  <!-- MUF graph: Juliusruh MUF (D=3000 km) and the reporter count -->
+  <section id="v-muf" class="app-view" hidden>
+    <div class="m-card m-fill">
+      <div class="m-card-hd" id="m-muf-t">MUF D=3000 km &amp; reporters</div>
+      <div class="m-chart m-chart-l"><canvas id="m-muf-c"></canvas></div>
+      <div class="m-small" id="m-muf-note"></div>
+    </div>
+  </section>
+
+  <!-- Replay: the stored snapshots of a day (one every 10 min) on the map -->
+  <section id="v-replay" class="app-view app-mapview" hidden>
+    <div class="app-mapbox"><div id="m-rmap" class="app-map"></div></div>
+    <div class="app-wx-panel m-rp-panel">
+      <div class="app-wx-row1"><b id="m-rp-time">—</b><span id="m-rp-prop" class="m-rp-prop"></span><span class="run" id="m-rp-n"></span></div>
+      <input type="range" id="m-rp-slider" class="app-wx-slider" min="0" max="0" step="1" value="0" aria-label="Snapshot">
+      <div class="app-wx-btns">
+        <button type="button" id="m-rp-pday" class="day" aria-label="Previous day">‹ day</button>
+        <button type="button" id="m-rp-prev" aria-label="Previous snapshot">−10m</button>
+        <button type="button" id="m-rp-play" aria-label="Play">▶</button>
+        <button type="button" id="m-rp-next" aria-label="Next snapshot">+10m</button>
+        <button type="button" id="m-rp-nday" class="day" aria-label="Next day">day ›</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- History: one day's positions, its chart and the spots (a tap opens Replay at that moment) -->
+  <section id="v-hist" class="app-view app-hist" hidden>
+    <div class="app-hist-bar m-datebar">
+      <button type="button" class="app-step" id="m-hd-prev" aria-label="Previous day">‹</button>
+      <input type="date" id="m-hd-date" class="m-date">
+      <button type="button" class="app-step" id="m-hd-next" aria-label="Next day">›</button>
+      <button type="button" class="app-btn" id="m-hd-today">Today</button>
+    </div>
+    <div class="m-card">
+      <div class="m-card-hd" id="m-hd-title">—</div>
+      <div class="m-tiles m-tiles3">
+        <div><span>Spots</span><b id="m-hd-spots">—</b></div>
+        <div><span>Max reporters</span><b id="m-hd-maxr">—</b></div>
+        <div><span>Best DX (km)</span><b id="m-hd-dx">—</b></div>
+        <div><span>Avg reporters</span><b id="m-hd-avg">—</b></div>
+        <div><span>First</span><b id="m-hd-first">—</b></div>
+        <div><span>Last</span><b id="m-hd-last">—</b></div>
+      </div>
+    </div>
+    <div class="m-card m-pad0"><div class="m-minimap"><div id="m-hmap" class="app-map"></div></div></div>
+    <div class="m-card" id="m-hd-chartcard"><div class="m-card-hd">Reporters and farthest station</div><div class="m-chart m-chart-s"><canvas id="m-hd-c"></canvas></div></div>
+    <div class="app-hist-head m-hd-head"><span>UTC</span><span>Locator</span><span class="r">Reporters</span><span class="r">DX km</span></div>
+    <div id="m-hd-list" class="app-hist-list"></div>
+  </section>
+
+  <!-- Statistics: all-time records and the day-by-day history -->
+  <section id="v-stats" class="app-view" hidden>
+    <div class="m-card">
+      <div class="m-card-hd">All-time records</div>
+      <div class="m-tiles">
+        <div><span>Total spots</span><b id="m-at-spots">—</b></div>
+        <div><span>Active days</span><b id="m-at-days">—</b></div>
+        <div><span>Best DX</span><b id="m-at-dx" class="grn">—</b><small id="m-at-dxd"></small></div>
+        <div><span>Most reporters</span><b id="m-at-rep" class="grn">—</b><small id="m-at-repd"></small></div>
+        <div><span>First spot</span><b id="m-at-first" class="sm">—</b></div>
+        <div><span>Last spot</span><b id="m-at-last" class="sm">—</b></div>
+      </div>
+    </div>
+    <div class="m-card">
+      <div class="m-card-hd">Best DX and reporters per day <span class="m-hd-r" id="m-st-range-t"></span></div>
+      <div class="m-chart m-chart-l"><canvas id="m-st-c"></canvas></div>
+      <div class="m-small">Tap a day to open it in History.</div>
+    </div>
+  </section>
+
+  <!-- Analysis: the full page's Propagation Analysis (analysis.js and analysis-more.js, the same ids) -->
+  <section id="analysis-view" class="app-view app-an" hidden>
+{% include "_analysis_body.html" %}
+  </section>
+
+  <!-- WPRS: the logged days and trips, the track of the chosen one with a fix slider -->
+  <section id="v-wprs" class="app-view app-wprs" hidden>
+    <div class="m-wprs-map"><div id="m-wmap" class="app-map"></div></div>
+    <div class="app-wx-panel m-wp-panel">
+      <div class="app-wx-row1"><b id="m-wp-time">—</b></div>
+      <input type="range" id="m-wp-slider" class="app-wx-slider" min="0" max="0" step="1" value="0" aria-label="Fix">
+      <div class="app-wx-btns">
+        <button type="button" id="m-wp-start" aria-label="To the start">⏮</button>
+        <button type="button" id="m-wp-prev" aria-label="Previous fix">‹</button>
+        <button type="button" id="m-wp-play" aria-label="Play">▶</button>
+        <button type="button" id="m-wp-next" aria-label="Next fix">›</button>
+        <button type="button" id="m-wp-replay" class="day" aria-label="Open this moment in Replay">Replay</button>
+      </div>
+      <div class="m-small" id="m-wp-sum"></div>
+    </div>
+    <div class="m-small m-wp-count" id="m-wp-count"></div>
+    <div id="m-wp-list" class="app-hist-list m-wp-list"></div>
+  </section>
+</div>
+
+<div id="app-backdrop" class="app-backdrop" hidden></div>
+<div id="app-drawer" class="app-drawer" role="dialog" aria-label="Menu" aria-hidden="true">
+  <div class="app-drawer-head">
+    <span class="app-drawer-title">WSPR Logger
+      <button type="button" class="app-head-news" id="app-news-btn2">What's new<span id="app-news-dot2" class="app-news-dot" hidden></span></button>
+    </span>
+    <button id="app-menu-close" class="app-icon-btn" type="button" aria-label="Close">✕</button>
+  </div>
+
+  <!-- the views as tiles (a tap switches the view and closes the menu) -->
+  <div class="app-tiles" role="group" aria-label="View">
+    <button type="button" class="app-tile" data-view="map"><b>Live map</b><small>position · arcs · day / night</small></button>
+    <button type="button" class="app-tile" data-view="now"><b>Now</b><small>propagation · solar</small></button>
+    <button type="button" class="app-tile" data-view="rep"><b>Reporters</b><small>last 60 min · countries</small></button>
+    <button type="button" class="app-tile" data-view="muf"><b>MUF graph</b><small>Juliusruh · reporters</small></button>
+    <button type="button" class="app-tile" data-view="replay"><b>Replay</b><small>a day, 10 min steps</small></button>
+    <button type="button" class="app-tile" data-view="hist"><b>History</b><small>one day's spots</small></button>
+    <button type="button" class="app-tile" data-view="stats"><b>Statistics</b><small>records · per day</small></button>
+    <button type="button" class="app-tile" data-view="an"><b>Analysis</b><small>propagation analysis</small></button>
+    <button type="button" class="app-tile" data-view="wprs"><b>WPRS</b><small>drives · trips · tracks</small></button>
+  </div>
+
+  <!-- options of each view, folded; the shown view's section opens by itself -->
+  <details class="app-sec" data-for="map">
+    <summary>Live map options</summary>
+    <div class="app-switches">
+      <label class="app-switch"><span>Position trail</span><input type="checkbox" id="m-o-trail"></label>
+      <label class="app-switch"><span>Last fix label</span><input type="checkbox" id="m-o-fixage"></label>
+      <label class="app-switch"><span>Reporter arcs</span><input type="checkbox" id="m-o-arcs"></label>
+      <label class="app-switch"><span>Day / Night</span><input type="checkbox" id="m-o-dn"></label>
+      <label class="app-switch"><span>Status card</span><input type="checkbox" id="m-o-card"></label>
+      <label class="app-switch"><span>Follow beacon</span><input type="checkbox" id="m-o-follow"></label>
+    </div>
+    <div class="app-small"><i>Reporter arcs</i>: a great-circle line to each station that heard the beacon in the last 60 minutes, stronger signals brighter and thicker; tap a station for its details. <i>Day / Night</i>: the night side and the grey line (dashed), redrawn every minute. <i>Follow beacon</i>: the map moves with each new fix. ⌂ on the map returns to the beacon. Refreshed every minute. Remembered on the phone.</div>
+  </details>
+
+  <details class="app-sec" data-for="now">
+    <summary>Now options</summary>
+    <div class="app-field"><span>Spots of</span>
+      <select id="m-o-win" data-chips><option value="today">Today</option><option value="1h">Last hour</option></select></div>
+    <div class="app-small"><i>Propagation</i>: the number of stations that heard the last transmission — Very low (≤ 5), Low (≤ 10), Normal (≤ 20), Good (≤ 40), Very good (≤ 60), Extremely good (≤ 100), Exceptional; <i>&amp; DX</i> when two or more are beyond 6000 km, <i>HIGH MUF</i> when the Juliusruh MUF is above 28 MHz. <i>Compared with history</i>: the Analysis page's Right now card (the last 90 days). The colours of the solar values are those of the full page's Solar panel.</div>
+  </details>
+
+  <details class="app-sec" data-for="rep">
+    <summary>Reporters options</summary>
+    <div class="app-field"><span>Sort by</span>
+      <select id="m-o-rsort" data-chips><option value="snr">SNR</option><option value="dist">Distance</option><option value="call">Callsign</option><option value="country">Country</option></select></div>
+    <div class="app-field"><span>Distribution of</span>
+      <select id="m-o-hg" data-chips><option value="snr">SNR</option><option value="dist">Distance</option></select></div>
+    <div class="app-field"><span>Sections</span></div>
+    <div class="app-switches" id="m-o-rsecs">
+      <label class="app-switch"><span>List</span><input type="checkbox" data-sec="list"></label>
+      <label class="app-switch"><span>Countries</span><input type="checkbox" data-sec="countries"></label>
+      <label class="app-switch"><span>Distribution</span><input type="checkbox" data-sec="hgram"></label>
+    </div>
+    <div class="app-small">The stations (callsign and grid) that heard the beacon in the last 60 minutes, as the full page's Reporter list. The search matches the callsign, grid and country anywhere. Remembered on the phone.</div>
+  </details>
+
+  <details class="app-sec" data-for="muf">
+    <summary>MUF graph options</summary>
+    <div class="app-field"><span>Range</span>
+      <select id="m-o-mufd" data-chips><option value="1">24 h</option><option value="2">2 days</option><option value="3">3 days</option><option value="7">1 week</option></select></div>
+    <div class="app-small">The line: the MUF for a 3000 km hop measured by the Juliusruh ionosonde (MHz, left scale). The bars: the reporters of each logged transmission (right scale). Tap the chart for the values.</div>
+  </details>
+
+  <details class="app-sec" data-for="replay">
+    <summary>Replay options</summary>
+    <div class="app-field"><span>Date (UTC)</span>
+      <div class="app-stepper">
+        <button type="button" class="app-step" id="m-o-rp-prev" aria-label="Previous day">‹</button>
+        <input type="date" id="m-o-rp-date">
+        <button type="button" class="app-step" id="m-o-rp-next" aria-label="Next day">›</button>
+      </div></div>
+    <div class="app-field"><span>Speed</span>
+      <select id="m-o-rp-fps" data-chips><option value="1">1 fps</option><option value="2">2 fps</option><option value="4">4 fps</option><option value="8">8 fps</option><option value="16">16 fps</option></select></div>
+    <div class="app-switches">
+      <label class="app-switch"><span>Reporter arcs</span><input type="checkbox" id="m-o-rp-arcs"></label>
+      <label class="app-switch"><span>Day / Night</span><input type="checkbox" id="m-o-rp-dn"></label>
+    </div>
+    <div class="app-small">The snapshots stored by the logger (about one every 10 minutes): the reporters of that moment and the beacon's position then. The arrows step a day with data. Analysis, History and WPRS open Replay at a chosen moment.</div>
+  </details>
+
+  <details class="app-sec" data-for="hist">
+    <summary>History options</summary>
+    <div class="app-switches">
+      <label class="app-switch"><span>Map</span><input type="checkbox" id="m-o-hmap"></label>
+      <label class="app-switch"><span>Chart</span><input type="checkbox" id="m-o-hchart"></label>
+    </div>
+    <div class="app-small">One UTC day: the positions on the map (green the first, blue the last) and every logged transmission, newest first. Tap a row to open that moment in Replay.</div>
+  </details>
+
+  <details class="app-sec" data-for="stats">
+    <summary>Statistics options</summary>
+    <div class="app-field"><span>Range</span>
+      <select id="m-o-strange" data-chips><option value="30">30 days</option><option value="90">90 days</option><option value="0">All</option></select></div>
+    <div class="app-small">The bars: the farthest station of each day (km). The line: the most reporters of one transmission that day.</div>
+  </details>
+
+  <details class="app-sec" data-for="an">
+    <summary>Analysis options</summary>
+    <div class="app-field"><span>Period</span>
+      <select id="m-o-andays" data-chips><option value="30">30 d</option><option value="90">90 d</option><option value="180">6 m</option><option value="365">1 yr</option><option value="0">All</option></select></div>
+    <div class="app-small">The full page's Propagation Analysis, one card under the other. The period is also at the top of the view. How to read each chart: the WSPR Logger User Guide (General → User guides). ▶ in the tables opens that moment in Replay.</div>
+  </details>
+
+  <details class="app-sec" data-for="wprs">
+    <summary>WPRS options</summary>
+    <div class="app-field"><span>List</span>
+      <select id="m-o-wtab" data-chips><option value="days">Days</option><option value="trips">Trips</option></select></div>
+    <div class="app-field"><span>Days with movement or distance from home of at least</span>
+      <select id="m-o-wmin" data-chips><option value="0">any square change</option><option value="5">5 km</option><option value="10">10 km</option><option value="25">25 km</option><option value="100">100 km</option><option value="150">150 km</option><option value="200">200 km</option></select></div>
+    <div class="app-field"><span>Track of</span>
+      <select id="m-o-wspan" data-chips><option value="1">1 day</option><option value="2">2 days</option><option value="3">3 days</option><option value="5">5 days</option><option value="7">7 days</option></select></div>
+    <div class="app-field"><span>Speed</span>
+      <select id="m-o-wfps" data-chips><option value="1">1 fix/s</option><option value="2">2 fix/s</option><option value="4">4 fix/s</option><option value="8">8 fix/s</option><option value="16">16 fix/s</option></select></div>
+    <div class="app-small">Whisper Position Reporting System: the beacon's position history. The squares the car was in (darker: more fixes), the path, start (green) and end (red), the home square (red ring). Tap a day or a trip to show it; ▶ plays the fixes. <i>Replay</i> opens the shown fix in Replay. Remembered on the phone.</div>
+  </details>
+
+  <details class="app-sec app-sec-gen">
+    <summary>General</summary>
+    <div class="app-small">Theme: the button at the top right — a tap steps Dark (☾) → Light (☀) → Auto (◐, follows the phone's setting); the same setting as the full page. The dot at the top right: the beacon — green heard in the last 20 minutes, amber within 2 hours, red older.</div>
+    <div id="app-health-txt" class="app-small"></div>
+    <div class="app-gen-btns">
+      <button type="button" class="app-btn" id="app-news-btn">What's new<span id="app-news-dot" class="app-news-dot" hidden></span></button>
+      <button type="button" class="app-btn" id="app-about-btn">About</button>
+      <button type="button" class="app-btn" id="app-guides-btn">User guides</button>
+    </div>
+    <a class="app-link" href="/">Full site ↗</a>
+  </details>
+  <div class="app-foot">{{ app_version }} · {{ callsign }} · spots: wspr.live · ionosonde: GIRO / Juliusruh · solar: hamqsl.com</div>
+</div>
+
+<!-- What's new, User guides and About: a full-screen sheet over the view; × / Esc / the phone's Back closes it -->
+<div id="app-sheet" class="app-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="app-sheet-title">
+  <div class="app-sheet-head">
+    <span class="app-sheet-tl"><span id="app-sheet-title" class="app-sheet-title">About</span>
+      <button id="app-sheet-alt" class="app-head-news" type="button" hidden>User guides</button>
+      <button id="app-sheet-alt2" class="app-head-news" type="button" hidden>About</button></span>
+    <button id="app-sheet-close" class="app-icon-btn" type="button" aria-label="Close">×</button>
+  </div>
+  <div class="app-sheet-body" id="app-sheet-body">
+    <div id="app-sheet-about" class="app-about" hidden>
+      <div class="about-row"><div class="about-lbl">Operator</div><div>Otso Laakso / OH2GAX</div></div>
+      <div class="about-row"><div class="about-lbl">Transmitter</div><div>WSPR transmitter based on the
+          <a href="https://www.zachtek.com/1012" target="_blank" rel="noopener">ZachTek desktop transmitter</a>,
+          200&nbsp;mW (23&nbsp;dBm) transmit power</div></div>
+      <div class="about-row"><div class="about-lbl">Antenna</div><div>Diamond monoband antenna for 14&nbsp;MHz (20&nbsp;m),
+          mounted on a VW Touran car</div></div>
+      <div class="about-row"><div class="about-lbl">Home locator</div><div>KP20JG<div class="about-note">The actual location
+          changes as the car moves &mdash; the map and the Locator always show the latest reported position.</div></div></div>
+      <div class="about-row"><div class="about-lbl">Software</div><div>WSPR Logger {{ app_version }}<div class="about-note">
+          Data from wspr.live, GIRO / Juliusruh ionosonde and hamqsl.com</div></div></div>
+      <div class="about-row"><div class="about-lbl">Source code</div><div>Public repository on GitHub:
+          <a href="https://github.com/oh2gax/wspr_logger" target="_blank" rel="noopener">https://github.com/oh2gax/wspr_logger</a></div></div>
+    </div>
+    <div id="app-sheet-guides" class="app-guides" hidden></div>
+    <div id="app-sheet-news" class="app-news" hidden></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+window.WSPR_CONFIG = {
+    callsign:    {{ callsign | tojson }},
+    defaultBand: {{ default_band | tojson }},
+    mapLat:      {{ map_lat | tojson }},
+    mapLon:      {{ map_lon | tojson }},
+    mapZoom:     {{ map_zoom | tojson }},
+    cartoApiKey: {{ carto_api_key | tojson }},
+};
+// the version of doc/whats_new.md (What's new) and the build of the phone view: the page reloads itself
+// when the server has a newer build (a deploy) — m-app.js, back on the page
+const APP_VERSION = {{ app_version | tojson }};
+const APP_BUILD = {{ app_build | tojson }};
+</script>
+<!-- the order: the shim (the full page's globals that analysis*.js need), the map helpers (pure functions),
+     the Analysis scripts, then the phone view itself -->
+<script src="{{ url_for('static', filename='js/m-shim.js', v=asset_v) }}"></script>
+<script src="{{ url_for('static', filename='js/map-layers.js', v=asset_v) }}"></script>
+<script src="{{ url_for('static', filename='js/analysis.js', v=asset_v) }}"></script>
+<script src="{{ url_for('static', filename='js/analysis-more.js', v=asset_v) }}"></script>
+<script src="{{ url_for('static', filename='js/m-app.js', v=asset_v) }}"></script>
+</body>
+</html>

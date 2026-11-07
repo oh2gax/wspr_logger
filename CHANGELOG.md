@@ -8,6 +8,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [2026-11-07]
 
 ### Added
+- **Phone app `/app`** — a view for phones with the user interface of the Mode-S Wind phone view:
+  `templates/app.html`, `static/css/m-app.css` (on top of `app.css`, its colour variables mapped to
+  the full page's, `html.light` for the light theme) and `static/js/m-app.js`. A slim top bar (☰ with
+  a dot for unread notes, title and subtitle, UTC clock, Dark → Light → Auto theme button sharing
+  `wspr_theme_mode` with the full page, beacon status dot), one view at a time, and a ☰ menu with
+  the views as tiles and one folding options section per view (selects marked `data-chips` shown as
+  chips, switches, date steppers), plus General: What's new, About, User guides and Full site in a
+  full-screen sheet closed by ×, Esc or Back. Views: *Live map* (fix age, status card, trail,
+  reporter arcs, day / night, follow), *Now* (propagation, position, today / last hour, coloured
+  solar tiles, the Analysis *Right now* comparison), *Reporters* (search, sort, countries,
+  distribution), *MUF graph*, *Replay* (its own map, slider, play, ±10 min, day steps; opened at a
+  moment from History, the Analysis tables and WPRS), *History*, *Statistics*, *Analysis* and *WPRS*.
+  Only the shown view refreshes, nothing while hidden; options in `localStorage` (`wspr_app_*`).
+  Back after an hour away, or when `/api/app/build` reports a newer build, the page reloads itself.
+- **Analysis on the phone** — the Analysis page's cards moved unchanged into
+  `templates/_analysis_body.html`, included by `index.html` (the full page renders byte-identically)
+  and `app.html`. `static/js/m-shim.js` provides the globals `analysis.js` and `analysis-more.js`
+  use (`currentBand`, `isDark`, `escHtml`, `showToast`, `todayStr`, `showView`, `enterReplay`, …), so
+  both scripts run unchanged on the phone; their ▶ links open the phone's Replay.
+- **Home-screen app** — `/app/manifest.webmanifest` (standalone, start `/app`) and the icons
+  `static/icons/app-192.png`, `app-512.png`, `apple-touch-icon.png` (a beacon sending waves).
+- **`/api/app/build`** — the newest modification time of `static/` and the phone templates, never cached.
+- **Link to the phone app** — *📱 Phone app* under *What's new* in the sidebar header of the full page.
+- **Mobile app user guide** — `doc/WSPR_Logger_Mobile_App_User_Guide.pdf` (10 pages, version 1.0):
+  opening the app and adding it to the home screen, the top bar, the menu, every view and its
+  options, staying up to date, the phone view against the full page and a quick reference, with
+  phone screenshots of the station's data. Source `doc/src/mobile_guide.tex`, screenshots in
+  `doc/src/guide_img_m/`. Second in the Guides list, after the user guide.
+
+### Changed
+- **`/api/reporter_list`** — each reporter also carries its `country` (used by the phone's
+  Reporters search and country bars).
+
+- **WPRS: 150 km and 200 km filters** — the *Days with movement or distance from home of at least*
+  list has 150 km and 200 km steps after 100 km, for picking out the long trips only.
 - **User guide** — `doc/WSPR_Logger_User_Guide.pdf` (25 pages, version 1.0), in the style of the
   Mode-S Wind user guides: WSPR in a nutshell and how the logger collects its data, the page and the
   menu, the live map and every layer, the History Player, the History and Statistics pages, the

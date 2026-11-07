@@ -18,7 +18,7 @@ import xml.etree.ElementTree as ET
 from html import unescape
 from datetime import datetime, timedelta
 
-from flask import Flask, abort, jsonify, make_response, render_template, request, send_from_directory
+from flask import Flask, Response, abort, jsonify, make_response, render_template, request, send_from_directory
 
 from core import analysis, analysis_more, changelog, db, greyline, guides, outlook, replay_db, wprs
 
@@ -929,6 +929,73 @@ def _latest_muf() -> float | None:
     return rows[-1]["muf"]
 
 
+# ---------------------------------------------------------------------------
+# The phone view /app (from 2026-11-07): the same data as the full page, one view at a time, every
+# choice in the ☰ menu — the user interface of the MODE-S Wind phone view.
+# ---------------------------------------------------------------------------
+
+def _app_build() -> str:
+    """The build of the phone view: the newest modification time of its templates and of the files in
+    static/.  A deploy that changes any of them gives a new build, so a phone that has the page open
+    can tell that it is old and reload itself (static/js/m-app.js)."""
+    newest = _asset_version()
+    for name in ("app.html", "_analysis_body.html"):
+        try:
+            newest = max(newest, int(os.path.getmtime(os.path.join(_script_dir, "templates", name))))
+        except OSError:
+            pass
+    return str(newest)
+
+
+def _whats_new_version() -> str:
+    try:
+        with open(os.path.join(_script_dir, "doc", "whats_new.md"), encoding="utf-8") as fh:
+            return changelog.whats_new(fh.read(), limit=1).get("version", "")
+    except OSError:
+        return ""
+
+
+@app.route('/app')
+def app_page():
+    """The phone view: Live map, Now, Reporters, MUF graph, Replay, Analysis, WPRS and History."""
+    return render_template(
+        'app.html',
+        asset_v=_asset_version(),
+        app_build=_app_build(),
+        app_version=_whats_new_version(),
+        callsign=CALLSIGN,
+        default_band=DEFAULT_BAND,
+        map_lat=MAP_DEFAULT_LAT,
+        map_lon=MAP_DEFAULT_LON,
+        map_zoom=MAP_DEFAULT_ZOOM,
+        carto_api_key=CARTO_API_KEY,
+    )
+
+
+@app.route('/api/app/build')
+def api_app_build():
+    """The phone view's build (see _app_build), never cached."""
+    resp = jsonify({"build": _app_build()})
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.route('/app/manifest.webmanifest')
+def app_manifest():
+    """Web-app manifest for "Add to Home Screen": opens /app full screen."""
+    man = {
+        "name": f"WSPR Logger {CALLSIGN}", "short_name": "WSPR Logger",
+        "description": "Live position, propagation and analysis of a WSPR beacon",
+        "start_url": "/app", "scope": "/app", "display": "standalone", "orientation": "any",
+        "background_color": "#111827", "theme_color": "#111827",
+        "icons": [
+            {"src": "/static/icons/app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/static/icons/app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+        ],
+    }
+    return Response(json.dumps(man), mimetype="application/manifest+json")
+
+
 @app.route('/api/latest')
 def api_latest():
     """Latest spot, cached reporter countries, the number of current reporters beyond 6000 km
@@ -987,9 +1054,11 @@ def api_reporters():
 
 @app.route('/api/reporter_list')
 def api_reporter_list():
-    """Cached per-reporter details (callsign, grid, snr, distance)."""
+    """Cached per-reporter details (callsign, grid, snr, distance, country)."""
     with _state_lock:
-        reporters = list(_cached_reporter_list)
+        reporters = [dict(r) for r in _cached_reporter_list]
+    for r in reporters:
+        r["country"] = callsign_to_country(r.get("callsign") or "??", r.get("grid") or "")
     return jsonify({"reporters": reporters})
 
 

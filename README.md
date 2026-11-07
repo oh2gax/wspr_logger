@@ -31,6 +31,7 @@ Originally developed to track a mobile WSPR beacon (callsign **OH2GAX**) operati
 - **What's new and About** — *What's new* (a link under the page title) opens one window with three tabs. The *What's new* tab shows the latest releases as short prose notes from `doc/whats_new.md`, with a version label `v.DDMMYYYY` (NEW marker until opened); *User guides* lists the PDFs; *About* describes the station (operator, transmitter, antenna, home locator)
 - **Remembered Map Layers** — the Map Layers switches (Position Trail, Last Fix Label, Reporter Countries, MUF graph, Solar Conditions, Reporter List, Histogram, Reporter Plot, Day / Night) and their sub-settings (MUF period, histogram SNR/Dist tab, reporter list sort, 1h / Today tab) are saved in the browser and restored on the next visit
 - **Auto / Dark / Light theme** — one icon button beside the sidebar title cycles Auto (follows the system setting, also while the page is open), Dark and Light; the choice is remembered in the browser
+- **Phone app (`/app`)** — a separate view for phones, with the user interface of the Mode-S Wind phone view: a slim top bar (☰ menu, title, UTC clock, Dark / Light / Auto button, beacon status dot), one view at a time filling the screen and every choice in the ☰ menu as tiles, chips and switches. Nine views: Live map, Now, Reporters, MUF graph, Replay, History, Statistics, Analysis (the full page's cards, one column) and WPRS. Can be added to the home screen (web-app manifest and icon); reloads itself after a deploy; the link *📱 Phone app* is under *What's new* on the full page. See [Phone app](#phone-app-app) below and `doc/WSPR_Logger_Mobile_App_User_Guide.pdf`
 - **Collapsible sidebar** — the ◀ button hides the menu completely for a full-screen map view (handy on mobile); a large ▶ handle on the left edge of the page brings it back
 - **Config-file driven** — all settings managed in `config.ini`; no settings UI exposed to the browser
 - **SQLite storage** — one database file, WAL mode, indexed for fast date-range queries; separate table for MUF history
@@ -451,7 +452,7 @@ Needs the replay database. The **band-open heatmap** shows for every UTC hour an
 
 ### WPRS
 
-The **WPRS** page (Whisper Position Reporting System) turns the logged spots into a track of the car. The **left list** has one row per UTC day: the number of squares and fixes, *moved* (the largest distance between two squares used that day), the path length and, in amber, how far from the home square the car got (the home square is the most frequent locator; this also catches days parked far from home). Choose the minimum movement or distance (any change of square, 5, 10, 25, 100 km; default 10 km — an ordinary commute between neighbouring squares is 4.6–6.5 km) and how many days to show from the selected day (1, 2, 3 or 5). The **map** shows the squares visited (darker = more fixes), the track line with one dot per fix (hover for time, locator, reporters and best DX), the start (green), end (red) and home square (red ring). The **drive replay bar** at the bottom plays the fixes in order (1–16 fixes per second) with the trail so far in amber; the slider scrubs, ⏮ goes back to the start, and **History Player** opens the shown moment in the History Player on the live map (needs the replay database). The resolution is one Maidenhead subsquare, about 4.6 × 4.6 km at this latitude, and a fix exists only for transmissions that some station heard.
+The **WPRS** page (Whisper Position Reporting System) turns the logged spots into a track of the car. The **left list** has one row per UTC day: the number of squares and fixes, *moved* (the largest distance between two squares used that day), the path length and, in amber, how far from the home square the car got (the home square is the most frequent locator; this also catches days parked far from home). Choose the minimum movement or distance (any change of square, 5, 10, 25, 100, 150, 200 km; default 10 km — an ordinary commute between neighbouring squares is 4.6–6.5 km) and how many days to show from the selected day (1, 2, 3 or 5). The **map** shows the squares visited (darker = more fixes), the track line with one dot per fix (hover for time, locator, reporters and best DX), the start (green), end (red) and home square (red ring). The **drive replay bar** at the bottom plays the fixes in order (1–16 fixes per second) with the trail so far in amber; the slider scrubs, ⏮ goes back to the start, and **History Player** opens the shown moment in the History Player on the live map (needs the replay database). The resolution is one Maidenhead subsquare, about 4.6 × 4.6 km at this latitude, and a fix exists only for transmissions that some station heard.
 
 The **Days / Trips** switch lists consecutive days away from home as trips (dates, duration, squares, path length, farthest point); selecting a trip draws and replays it. **Copy link** gives an address that opens the same day and fix. On the live map the car's tooltip shows the age of the latest fix, and the History / reporter list, histogram and country panels can be dragged by their titles (double-click the title to reset).
 
@@ -466,9 +467,29 @@ venv/bin/python tools/backfill.py --from 2024-07-01                # up to the o
 
 Choose `--from` so that it does not reach back to a time when the callsign was sent from another place (for OH2GAX, spots before July 2024 come from home stations and would pollute the track and the statistics). `--compare DATE` rebuilds the 7 days from DATE and compares them with the snapshots the live logger stored for the same days (writes nothing). Use it on a live period, for example `venv/bin/python tools/backfill.py --compare 2026-06-01`, to see whether backfilled and live data are alike: the live poll cannot see reports that reach wspr.live after it ran, so rebuilt snapshots may list slightly more stations. Options: `--callsign`, `--band`, `--chunk-days` (7), `--pause` (5 s), `--timeout` (300 s), `--yes` (no confirmation). `--to` defaults to the day before the oldest existing snapshot. Existing snapshots are never overwritten, so the command can be repeated after an interruption. Solar and MUF values are not backfilled, so old seasons appear in the heatmaps and DX statistics but not in the space-weather charts. Expect about 100 MB of database growth per season, and `update.sh` backs up both databases.
 
+### Phone app (`/app`)
+
+`https://<your server>/app` is a view made for phones (from 2026-11-07), with the user interface of the Mode-S Wind phone view. The full page links to it with *📱 Phone app* under *What's new*. A user guide is under *Guides*: `doc/WSPR_Logger_Mobile_App_User_Guide.pdf`.
+
+| Part | Description |
+|------|-------------|
+| **Top bar** | ☰ opens the menu (a red dot: unread *What's new*), the view's title and subtitle, the UTC clock, the theme button (Dark → Light → Auto; the same `wspr_theme_mode` setting as the full page) and the beacon's status dot (green < 20 min, amber < 2 h, red older) |
+| **Menu** | The nine views as tiles, then one folding options section per view (the shown view's opens by itself): chips, switches and date steppers. *General*: What's new, About, User guides, Full site |
+| **Live map** | Latest fix with its age, status card (locator, propagation, stations, best DX), position trail, reporter arcs, day / night, follow beacon; refreshed every minute |
+| **Now** | Propagation, position, today or the last hour, solar conditions (coloured as the Solar panel), and the Analysis page's *Right now* comparison (90 days) |
+| **Reporters** | The stations of the last 60 minutes with search and sorting, countries and the SNR / distance distribution |
+| **MUF graph** | Juliusruh MUF and reporter counts, 24 h – 1 week |
+| **Replay** | The History Player on its own map: slider, play, ±10 min, previous / next day with data, date, speed, arcs and day / night. History rows, the Analysis tables' ▶ and WPRS open it at a given moment |
+| **History** | One UTC day: numbers, map, chart and every transmission (tap one for Replay) |
+| **Statistics** | All-time records and the day-by-day chart (30 d / 90 d / all; tap a day for History) |
+| **Analysis** | The full page's Propagation Analysis: the same markup (`templates/_analysis_body.html`) and scripts (`analysis.js`, `analysis-more.js`), in one column |
+| **WPRS** | Days and trips, the track on a map with a fix slider and a *Replay* button |
+
+Only the shown view is refreshed and nothing while the app is in the background. Back on the page after more than an hour, or when `/api/app/build` reports a newer build (a deploy), it reloads itself; the view and all options are kept in `localStorage` (`wspr_app_*`). It can be added to the home screen (`/app/manifest.webmanifest`, icons in `static/icons/`).
+
 ### Guides
 
-*Guides* (sidebar) and *What's new* (under the title) open one window with three tabs, *What's new*, *User guides* and *About*; the sidebar entry and the link open it on their own tab. The *User guides* tab lists the PDF files in the `doc/` folder. To add a document, copy the PDF into `doc/` and, optionally, add an entry (`file`, `title`, `description`, `date`) to `doc/guides.json`; a PDF without an entry is still listed with a title made from its file name. Only plain `*.pdf` names inside `doc/` are served (`/doc/<file>`); the LaTeX sources and figure scripts of the bundled papers are in `doc/src/` and are not served. The **user guide** (`doc/WSPR_Logger_User_Guide.pdf`, listed first) is built from `doc/src/user_guide.tex` with the screenshots in `doc/src/guide_img/` (`pdflatex user_guide.tex`, three times for the contents). `wprs_brief.tex` there builds the two-page WPRS summary from the same generated numbers and figures as the full paper (`pdflatex wprs_brief.tex` twice, after `analyze.py` and `analyze_wprs.py`; copy the result to `doc/WPRS_Two_Page_Summary.pdf`).
+*Guides* (sidebar) and *What's new* (under the title) open one window with three tabs, *What's new*, *User guides* and *About*; the sidebar entry and the link open it on their own tab. The *User guides* tab lists the PDF files in the `doc/` folder. To add a document, copy the PDF into `doc/` and, optionally, add an entry (`file`, `title`, `description`, `date`) to `doc/guides.json`; a PDF without an entry is still listed with a title made from its file name. Only plain `*.pdf` names inside `doc/` are served (`/doc/<file>`); the LaTeX sources and figure scripts of the bundled papers are in `doc/src/` and are not served. The **user guide** (`doc/WSPR_Logger_User_Guide.pdf`, listed first) is built from `doc/src/user_guide.tex` with the screenshots in `doc/src/guide_img/` (`pdflatex user_guide.tex`, three times for the contents). The **mobile app user guide** (`doc/WSPR_Logger_Mobile_App_User_Guide.pdf`, listed second) is built the same way from `doc/src/mobile_guide.tex` with the phone screenshots in `doc/src/guide_img_m/` (`pdflatex mobile_guide.tex`, three times). `wprs_brief.tex` there builds the two-page WPRS summary from the same generated numbers and figures as the full paper (`pdflatex wprs_brief.tex` twice, after `analyze.py` and `analyze_wprs.py`; copy the result to `doc/WPRS_Two_Page_Summary.pdf`).
 
 ### What's new and About
 
@@ -531,14 +552,18 @@ wspr_logger/
 ├── data/                   — the SQLite databases; gitignored, created automatically
 │   ├── wspr_data.db        — main database (spots, MUF readings)
 │   └── wspr_replay.db      — replay database (reporter snapshots, solar log; safe to delete)
-├── doc/                    — PDF guides shown under Guides (guides.json = titles, descriptions and order); the user guide is WSPR_Logger_User_Guide.pdf
+├── doc/                    — PDF guides shown under Guides (guides.json = titles, descriptions and order); the user guides are WSPR_Logger_User_Guide.pdf and WSPR_Logger_Mobile_App_User_Guide.pdf
 │   ├── images/             — screenshots used by this README
-│   └── src/                — LaTeX sources and analysis scripts of those PDFs (not served); guide_img/ = screenshots of the user guide
+│   └── src/                — LaTeX sources and analysis scripts of those PDFs (not served); guide_img/ and guide_img_m/ = screenshots of the user guides
 ├── tmp_files/              — scratch folder, gitignored
 ├── templates/
-│   └── index.html          — the page: markup only, with the settings handed to the scripts
+│   ├── index.html          — the page: markup only, with the settings handed to the scripts
+│   ├── app.html            — the phone view /app (top bar, views, ☰ menu, What's new / guides / About sheet)
+│   └── _analysis_body.html — the Analysis page's cards, included by index.html and app.html
 └── static/                 — served as /static/...
-    ├── css/app.css         — all styles (dark and light theme)
+    ├── css/app.css         — all styles of the full page (dark and light theme)
+    ├── css/m-app.css       — the phone view's styles (on top of app.css)
+    ├── icons/              — the phone view's home-screen icons (app-192.png, app-512.png, apple-touch-icon.png)
     └── js/                 — the page's scripts, loaded in this order and sharing one scope:
         core.js             — constants, state, tile layers, theme, remembered map-layer settings
         live.js             — live map: latest spot, propagation, status bar, reporter countries
@@ -551,6 +576,9 @@ wspr_logger/
         info.js             — What's new / User guides / About window
         wprs.js             — WPRS page and share links
         main.js             — toast, utilities, start-up
+        m-shim.js           — phone view: the globals analysis*.js expect (band, theme, toast, Replay links)
+        m-app.js            — phone view: menu, theme, views, refresh, What's new / guides / About
+                              (the phone loads m-shim, map-layers, analysis, analysis-more, m-app)
 ```
 
 ---
@@ -576,7 +604,10 @@ The `band` parameter accepts the WSPR bands (3, 7, 10, 14, 18, 21, 24, 28) and t
 | `/api/replay/dates` | GET | `band` | `{enabled, dates}` — UTC dates that have replay snapshots, newest first |
 | `/api/replay/day` | GET | `date` (YYYY-MM-DD), `band` | All replay frames of one day: reporters, country counts and solar indices per snapshot (~300 KB for a full day) |
 | `/api/reporters` | GET | — | Cached reporter countries from the past 60 minutes |
-| `/api/reporter_list` | GET | — | Cached individual reporter details (callsign, grid, SNR, distance) from the past 60 minutes |
+| `/api/reporter_list` | GET | — | Cached individual reporter details (callsign, grid, SNR, distance, country) from the past 60 minutes |
+| `/app` | GET | — | The phone view (HTML) |
+| `/app/manifest.webmanifest` | GET | — | Web-app manifest of the phone view (Add to Home Screen) |
+| `/api/app/build` | GET | — | `{build}` — the newest modification time of `static/` and the phone templates; never cached. An open phone view reloads itself when it changes |
 | `/api/muf` | GET | `band` | MUF D=3000 km readings and reporter counts for the last 24 hours |
 | `/api/solar` | GET | — | Current solar indices (SFI, K, A, X-ray, Bz, J-MUF, foF2, SW, AU, PF); cached 60 s; J-MUF is `null` (shown as —) when the newest reading is older than 3 hours |
 

@@ -4,9 +4,12 @@ Short notes for users of the web page, newest first. Each version is one day of 
 (v.DDMMYYYY). The full technical history is in CHANGELOG.md. The newest heading gives the
 version shown under the page title.
 
-## v.07112026 — A user guide, seven new Analysis cards, longer analysis periods, a cleaner full-screen map and WPRS in two pages
+## v.07112026 — A phone app, user guides, seven new Analysis cards, longer analysis periods, a cleaner full-screen map and WPRS in two pages
 
+- **WSPR Logger on your phone** — open *wspr.oh2gax.org/app* (or tap *📱 Phone app* under *What's new*): one view at a time filling the screen and every choice in the ☰ menu, as in the Mode-S Wind phone view. Nine views — Live map, Now, Reporters, MUF graph, Replay, History, Statistics, the whole Analysis page and WPRS. A tap on a day's transmission, on ▶ in an Analysis table or on *Replay* in WPRS opens that very moment in Replay. Add it to the home screen and it opens like an app; it keeps itself up to date.
+- **A user guide for the phone** — *Guides* now has the *Mobile app user guide* right after the user guide: how to open the app, the menu and every view.
 - **WPRS in two pages** — *Guides* now also has a two-page summary of the WPRS paper: how the car reports its position over HF and the key results of three seasons, for a quick read.
+- **WPRS: only the long trips** — the day filter on the WPRS page now also has *150 km* and *200 km*.
 - **A user guide** — *Guides* now starts with a 25-page user guide: how WSPR and the logger work, every part of the live map, the History Player, the History and Statistics pages, and above all how to read each chart of the Analysis page, with examples from this station's own data.
 - **Seven new things to look at on the Analysis page** — a compass chart of *where* you are heard (direction and distance), how the stations spread over distance, when the band opens and closes each day next to sunrise and sunset, the seasons side by side month by month, how many stations (and how many new ones) hear you each month, signal strength by hour and by distance, the most unusual days with a button to replay them, and the stations that hear you most faithfully.
 - **Analysis in a new order** — *Right now* is followed by the Ionosonde view, the band-open heatmap and the DX outlook, so the present conditions and the ionosphere come first.

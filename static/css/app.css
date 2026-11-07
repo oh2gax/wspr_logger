@@ -172,6 +172,9 @@ body {
 .sb-sub strong { color: var(--text-secondary); }
 .sb-whatsnew { font-size: 12px; margin-top: 4px; color: var(--accent); cursor: pointer; user-select: none; display: inline-block; }
 .sb-whatsnew:hover { text-decoration: underline; }
+/* the link to the phone view /app (from 2026-11-07), next to What's new */
+.sb-app { font-size: 12px; margin-top: 3px; color: var(--accent); text-decoration: none; display: table; }
+.sb-app:hover { text-decoration: underline; }
 .info-age { font-size: 12px; margin-top: 2px; color: #4ade80; }
 .info-age.warn { color: #f59e0b; }
 .info-age.old  { color: #ef4444; }
