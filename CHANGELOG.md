@@ -8,6 +8,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [2026-11-07]
 
 ### Added
+- **Day / Night in the History Player** — the Day / Night layer drew the terminator of the
+  present moment even while an old snapshot was replayed. It now follows the replayed time
+  (`dayNightTime()`), redraws with every frame, and returns to the present on *Live ✕*.
 - **Analysis: 6 m and 1 yr periods** — the period buttons of the Propagation Analysis page are
   now 30 d, 90 d, 6 m, 1 yr and All. `/api/analysis` rounds `days` up to 30, 90, 180 or 365
   (was 30, 90, 180 or 400), so the *1 yr* button is exactly one year; the *Farthest reporters*
@@ -35,10 +38,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   a little larger (26 px). After the menu opens or closes the maps are resized, moved panels are
   kept inside the map and the Analysis heatmap is redrawn to the new width.
 
+- **Analysis: new card order at the top** — *Right now*, then the *Ionosonde view*, the
+  *Band-open heatmap* and the *DX outlook*; the other cards follow in their earlier order, with
+  *Farthest reporters* last.
 - **Analysis: Farthest reporters below the Ionosonde view** — the card moved to the bottom of the
   page and is now full width, so the *When (UTC)* column and the ▶ replay buttons are no longer cut off.
 
 ### Fixed
+- **History Player bar on four rows** — a general rule that makes date fields and select boxes
+  full width also stretched the date and speed fields of the History Player bar, which then
+  wrapped onto four rows (166 px high instead of 49 px). In the History Player and drive replay
+  bars those fields now take their natural width.
 - **Code audit, 7 November** — findings of a review of the whole program, each tested with the
   real databases:
   - *Invalid locators became positions* — `maidenhead_to_latlon()` converted anything six

@@ -54,6 +54,7 @@ function exitReplay() {
     if (showReporterPlot) clearReporterPlot();
     fetchLatest();
     if (showSolar) fetchSolarData();
+    if (showDayNight) renderDayNight();          // back to the present terminator
 }
 
 async function replayLoadDate(date, ts) {
@@ -112,6 +113,7 @@ function applyReplayFrame() {
     if (showReporterPlot) renderReporterPlot();
     if (showCountries)    updateCountryOverlay(f ? f.c : []);
     if (showSolar && f && f.s) renderSolar(f.s);
+    if (showDayNight)     renderDayNight();      // the terminator of the replayed moment
 }
 
 function replayTogglePlay() {

@@ -238,6 +238,12 @@ function buildNightPolygon(sunLat, sunLon) {
     return { nightPoly, termLine };
 }
 
+// The moment the overlay shows: the replayed snapshot while the History Player is open, otherwise now.
+function dayNightTime() {
+    const f = _replayActive ? _replayFrames[_replayIdx] : null;
+    return f ? new Date(f.ts.replace(' ', 'T') + 'Z') : new Date();
+}
+
 function renderDayNight() {
     if (!showDayNight || !liveMap) return;
     if (!dayNightLayer) {
@@ -245,8 +251,7 @@ function renderDayNight() {
     }
     dayNightLayer.clearLayers();
 
-    const now = new Date();
-    const sun = sunPosition(now);
+    const sun = sunPosition(dayNightTime());
     const { nightPoly, termLine } = buildNightPolygon(sun.lat, sun.lon);
 
     // Night fill — rendered in the custom dayNightPane (z-index 300) so it

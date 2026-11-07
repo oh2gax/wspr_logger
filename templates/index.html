@@ -421,12 +421,36 @@
                         <div><div class="an-now-lbl">Compared with history</div><div class="an-now-val" id="anNowVerdict">—</div><div class="an-now-sub" id="anNowBasis"></div></div>
                     </div>
                 </div>
-                <div class="an-card wide" id="anOutlookCard" style="display:none;">
-                    <div class="an-card-title">DX outlook &mdash; next 12 hours (UTC)</div>
-                    <div class="an-card-sub">Chance that at least one reporter beyond 6000 km from the region is heard in that hour, from how often it has happened in the same hour of the day, adjusted for the present MUF level and K-index.</div>
-                    <div class="ol-cond" id="anOlCond"></div>
-                    <div style="overflow-x:auto;"><table class="ol-table" id="anOlTable"></table></div>
-                    <div class="an-card-sub" id="anOlNote" style="margin:8px 0 0;"></div>
+                <div class="an-card wide">
+                    <div class="an-head-row">
+                        <div style="flex:1;min-width:260px;">
+                            <div class="an-card-title">Ionosonde view &mdash; Juliusruh MUF and foF2 vs. reporters</div>
+                            <div class="an-card-sub" id="anIonoSub">Bars: stations heard. Lines: MUF (D=3000 km) and foF2 in MHz measured at Juliusruh.</div>
+                        </div>
+                        <div class="iono-ctl">
+                            <div class="muf-period-btns">
+                                <button class="muf-period-btn active" id="ioDay"  onclick="setIonoMode('day')" title="One day, every snapshot">Day</button>
+                                <button class="muf-period-btn" id="io30"  onclick="setIonoMode(30)"  title="Last 30 days">30 d</button>
+                                <button class="muf-period-btn" id="io90"  onclick="setIonoMode(90)"  title="Last 90 days">90 d</button>
+                                <button class="muf-period-btn" id="io180" onclick="setIonoMode(180)" title="Last 6 months">6 m</button>
+                                <button class="muf-period-btn" id="io365" onclick="setIonoMode(365)" title="Last year">1 yr</button>
+                                <button class="muf-period-btn" id="io0"   onclick="setIonoMode(0)"   title="The whole history">All</button>
+                                <button class="muf-period-btn" id="ioCustom" onclick="setIonoMode('custom')" title="Choose the first and the last day">Custom</button>
+                            </div>
+                            <div class="iono-sel" id="anIonoDayCtl">
+                                <span class="quick-btn" onclick="shiftIonoDay(-1)" title="Previous day">&#9664;</span>
+                                <input type="date" class="replay-input" id="anIonoDate" onchange="loadIonoDay(this.value)">
+                                <span class="quick-btn" onclick="shiftIonoDay(1)" title="Next day">&#9654;</span>
+                            </div>
+                            <div class="iono-sel" id="anIonoRangeCtl" style="display:none;">
+                                <input type="date" class="replay-input" id="anIonoFrom" onchange="loadIonoCustom()" title="First day">
+                                <span style="color:var(--text-muted);font-size:11px;">to</span>
+                                <input type="date" class="replay-input" id="anIonoTo" onchange="loadIonoCustom()" title="Last day">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="an-chart" style="height:280px;"><canvas id="anIono"></canvas></div>
+                    <div class="an-empty" id="anIonoEmpty" style="display:none;padding:12px 0;">No snapshots in this period.</div>
                 </div>
                 <div class="an-card wide">
                     <div class="an-head-row">
@@ -441,6 +465,13 @@
                     </div>
                     <div style="position:relative;"><canvas id="anHeat"></canvas><div id="anTip"></div></div>
                     <div class="an-legend"><span>0</span><div class="an-legend-bar"></div><span id="anHeatMax"></span></div>
+                </div>
+                <div class="an-card wide" id="anOutlookCard" style="display:none;">
+                    <div class="an-card-title">DX outlook &mdash; next 12 hours (UTC)</div>
+                    <div class="an-card-sub">Chance that at least one reporter beyond 6000 km from the region is heard in that hour, from how often it has happened in the same hour of the day, adjusted for the present MUF level and K-index.</div>
+                    <div class="ol-cond" id="anOlCond"></div>
+                    <div style="overflow-x:auto;"><table class="ol-table" id="anOlTable"></table></div>
+                    <div class="an-card-sub" id="anOlNote" style="margin:8px 0 0;"></div>
                 </div>
                 <div class="an-card wide">
                     <div class="an-card-title">Typical day (UTC)</div>
@@ -485,37 +516,6 @@
                     <div class="an-card-sub" id="anGlSub"></div>
                     <div class="an-gl-grid" id="anGlBody"></div>
                     <div class="an-card-sub" id="anGlNote" style="margin:10px 0 0;"></div>
-                </div>
-                <div class="an-card wide">
-                    <div class="an-head-row">
-                        <div style="flex:1;min-width:260px;">
-                            <div class="an-card-title">Ionosonde view &mdash; Juliusruh MUF and foF2 vs. reporters</div>
-                            <div class="an-card-sub" id="anIonoSub">Bars: stations heard. Lines: MUF (D=3000 km) and foF2 in MHz measured at Juliusruh.</div>
-                        </div>
-                        <div class="iono-ctl">
-                            <div class="muf-period-btns">
-                                <button class="muf-period-btn active" id="ioDay"  onclick="setIonoMode('day')" title="One day, every snapshot">Day</button>
-                                <button class="muf-period-btn" id="io30"  onclick="setIonoMode(30)"  title="Last 30 days">30 d</button>
-                                <button class="muf-period-btn" id="io90"  onclick="setIonoMode(90)"  title="Last 90 days">90 d</button>
-                                <button class="muf-period-btn" id="io180" onclick="setIonoMode(180)" title="Last 6 months">6 m</button>
-                                <button class="muf-period-btn" id="io365" onclick="setIonoMode(365)" title="Last year">1 yr</button>
-                                <button class="muf-period-btn" id="io0"   onclick="setIonoMode(0)"   title="The whole history">All</button>
-                                <button class="muf-period-btn" id="ioCustom" onclick="setIonoMode('custom')" title="Choose the first and the last day">Custom</button>
-                            </div>
-                            <div class="iono-sel" id="anIonoDayCtl">
-                                <span class="quick-btn" onclick="shiftIonoDay(-1)" title="Previous day">&#9664;</span>
-                                <input type="date" class="replay-input" id="anIonoDate" onchange="loadIonoDay(this.value)">
-                                <span class="quick-btn" onclick="shiftIonoDay(1)" title="Next day">&#9654;</span>
-                            </div>
-                            <div class="iono-sel" id="anIonoRangeCtl" style="display:none;">
-                                <input type="date" class="replay-input" id="anIonoFrom" onchange="loadIonoCustom()" title="First day">
-                                <span style="color:var(--text-muted);font-size:11px;">to</span>
-                                <input type="date" class="replay-input" id="anIonoTo" onchange="loadIonoCustom()" title="Last day">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="an-chart" style="height:280px;"><canvas id="anIono"></canvas></div>
-                    <div class="an-empty" id="anIonoEmpty" style="display:none;padding:12px 0;">No snapshots in this period.</div>
                 </div>
                 <div class="an-card wide">
                     <div class="an-card-title" id="anRecTitle">Farthest reporters</div>

@@ -954,6 +954,9 @@ html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1,
     background: var(--input-bg); border: 1px solid var(--border);
     color: var(--text-primary); border-radius: 4px; padding: 2px 4px; font-size: 11px;
 }
+/* The general "input[type=date], select { width: 100% }" rule stretched the date and speed fields across the
+   History Player / drive replay bar, which then wrapped onto four rows. In the bars they take their natural width. */
+.replay-bar .replay-input { width: auto; }
 
 /* ── Histogram panel (left side) ── */
 .hgram-panel {
