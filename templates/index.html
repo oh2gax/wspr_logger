@@ -27,7 +27,7 @@
         <div class="sb-sub">Tracking: <strong>{{ callsign }}</strong></div>
         <div class="sb-whatsnew" id="navWhatsNew" onclick="openWhatsNew()" title="What's new in this version">✨ What's new <span class="nav-badge" id="navVersion"></span></div>
         <button id="themeBtn" onclick="cycleTheme()" title="Theme: Auto">🌓</button>
-        <button id="sbToggleBtn" onclick="toggleSidebar()" title="Collapse sidebar">◀</button>
+        <button id="sbToggleBtn" onclick="toggleSidebar()" title="Hide the menu">◀</button>
     </div>
 
     <div class="status-bar">
@@ -146,6 +146,8 @@
 
 <!-- ═══════════════════════ MAIN CONTENT ═══════════════════════ -->
 <div id="main">
+    <!-- Shown only while the menu is hidden: brings it back -->
+    <button id="sbOpenBtn" onclick="toggleSidebar()" title="Show the menu" aria-label="Show the menu">▶</button>
 
     <!-- ── MAP VIEW ── -->
     <div class="view active" id="map-view">
@@ -398,9 +400,11 @@
     <div class="view" id="analysis-view">
         <div class="view-header">
             <span class="view-title">🔬 Propagation Analysis</span>
-            <span class="quick-btn" id="anP30"  onclick="setAnalysisDays(30)">30 d</span>
-            <span class="quick-btn active-qb" id="anP90" onclick="setAnalysisDays(90)">90 d</span>
-            <span class="quick-btn" id="anP0"   onclick="setAnalysisDays(0)">All</span>
+            <span class="quick-btn" id="anP30"  onclick="setAnalysisDays(30)"  title="Last 30 days">30 d</span>
+            <span class="quick-btn active-qb" id="anP90" onclick="setAnalysisDays(90)" title="Last 90 days">90 d</span>
+            <span class="quick-btn" id="anP180" onclick="setAnalysisDays(180)" title="Last 6 months (180 days)">6 m</span>
+            <span class="quick-btn" id="anP365" onclick="setAnalysisDays(365)" title="Last year (365 days)">1 yr</span>
+            <span class="quick-btn" id="anP0"   onclick="setAnalysisDays(0)"   title="The whole history">All</span>
             <span id="anPeriod" style="font-size:11px;color:var(--text-muted);"></span>
         </div>
         <div id="anEmpty" class="an-empty" style="display:none;"></div>

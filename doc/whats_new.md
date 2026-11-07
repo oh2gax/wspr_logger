@@ -4,6 +4,11 @@ Short notes for users of the web page, newest first. Each version is one day of 
 (v.DDMMYYYY). The full technical history is in CHANGELOG.md. The newest heading gives the
 version shown under the page title.
 
+## v.07112026 — A cleaner full-screen map and longer analysis periods
+
+- **Analysis over 6 months or a year** — next to 30 d, 90 d and All, the Propagation Analysis page now has *6 m* and *1 yr* buttons.
+- **Hide the menu completely** — the ◀ button at the top of the menu now hides the whole menu, so the map gets the full window. A large ▶ handle on the left edge of the page opens it again.
+
 ## v.06112026 — The WPRS page and trips, three seasons of history, grey line and DX outlook in Analysis, movable windows, an Auto / Dark / Light button, and an easier installation
 
 - **WPRS page — where the car has been** — a new page that turns the logged positions into a track. A list shows the days on which the car moved (how many squares, how far, how far from home), a map draws the squares, the track line and every fix, and a replay bar plays a drive back. Switch between *Days* and *Trips*: consecutive days away from home become one trip card with its dates, length and farthest point. *Copy link* gives an address that opens the same day and fix.

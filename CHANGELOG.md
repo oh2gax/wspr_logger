@@ -5,6 +5,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2026-11-07]
+
+### Added
+- **Analysis: 6 m and 1 yr periods** — the period buttons of the Propagation Analysis page are
+  now 30 d, 90 d, 6 m, 1 yr and All. `/api/analysis` rounds `days` up to 30, 90, 180 or 365
+  (was 30, 90, 180 or 400), so the *1 yr* button is exactly one year; the *Farthest reporters*
+  title names the period ("last 6 months", "last year").
+
+### Changed
+- **Hiding the menu hides it completely** — the ◀ button used to leave a 36 px strip of the menu
+  visible (half-cut icons and text). The menu now folds to zero width, and a large ▶ handle
+  (30 × 84 px) appears on the left edge of the page, vertically centred, clear of the map's zoom
+  buttons and the left-hand panels, on every page. The ◀ and theme buttons in the menu header are
+  a little larger (26 px). After the menu opens or closes the maps are resized, moved panels are
+  kept inside the map and the Analysis heatmap is redrawn to the new width.
+
+---
+
 ## [2026-11-06]
 
 ### Added

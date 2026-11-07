@@ -1113,7 +1113,7 @@ def serve_doc(name):
 
 _analysis_cache: dict = {}          # (days, band) -> (monotonic time, payload)
 _ANALYSIS_TTL = 600                 # seconds
-_ANALYSIS_DAYS = (30, 90, 180, 400) # periods the analysis is computed for; other ?days= values round up to one of them
+_ANALYSIS_DAYS = (30, 90, 180, 365) # periods of the Analysis page buttons (30 d, 90 d, 6 m, 1 yr); other ?days= values round up to one of them
 
 # Reporters whose reported distance contradicts their own grid (a wrong grid or a decoding error)
 # would otherwise show up as the farthest "reporter" or as a long-distance window.
@@ -1188,7 +1188,7 @@ def outlook_state(band: int) -> dict:
 def api_analysis():
     """Propagation analysis computed from the replay database.
 
-    Query params: days=<0..400> (0 = whole history, default 90; rounded up to 30, 90, 180 or 400), band=<int>.
+    Query params: days=<0..365> (0 = whole history, default 90; rounded up to 30, 90, 180 or 365), band=<int>.
     Results are cached for 10 minutes; no wspr.live queries are made.
     """
     days = request.args.get('days', 90, type=int)

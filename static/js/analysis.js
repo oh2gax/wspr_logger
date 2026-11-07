@@ -21,7 +21,7 @@ async function loadAnalysis() {
 
 function setAnalysisDays(d) {
     _anDays = d;
-    [[30,'anP30'],[90,'anP90'],[0,'anP0']].forEach(([n,id]) =>
+    [[30,'anP30'],[90,'anP90'],[180,'anP180'],[365,'anP365'],[0,'anP0']].forEach(([n,id]) =>
         document.getElementById(id).classList.toggle('active-qb', n === d));
     loadAnalysis();
 }
@@ -181,7 +181,8 @@ function renderAnalysis() {
     drawDxCharts();
     drawGreyline();
     drawExcluded();
-    document.getElementById('anRecTitle').textContent = `Farthest reporters (${_anDays ? 'last ' + _anDays + ' days' : 'all history'})`;
+    const period = { 0: 'all history', 180: 'last 6 months', 365: 'last year' }[_anDays] || `last ${_anDays} days`;
+    document.getElementById('anRecTitle').textContent = `Farthest reporters (${period})`;
     document.getElementById('anRecBody').innerHTML = (d.records || []).length
         ? d.records.map((r, i) => `<tr><td>${i + 1}</td><td><strong>${escHtml(r.callsign)}</strong> ` +
             `<span style="color:var(--text-muted)">${escHtml(r.country || '')} ${escHtml(r.grid || '')}</span></td>` +

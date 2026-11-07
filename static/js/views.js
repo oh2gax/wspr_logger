@@ -5,12 +5,18 @@
 'use strict';
 
 // ── Sidebar collapse ───────────────────────────────────────────────────────
+// Hiding the menu removes it completely; the handle on the left edge (#sbOpenBtn) brings it back.
 function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('collapsed');
+    const collapsed = document.getElementById('sidebar').classList.toggle('collapsed');
+    document.getElementById('sbToggleBtn').title = collapsed ? 'Show the menu' : 'Hide the menu';
     // Let the CSS transition finish before telling Leaflet to resize
-    setTimeout(() => { liveMap && liveMap.invalidateSize(); }, 270);
-    setTimeout(() => { histMap && histMap.invalidateSize(); }, 270);
-    setTimeout(() => { wprsMap && wprsMap.invalidateSize(); }, 270);
+    setTimeout(() => {
+        liveMap && liveMap.invalidateSize();
+        histMap && histMap.invalidateSize();
+        wprsMap && wprsMap.invalidateSize();
+        Object.keys(_panelPos).forEach(panelClamp);     // a narrower map: keep moved panels inside it
+        if (_anData && document.getElementById('analysis-view').classList.contains('active')) drawHeatmap();
+    }, 270);
 }
 
 // ── Trail / Home toggles ───────────────────────────────────────────────────
