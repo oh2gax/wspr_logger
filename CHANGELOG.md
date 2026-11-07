@@ -12,6 +12,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   now 30 d, 90 d, 6 m, 1 yr and All. `/api/analysis` rounds `days` up to 30, 90, 180 or 365
   (was 30, 90, 180 or 400), so the *1 yr* button is exactly one year; the *Farthest reporters*
   title names the period ("last 6 months", "last year").
+- **WPRS two-page summary under Guides** — `doc/WPRS_Two_Page_Summary.pdf`: the idea, how
+  a fix travels, the station, a table of the key measurements, the position map and the
+  availability figure, where WPRS fits, limitations and operating tips. Built from the new
+  `doc/src/wprs_brief.tex`, which uses the same macros (`out/numbers.tex`,
+  `out/wprs_numbers.tex`) and figures as the full paper, so it stays in step when the
+  analysis is re-run. Listed in `doc/guides.json` right after the full paper.
 
 ### Changed
 - **Hiding the menu hides it completely** — the ◀ button used to leave a 36 px strip of the menu

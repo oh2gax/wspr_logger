@@ -468,7 +468,7 @@ Choose `--from` so that it does not reach back to a time when the callsign was s
 
 ### Guides
 
-*Guides* (sidebar) and *What's new* (under the title) open one window with three tabs, *What's new*, *User guides* and *About*; the sidebar entry and the link open it on their own tab. The *User guides* tab lists the PDF files in the `doc/` folder. To add a document, copy the PDF into `doc/` and, optionally, add an entry (`file`, `title`, `description`, `date`) to `doc/guides.json`; a PDF without an entry is still listed with a title made from its file name. Only plain `*.pdf` names inside `doc/` are served (`/doc/<file>`); the LaTeX sources and figure scripts of the two bundled papers are in `doc/src/` and are not served.
+*Guides* (sidebar) and *What's new* (under the title) open one window with three tabs, *What's new*, *User guides* and *About*; the sidebar entry and the link open it on their own tab. The *User guides* tab lists the PDF files in the `doc/` folder. To add a document, copy the PDF into `doc/` and, optionally, add an entry (`file`, `title`, `description`, `date`) to `doc/guides.json`; a PDF without an entry is still listed with a title made from its file name. Only plain `*.pdf` names inside `doc/` are served (`/doc/<file>`); the LaTeX sources and figure scripts of the bundled papers are in `doc/src/` and are not served. `wprs_brief.tex` there builds the two-page WPRS summary from the same generated numbers and figures as the full paper (`pdflatex wprs_brief.tex` twice, after `analyze.py` and `analyze_wprs.py`; copy the result to `doc/WPRS_Two_Page_Summary.pdf`).
 
 ### What's new and About
 

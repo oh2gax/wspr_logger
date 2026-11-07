@@ -4,8 +4,9 @@ Short notes for users of the web page, newest first. Each version is one day of 
 (v.DDMMYYYY). The full technical history is in CHANGELOG.md. The newest heading gives the
 version shown under the page title.
 
-## v.07112026 — A cleaner full-screen map and longer analysis periods
+## v.07112026 — A cleaner full-screen map, longer analysis periods and WPRS in two pages
 
+- **WPRS in two pages** — *Guides* now also has a two-page summary of the WPRS paper: how the car reports its position over HF and the key results of three seasons, for a quick read.
 - **Analysis over 6 months or a year** — next to 30 d, 90 d and All, the Propagation Analysis page now has *6 m* and *1 yr* buttons.
 - **Hide the menu completely** — the ◀ button at the top of the menu now hides the whole menu, so the map gets the full window. A large ▶ handle on the left edge of the page opens it again.
 

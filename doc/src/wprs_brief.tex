@@ -1,0 +1,67 @@
+\documentclass[10pt,a4paper]{article}
+\input{common.tex}
+\input{out/numbers.tex}
+\input{out/wprs_numbers.tex}
+% Two-page summary of wprs_paper.tex. Every number is a macro written by analyze.py / analyze_wprs.py,
+% so this summary stays in step with the full paper when the analysis is re-run.
+\newgeometry{margin=1.8cm,top=2.0cm,bottom=1.9cm}
+\setlength{\parskip}{4pt plus 1pt}
+\captionsetup{font=footnotesize}
+\fancyhead[L]{\small WPRS --- two-page summary}
+\fancyhead[R]{\small v1.0, 7 November 2026}
+\hypersetup{pdftitle={WPRS - Whisper Position Reporting System (two-page summary)},pdfauthor={Otso Laakso, OH2GAX}}
+\renewcommand{\makeheader}[3]{%
+  \begin{center}
+    {\Large\bfseries #1\par}\vspace{2pt}
+    {\normalsize #2\par}\vspace{4pt}
+    {\small Otso Laakso, OH2GAX \quad---\quad #3\par}
+  \end{center}\vspace{0pt}\hrule\vspace{4pt}}
+% compact section headings for the summary
+\newcommand{\hd}[1]{\par\vspace{5pt}{\large\bfseries\color{accent}#1}\par\vspace{1pt}}
+\setlength{\abovecaptionskip}{3pt}\setlength{\belowcaptionskip}{0pt}
+\setlength{\textfloatsep}{6pt}\setlength{\intextsep}{6pt}
+\begin{document}
+\makeheader{WPRS --- Whisper Position Reporting System}{Position beaconing over HF with a 200\,mW WSPR transmitter on a car: a two-page summary}{7 November 2026 --- full paper: \emph{WPRS\_Whisper\_Position\_Reporting\_System.pdf}}
+
+\textbf{The idea.} A WSPR transmitter that computes its Maidenhead locator from a GPS fix turns the worldwide network of volunteer WSPR receivers into a free position channel: no mobile network, no APRS digipeater and no receiver of one's own is needed. Somebody, somewhere, hears the transmission and uploads it to the public WSPR database, and the database is the track. This summary describes the technique and what it achieved from an ordinary car in three summer seasons: \wFixes\ logged transmissions from \wFirst\ to \wLast.
+
+\hd{How it works}
+A WSPR transmission lasts 110.6\,s, occupies about 6\,Hz in the 200\,Hz WSPR segment (14\,097.0--14\,097.2\,kHz on 20\,m) and is decoded down to about $-30$\,dB SNR in 2\,500\,Hz. The message carries 50 bits; a \emph{Type~3} message holds a six-character locator, a hash of the callsign and the power. A six-character locator (a \emph{subsquare}, for example KP20jg) is \wSqNS\,$\times$\,\wSqEW\,km at 60\textdegree N, so the position is known with an r.m.s.\ error of \wRMS\,km (at most \wHalfDiag\,km). The four-character locator of an ordinary message would be \wSqFourNS\,km across. A fix reaches the map via the receiver, the WSPR database and \texttt{wspr.live}; the WSPR Logger polls every ten minutes, so a position is visible about 6--10 minutes after it was sent. WPRS is a \emph{breadcrumb trail}, not a live tracker.
+
+\hd{Station}
+\textbf{Transmitter:} ZachTek WSPR desktop transmitter, about 200\,mW (23\,dBm), built-in GPS with an external active antenna, one transmission every ten minutes on 20\,m. \textbf{Antenna:} Diamond monoband 14\,MHz whip on a magnetic mount on the roof of a VW Touran (the car body is the ground plane; not fitted in winter, so the data cover March to November). \textbf{Power:} a 30\,000\,mAh USB power bank. At the measured duty cycle (\wTxFrac\,\% transmitting) the average load is \eAvgW\,W and the predicted runtime \eDays\ days; in practice a pack lasts four to five days, and two packs are rotated.
+
+\hd{Results}
+\begin{table}[H]\centering\small
+\caption{Key measurements, three seasons (2024--2026). A \emph{fix} is a transmission heard by at least one station.}\label{tab:key}
+\begin{tabularx}{\textwidth}{@{}lX@{}}\toprule
+Data & \wFixes\ fixes on \wDaysWith\ of \wSpan\ days; \wLocs\ different six-character locators; \nStations\ receiving stations \\
+Cadence & median \wPerDayMed\ fixes per day (\wHeardPct\,\% of the 144 possible); \wGapBA\,\% of consecutive fixes exactly 10\,min apart \\
+Availability & a fix from the previous 60\,min: \wAvDayGA\,\% of the time at 08--16 UTC, \wAvNightGA\,\% at 01--04 UTC (lowest \wAvGAMin\,\% at \wAvGAMinH~UTC) \\
+Confirmation & median \wRepMed\ receivers per fix; \wRepD\,\% heard by three or more stations, \wRepB\,\% by a single one \\
+Position & home square KP20jg \wHomePct\,\%, adjacent squares \wNear\,\%, more than 25\,km from home \wFar\,\%; farthest fix \wMaxDist\,km (\wMaxLoc, \wMaxDate); \wTrips\ trips beyond 25\,km \\
+Coverage & \zpeurope\,\% of the receivers in Europe; a station beyond 6\,000\,km on \pctDaysDXsix\,\% of days; record \wRecord\,km (\wKmW\,km per watt) \\
+Lower power & stations still decoding (upper bound): 50\,mW \pwFifty\,\%, 25\,mW \pwTwentyFive\,\%, 10\,mW \pwTen\,\%, 1\,mW \pwOne\,\% \\
+Seasons & fixes per median day \sCACEPerDay, \sCACFPerDay, \sCACGPerDay; heard by $\ge$3 stations \sCACERepD, \sCACFRepD, \sCACGRepD\,\% (2024, 2025, 2026) \\\bottomrule
+\end{tabularx}\end{table}
+
+\begin{figure}[H]\centering\includegraphics[width=0.74\textwidth]{out/fig_wprs_map.pdf}
+\caption{(a) Every six-character position recorded, shaded by number of fixes, with the longest trips. (b) The home area; each rectangle is one subsquare of \wSqNS\,$\times$\,\wSqEW\,km.}\label{fig:map}\end{figure}
+
+\textbf{Availability follows the band.} The transmitter sends every ten minutes; a fix exists when at least one station decodes it. In the daytime the latest position is almost always less than an hour old; in the small hours, when 20\,m is closed, it often is not (Figure~\ref{fig:avail}). Fixes are well confirmed: a typical one is heard by \wRepMed\ independent receivers, which makes a wrong position from a single bad report rare.
+
+\begin{figure}[H]\centering\includegraphics[width=0.95\textwidth]{out/fig_wprs_avail.pdf}
+\caption{(a) Position fixes per UTC day over the three seasons. (b) Probability of a fix by UTC hour: from the current slot, from the previous 30 and the previous 60 minutes.}\label{fig:avail}\end{figure}
+
+\textbf{The track is real.} Between 06 and 14 UTC the car is in the home square in \wHomeWk\,\% of the fixes on weekdays but \wHomeWe\,\% at weekends: the commute is recovered from the fixes alone. Trips reached \wMaxDist\,km from home. Two places closer than about five kilometres cannot be told apart; that is the resolution limit of the technique. Most fixes are delivered by European stations one to three thousand kilometres away; the long-distance reports prove the reach but are not needed for tracking. Because European reception is so redundant, even 10\,mW would still have reached \pwTen\,\% of the stations; the long paths would be lost first.
+
+\hd{Where WPRS fits}
+Compared with APRS (needs a VHF digipeater or gateway in range) and a cellular GPS tracker (needs mobile coverage and a subscription), WPRS needs no infrastructure and only 0.2\,W, but delivers a square of about 5\,km every ten minutes, with no reverse channel and a gap at night. It suits \emph{away-from-coverage breadcrumb trails} (long drives, hiking, sailing, expeditions) and doubles as a propagation probe. It is not a safety tracker and cannot replace a distress beacon.
+
+\textbf{Limitations.} One car, one antenna and three seasons; the two earlier seasons were rebuilt from \texttt{wspr.live} (checked against a live week: ratio \cmpRatio). No ground-truth GPS log was kept, so the position error is the theoretical one of the locator. A missing fix can mean a closed band, a lost GPS fix, a battery swap or a garage. The track is public: anybody can see where the car is to within about five kilometres, so switch the transmitter off at home if that matters.
+
+\textbf{Operating tips.} Wait for the GPS lock before driving off; give the GPS puck a clear view of the sky; keep the magnetic mount on clean roof metal; do not rely on the latest fix at night; carry a second charged power bank on trips longer than four days.
+
+\keyboxed{\textbf{In short:} a 200\,mW GPS WSPR transmitter with a car-roof whip is a usable infrastructure-free position beacon on 20\,m. It gives a \wSqNS\,km square every ten minutes, a position from the last hour \wAvDayGA\,\% of the daytime and \wAvNightGA\,\% of the night, confirmed by a median of \wRepMed\ receivers, and runs four to five days on a 30\,000\,mAh power bank.}
+
+\end{document}
