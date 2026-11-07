@@ -38,6 +38,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `doc/src/guide_img_m/`. Second in the Guides list, after the user guide.
 
 ### Changed
+- **Analysis: computed ahead, and a loading message** — `_warm_analysis()` computes the default
+  period (90 days, the configured band) of `/api/analysis` and `/api/analysis/more`, and the DX
+  outlook model, in a background thread after the start-up fetch and after every poll (about 3–6 s
+  of CPU every 10 minutes). Those entries are kept 20 minutes instead of 10, so a visitor always
+  gets the ready one (before: 4–8 s on the first opening in each 10 minutes, the usual case on a
+  quiet site). The caches go through `_cached()`, which also lets concurrent requests for the same
+  key wait for one computation instead of each running it; the route bodies moved into
+  `_build_analysis()` / `_build_more()` (output byte-identical, checked for 90 d, 30 d and all).
+  `analysis.js`: while waiting, the first opening shows a spinner and a message with the seconds
+  waited; a period change keeps the cards dimmed with *Loading …* beside the period buttons; an
+  older, slower answer no longer replaces the period chosen last; a failed load leaves the old cards.
 - **About: Availability** — a new row in the About window (`static/js/info.js`) and the phone's
   About sheet (`templates/app.html`): data comes only while the car's WSPR transmitter is running
   (30 000 mAh batteries, so sometimes off); typically on 24/7 in the summer season (March–November)

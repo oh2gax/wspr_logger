@@ -11,12 +11,56 @@ let _anHeatMetric = 'n';
 let _anCharts = {};
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+// While the server computes (several seconds for a period not asked for in the last 10 minutes):
+// the first time a message with the seconds waited in place of the cards; on a period change the
+// cards stay, dimmed, with "Loading …" beside the period buttons.  A slower answer for an earlier
+// period never replaces a newer one.
+let _anSeq = 0, _anWaitTimer = null;
+const AN_PERIOD_NAMES = {30: '30 days', 90: '90 days', 180: '6 months', 365: '1 year', 0: 'the whole history'};
+
+function anBusy(on) {
+    const empty = document.getElementById('anEmpty'), body = document.getElementById('anBody');
+    const per = document.getElementById('anPeriod');
+    clearInterval(_anWaitTimer); _anWaitTimer = null;
+    body.classList.toggle('an-busy', on && !!_anData);
+    if (!on) { per.classList.remove('an-loading-lbl'); return; }
+    const t0 = Date.now(), what = AN_PERIOD_NAMES[_anDays] || `${_anDays} days`;
+    if (_anData && !_anData.empty) {                    // a period change: keep the cards
+        per.classList.add('an-loading-lbl');
+        per.innerHTML = `<span class="an-spin"></span>Loading ${what}…`;
+        return;
+    }
+    body.style.display = 'none';
+    empty.style.display = 'block';
+    const draw = () => {
+        const s = Math.round((Date.now() - t0) / 1000);
+        empty.innerHTML = `<div class="an-wait"><span class="an-spin"></span><b>Computing the propagation analysis of ${what}…</b>` +
+            `<div>The server goes through every stored snapshot. The first opening can take a few seconds` +
+            (s >= 2 ? ` (${s} s so far)` : '') + `; after that the page opens at once.</div></div>`;
+    };
+    draw();
+    _anWaitTimer = setInterval(draw, 1000);
+}
+
 async function loadAnalysis() {
+    const seq = ++_anSeq;
     loadAnalysisMore();                 // the second set of cards loads on its own (analysis-more.js)
+    anBusy(true);
+    let data;
     try {
         const r = await fetch(`/api/analysis?days=${_anDays}&band=${currentBand}`);
-        _anData = await r.json();
-    } catch(e) { showToast('Failed to load analysis', 'err'); return; }
+        if (!r.ok) throw new Error(r.status);
+        data = await r.json();
+    } catch(e) {
+        if (seq !== _anSeq) return;
+        anBusy(false);
+        showToast('Failed to load analysis', 'err');
+        if (_anData) renderAnalysis(); else document.getElementById('anEmpty').textContent = 'Could not load the analysis. Try again in a moment.';
+        return;
+    }
+    if (seq !== _anSeq) return;         // the period was changed meanwhile: that answer is on its way
+    anBusy(false);
+    _anData = data;
     renderAnalysis();
 }
 

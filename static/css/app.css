@@ -933,6 +933,15 @@ html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1,
 }
 .an-note { padding: 0 18px 22px; font-size: 11px; color: var(--text-muted); line-height: 1.6; max-width: 980px; }
 .an-empty { padding: 40px 18px; color: var(--text-muted); font-size: 13px; }
+/* the Analysis page while the server computes (analysis.js anBusy) */
+.an-wait { max-width: 520px; margin: 0 auto; text-align: center; line-height: 1.5; color: var(--text-secondary); }
+.an-wait b { display: block; font-size: 14px; color: var(--text-primary); margin: 10px 0 4px; }
+.an-wait .an-spin { width: 22px; height: 22px; border-width: 3px; margin: 0; }
+.an-spin { display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px; border-radius: 50%;
+           border: 2px solid var(--border); border-top-color: var(--accent); animation: an-spin .8s linear infinite; }
+@keyframes an-spin { to { transform: rotate(360deg); } }
+.an-loading-lbl { color: var(--accent) !important; }
+#anBody.an-busy { opacity: .45; transition: opacity .2s; pointer-events: none; }
 
 /* ── History player bar (bottom centre of the live map) ── */
 .replay-bar {

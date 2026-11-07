@@ -1193,6 +1193,36 @@ def serve_doc(name):
 _analysis_cache: dict = {}          # (days, band) -> (monotonic time, payload)
 _ANALYSIS_TTL = 600                 # seconds
 _ANALYSIS_DAYS = (30, 90, 180, 365) # periods of the Analysis page buttons (30 d, 90 d, 6 m, 1 yr); other ?days= values round up to one of them
+# The default period (90 d) of the configured band is computed in the background after every poll
+# (_warm_analysis), so the Analysis page opens at once.  Its entries are kept twice as long, so that a
+# visitor never meets an expired entry while the next one is being computed.
+_WARM_DAYS = 90
+_compute_locks: dict = {}           # cache key -> Lock: one computation at a time per key, the others wait for it
+_compute_locks_guard = threading.Lock()
+
+
+def _ttl_of(days: int, band: int) -> int:
+    return 2 * _ANALYSIS_TTL if (days, band) == (_WARM_DAYS, DEFAULT_BAND) else _ANALYSIS_TTL
+
+
+def _cached(cache: dict, key, ttl: int, compute, force: bool = False):
+    """The cached value of `key`, or computed by compute() and stored.  Concurrent requests for the
+    same key wait for one computation instead of each running it (two visitors opening the Analysis
+    page at the same moment).  force: compute anew even when the entry is fresh (the background warmer)."""
+    if not force:
+        hit = cache.get(key)
+        if hit and time.monotonic() - hit[0] < ttl:
+            return hit[1]
+    with _compute_locks_guard:
+        lock = _compute_locks.setdefault((id(cache), key), threading.Lock())
+    with lock:
+        if not force:                   # computed by the request that held the lock meanwhile
+            hit = cache.get(key)
+            if hit and time.monotonic() - hit[0] < ttl:
+                return hit[1]
+        value = compute()
+        _cache_put(cache, key, (time.monotonic(), value))
+        return value
 
 # Reporters whose reported distance contradicts their own grid (a wrong grid or a decoding error)
 # would otherwise show up as the farthest "reporter" or as a long-distance window.
@@ -1205,9 +1235,10 @@ def find_outliers(band: int) -> list:
     """(callsign, grid) pairs whose distances differ by more than OUTLIER_TOL_KM from the
     distance computed from the grid (4 or more characters) to the home square.  The tolerance
     covers the size of a 4-character square and the car's trips from home (up to ~200 km)."""
-    hit = _outlier_cache.get(band)
-    if hit and time.monotonic() - hit[0] < _OUTLIER_TTL:
-        return hit[1]
+    return _cached(_outlier_cache, band, _OUTLIER_TTL, lambda: _scan_outliers(band))
+
+
+def _scan_outliers(band: int) -> list:
     out = []
     home = wprs.home_of(db.get_all_spots(band))
     if home:
@@ -1223,7 +1254,6 @@ def find_outliers(band: int) -> list:
             if max(abs(gd - p["dmax"]), abs(gd - p["dmin"])) > OUTLIER_TOL_KM:
                 out.append({"callsign": p["callsign"], "grid": grid, "reports": p["n"],
                             "reported_km": p["dmax"] if d_far else p["dmin"], "grid_km": round(gd)})
-    _cache_put(_outlier_cache, band, (time.monotonic(), out))
     return out
 
 
@@ -1248,19 +1278,45 @@ def _dx_events(dx_rows: list) -> list:
 _outlook_cache: dict = {}           # band -> (monotonic time, {"model", "last_k"})
 
 
-def outlook_state(band: int) -> dict:
+def outlook_state(band: int, force: bool = False) -> dict:
     """The DX outlook model, always fitted on the whole history (the Analysis period buttons do not
     change it: more days make the hour-of-day tables and the back-test more reliable)."""
-    hit = _outlook_cache.get(band)
-    if hit and time.monotonic() - hit[0] < _ANALYSIS_TTL:
-        return hit[1]
+    return _cached(_outlook_cache, band, _ttl_of(_WARM_DAYS, band), lambda: _fit_outlook(band), force)
+
+
+def _fit_outlook(band: int) -> dict:
     excl = _outlier_keys(find_outliers(band))
     rows = replay_db.get_snapshot_rows(0, band, exclude=excl)
     events = _dx_events(replay_db.get_dx_reports(0, band, exclude=excl))
     state = {"model": outlook.fit([(d, h, z) for d, h, z, _la, _lo in events], rows) if rows else None,
              "last_k": next(((r[0], r[4]) for r in reversed(rows) if r[4] is not None), None)}
-    _cache_put(_outlook_cache, band, (time.monotonic(), state))
     return state
+
+
+def _analysis_payload(days: int, band: int, force: bool = False) -> dict:
+    """The cached part of /api/analysis (everything but "right now" and the outlook)."""
+    return _cached(_analysis_cache, (days, band), _ttl_of(days, band), lambda: _build_analysis(days, band), force)
+
+
+def _build_analysis(days: int, band: int) -> dict:
+    outliers = find_outliers(band)
+    excl = _outlier_keys(outliers)
+    rows = replay_db.get_snapshot_rows(days, band, exclude=excl)
+    payload = analysis.build(rows, datetime.utcnow().strftime("%Y-%m-%d"))
+    payload["enabled"] = True
+    payload["excluded"] = outliers
+    if not payload.get("empty"):
+        records = replay_db.get_top_distances(days, band, limit=10, exclude=excl)
+        for rec in records:
+            rec["country"] = callsign_to_country(rec["callsign"] or "??", rec["grid"] or "")
+        payload["records"] = records
+        events = _dx_events(replay_db.get_dx_reports(days, band, exclude=excl))
+        hour_days = {}
+        for r in rows:
+            hour_days.setdefault(int(r[0][11:13]), set()).add(r[0][:10])
+        home = wprs.home_of(db.get_all_spots(band))
+        payload["greyline"] = greyline.build(events, hour_days, home)
+    return payload
 
 
 @app.route('/api/analysis')
@@ -1268,36 +1324,15 @@ def api_analysis():
     """Propagation analysis computed from the replay database.
 
     Query params: days=<0..365> (0 = whole history, default 90; rounded up to 30, 90, 180 or 365), band=<int>.
-    Results are cached for 10 minutes; no wspr.live queries are made.
+    Results are cached for 10 minutes (the default 90 days are kept ready by _warm_analysis); no wspr.live
+    queries are made.
     """
     days = request.args.get('days', 90, type=int)
     days = 0 if days <= 0 else next((d for d in _ANALYSIS_DAYS if days <= d), _ANALYSIS_DAYS[-1])
     band = _band_arg()
     if not replay_db.is_enabled():
         return jsonify({"enabled": False, "empty": True})
-    key = (days, band)
-    hit = _analysis_cache.get(key)
-    if hit and time.monotonic() - hit[0] < _ANALYSIS_TTL:
-        payload = hit[1]
-    else:
-        outliers = find_outliers(band)
-        excl = _outlier_keys(outliers)
-        rows = replay_db.get_snapshot_rows(days, band, exclude=excl)
-        payload = analysis.build(rows, datetime.utcnow().strftime("%Y-%m-%d"))
-        payload["enabled"] = True
-        payload["excluded"] = outliers
-        if not payload.get("empty"):
-            records = replay_db.get_top_distances(days, band, limit=10, exclude=excl)
-            for rec in records:
-                rec["country"] = callsign_to_country(rec["callsign"] or "??", rec["grid"] or "")
-            payload["records"] = records
-            events = _dx_events(replay_db.get_dx_reports(days, band, exclude=excl))
-            hour_days = {}
-            for r in rows:
-                hour_days.setdefault(int(r[0][11:13]), set()).add(r[0][:10])
-            home = wprs.home_of(db.get_all_spots(band))
-            payload["greyline"] = greyline.build(events, hour_days, home)
-        _cache_put(_analysis_cache, key, (time.monotonic(), payload))
+    payload = _analysis_payload(days, band)
 
     out = {k: v for k, v in payload.items() if not k.startswith("_")}      # "right now" is never cached
     if not out.get("empty"):
@@ -1331,13 +1366,9 @@ _HISTORY_TTL = 3600
 def _history_inputs(band: int, excl: set) -> dict:
     """Inputs that always cover the whole history (season comparison, typical day of the year, months):
     they change slowly, so they are cached for an hour."""
-    hit = _history_cache.get(band)
-    if hit and time.monotonic() - hit[0] < _HISTORY_TTL:
-        return hit[1]
-    data = {"rows": replay_db.get_snapshot_rows(0, band, exclude=excl),
-            "month_stations": replay_db.get_month_stations(band, exclude=excl)}
-    _cache_put(_history_cache, band, (time.monotonic(), data))
-    return data
+    return _cached(_history_cache, band, _HISTORY_TTL,
+                   lambda: {"rows": replay_db.get_snapshot_rows(0, band, exclude=excl),
+                            "month_stations": replay_db.get_month_stations(band, exclude=excl)})
 
 
 @app.route('/api/analysis/more')
@@ -1347,18 +1378,22 @@ def api_analysis_more():
     by side, stations per month and the most loyal reporters.
 
     Query params: days (as /api/analysis: rounded up to 30, 90, 180 or 365; 0 = all), band=<int>.
-    The season comparison and the stations per month always use the whole history.  Cached 10 minutes.
+    The season comparison and the stations per month always use the whole history.  Cached 10 minutes
+    (the default 90 days are kept ready by _warm_analysis).
     """
     days = request.args.get('days', 90, type=int)
     days = 0 if days <= 0 else next((d for d in _ANALYSIS_DAYS if days <= d), _ANALYSIS_DAYS[-1])
     band = _band_arg()
     if not replay_db.is_enabled():
         return jsonify({"enabled": False, "empty": True})
-    key = (days, band)
-    hit = _more_cache.get(key)
-    if hit and time.monotonic() - hit[0] < _ANALYSIS_TTL:
-        return jsonify(hit[1])
+    return jsonify(_more_payload(days, band))
 
+
+def _more_payload(days: int, band: int, force: bool = False) -> dict:
+    return _cached(_more_cache, (days, band), _ttl_of(days, band), lambda: _build_more(days, band), force)
+
+
+def _build_more(days: int, band: int) -> dict:
     excl = _outlier_keys(find_outliers(band))
     hist = _history_inputs(band, excl)
     rows = replay_db.get_snapshot_rows(days, band, exclude=excl) if days else hist["rows"]
@@ -1380,8 +1415,7 @@ def api_analysis_more():
             "unusual": analysis_more.unusual_days(rows, hist["rows"]),
             "seasons": analysis_more.seasons(hist["rows"]),
         }
-    _cache_put(_more_cache, key, (time.monotonic(), payload))
-    return jsonify(payload)
+    return payload
 
 
 _iono_cache: dict = {}              # (kind, range, band) -> (monotonic time, payload)
@@ -1493,6 +1527,32 @@ def _next_poll_time(now: datetime) -> datetime:
     return t
 
 
+_warm_busy = threading.Lock()
+
+
+def _warm_analysis() -> None:
+    """Compute the Analysis page's default period (90 days, the configured band) in the background,
+    after each poll has stored a new snapshot: the page then opens at once instead of waiting for the
+    computation (several seconds on a small server).  The other periods are computed when asked.
+    Runs in its own thread so it never delays polling; a run still busy makes the next one skip."""
+    if not replay_db.is_enabled() or not _warm_busy.acquire(blocking=False):
+        return
+    try:
+        t0 = time.monotonic()
+        _analysis_payload(_WARM_DAYS, DEFAULT_BAND, force=True)
+        outlook_state(DEFAULT_BAND, force=True)
+        _more_payload(_WARM_DAYS, DEFAULT_BAND, force=True)
+        print(f"[INFO] Analysis ({_WARM_DAYS} d) computed in the background in {time.monotonic() - t0:.1f} s")
+    except Exception as e:                  # a failed warm-up only means the next visitor computes it
+        print(f"[WARN] Analysis warm-up failed: {e}")
+    finally:
+        _warm_busy.release()
+
+
+def _start_warm() -> None:
+    threading.Thread(target=_warm_analysis, daemon=True, name="analysis-warm").start()
+
+
 def update_thread():
     global _last_update_utc, _update_error, _cached_countries, _cached_reporter_list, _cached_fof2
     print(f"[INFO] Update thread started — tracking {CALLSIGN} on {DEFAULT_BAND} MHz")
@@ -1525,6 +1585,7 @@ def update_thread():
 
     except Exception as e:                  # the polling loop below must start whatever went wrong here
         print(f"[ERROR] Initial fetch failed: {e}")
+    _start_warm()
 
     while True:
         # Act at minute :08, :18, :28, :38, :48, :58
@@ -1573,6 +1634,7 @@ def update_thread():
                 print(f"[ERROR] Poll cycle exception: {e}")
                 with _state_lock:
                     _update_error = f"Poll error: {e}"
+            _start_warm()                   # the Analysis page's default period, with the new snapshot
 
 
 # ---------------------------------------------------------------------------
