@@ -58,11 +58,33 @@
   <!-- Live map: the latest position, the trail of the day, the reporters' arcs and day / night -->
   <section id="v-map" class="app-view app-mapview" hidden>
     <div class="app-mapbox"><div id="m-map" class="app-map"></div></div>
+    <!-- the cards over the map, at the bottom: solar conditions and the MUF graph (options, from 2026-11-08) above the status card -->
+    <div class="app-map-cards">
+    <div class="app-live-card app-sol-card" id="m-sol-card" hidden>
+      <div class="sc-hd"><span>Solar conditions</span><span class="sc-upd" id="m-ms-upd"></span></div>
+      <div class="sc-grid">
+        <div><span>SFI</span><b id="m-ms-sfi">—</b></div>
+        <div><span>K</span><b id="m-ms-k">—</b></div>
+        <div><span>A</span><b id="m-ms-a">—</b></div>
+        <div><span>X-ray</span><b id="m-ms-x">—</b></div>
+        <div><span>Bz</span><b id="m-ms-bz">—</b></div>
+        <div><span>Wind</span><b id="m-ms-sw">—</b></div>
+        <div><span>Aurora</span><b id="m-ms-au">—</b></div>
+        <div><span>Proton</span><b id="m-ms-pf">—</b></div>
+        <div><span>foF2</span><b id="m-ms-fof2">—</b></div>
+        <div><span>J-MUF</span><b id="m-ms-muf">—</b></div>
+      </div>
+    </div>
+    <div class="app-live-card app-mufc-card" id="m-mufc-card" hidden>
+      <div class="sc-hd"><span><i class="mc-muf">MUF D=3000</i> &amp; <i class="mc-rep">reporters</i></span><span class="sc-upd" id="m-mc-last"></span></div>
+      <div class="mc-chart"><canvas id="m-mc-c"></canvas></div>
+    </div>
     <div class="app-live-card" id="m-live-card">
       <div class="lc-row1"><b id="m-lc-loc" class="mono">——</b><span id="m-lc-age" class="lc-age"></span><span id="m-lc-band" class="lc-band"></span></div>
       <div class="lc-prop"><span id="m-lc-prop">—</span></div>
       <div class="lc-bar"><div id="m-lc-bar"></div></div>
       <div class="lc-row2"><span><b id="m-lc-rep">—</b> reporters</span><span>best DX <b id="m-lc-dx">—</b></span><span id="m-lc-time" class="lc-time"></span></div>
+    </div>
     </div>
   </section>
 
@@ -259,9 +281,11 @@
       <label class="app-switch"><span>Reporter arcs</span><input type="checkbox" id="m-o-arcs"></label>
       <label class="app-switch"><span>Day / Night</span><input type="checkbox" id="m-o-dn"></label>
       <label class="app-switch"><span>Status card</span><input type="checkbox" id="m-o-card"></label>
+      <label class="app-switch"><span>Solar card</span><input type="checkbox" id="m-o-solar"></label>
+      <label class="app-switch"><span>MUF card</span><input type="checkbox" id="m-o-mufc"></label>
       <label class="app-switch"><span>Follow beacon</span><input type="checkbox" id="m-o-follow"></label>
     </div>
-    <div class="app-small"><i>Reporter arcs</i>: a great-circle line to each station that heard the beacon in the last 60 minutes, stronger signals brighter and thicker; tap a station for its details. <i>Day / Night</i>: the night side and the grey line (dashed), redrawn every minute. <i>Follow beacon</i>: the map moves with each new fix. ⌂ on the map returns to the beacon. Refreshed every minute. Remembered on the phone.</div>
+    <div class="app-small"><i>Reporter arcs</i>: a great-circle line to each station that heard the beacon in the last 60 minutes, stronger signals brighter and thicker; tap a station for its details. <i>Day / Night</i>: the night side and the grey line (dashed), redrawn every minute. <i>Solar card</i>: the space weather of the Now view (SFI, K and A index, X-ray, Bz, solar wind, aurora, proton flux, foF2, Juliusruh MUF) over the map, in the same colours. <i>MUF card</i>: a small MUF D=3000 graph (Juliusruh, the line) with the reporters of each transmission (the bars) over the last 24 hours, as in the MUF view. <i>Follow beacon</i>: the map moves with each new fix. ⌂ on the map returns to the beacon. Refreshed every minute. Remembered on the phone.</div>
   </details>
 
   <details class="app-sec" data-for="now">

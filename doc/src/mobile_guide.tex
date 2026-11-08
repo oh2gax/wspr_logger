@@ -37,7 +37,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\small\itshape WSPR Logger --- the phone view (mobile app)}
-\fancyhead[R]{\small\itshape Mobile app user guide, version 1.1 --- November 2026}
+\fancyhead[R]{\small\itshape Mobile app user guide, version 1.2 --- November 2026}
 \fancyfoot[C]{\small\thepage}
 \renewcommand{\headrulewidth}{0.3pt}
 \hypersetup{pdftitle={WSPR Logger - Mobile app user guide},pdfauthor={Otso Laakso, OH2GAX}}
@@ -68,7 +68,7 @@
 \begin{document}
 \thispagestyle{plain}
 \begin{center}
-{\small WSPR Logger project \quad$\cdot$\quad Mobile app user guide, version 1.1 \quad$\cdot$\quad 7 November 2026}\par\vspace{10pt}
+{\small WSPR Logger project \quad$\cdot$\quad Mobile app user guide, version 1.2 \quad$\cdot$\quad 8 November 2026}\par\vspace{10pt}
 {\LARGE\bfseries WSPR Logger on your phone}\par\vspace{5pt}
 {\large\bfseries The mobile app: the live map, propagation, replay,\\ history, analysis and the car's track in one hand}\par\vspace{8pt}
 {\normalsize Otso Laakso (OH2GAX)}\par
@@ -86,7 +86,7 @@
 \end{itemize}
 The user interface is the same as in the author's MODE-S Wind phone view, so if you know one, you know the other. What the numbers and charts \emph{mean} is explained in the \emph{WSPR Logger --- User guide}; this guide tells where to find them on the phone.}
 
-\infobox{About the figures.}{The screenshots were taken on a phone-sized screen (390\,$\times$\,844 points) with the station's own data as it was on 6 November 2026 at 14:20~UTC. On the maps of the figures the background is a plain outline of the continents; in the app it is a detailed street map. The numbers on your screen will differ, because the data grows every ten minutes. \textbf{Version history:} 1.0, 7 November 2026, first version; 1.1, the same day: the Analysis periods 7\,d and 14\,d and the opening at 14 days, the all-time Best DX without implausible reports, country names from the locator, the phone's Back returning to the previous view, and the replayed moment in the top-bar clock.}
+\infobox{About the figures.}{The screenshots were taken on a phone-sized screen (390\,$\times$\,844 points) with the station's own data as it was on 6 November 2026 at 14:20~UTC. On the maps of the figures the background is a plain outline of the continents; in the app it is a detailed street map. The numbers on your screen will differ, because the data grows every ten minutes. \textbf{Version history:} 1.0, 7 November 2026, first version; 1.1, the same day: the Analysis periods 7\,d and 14\,d and the opening at 14 days, the all-time Best DX without implausible reports, country names from the locator, the phone's Back returning to the previous view, and the replayed moment in the top-bar clock; 1.2, 8 November 2026: the solar card and the MUF card on the Live map.}
 
 {\small\tableofcontents}
 
@@ -146,9 +146,18 @@ The car's latest position on the map, as on the full page's Live Map.
 \begin{itemize}[leftmargin=1.2em]
 \item The \textbf{dot} is the latest fix: green, or red when nothing has been heard for an hour. Its \textbf{label} tells how old the fix is --- green up to 25 minutes (a transmission every 10 minutes plus the upload delay), amber to an hour, red beyond. Tap the dot for the locator, time, stations and farthest station.
 \item The \textbf{status card} at the bottom: the locator, the age of the fix, the band, the \textbf{propagation estimate} with its bar (Section~\ref{sec:now}), the number of stations that heard the latest transmission, the farthest one and the time.
+\item The \textbf{solar card} (option, off at first): the space weather of the Now view (Section~\ref{sec:now}) over the map --- SFI, K and A index, X-ray, Bz, solar wind, aurora, proton flux, foF2 and the Juliusruh MUF, in the same colours, with the time of the last update.
+\item The \textbf{MUF card} (option, off at first): the MUF graph of Section~\ref{sec:muf} in small --- the MUF for a 3\,000\,km hop (the blue line, left scale) and the stations that heard each transmission (the green bars, right scale) over the last 24 hours, with the latest MUF and its time in the corner. It is fetched again every five minutes.
 \item \textbf{$+$ / $-$} zoom (or pinch), the \textbf{house button} brings the map back to the car.
 \end{itemize}
-\textbf{Options:} \ui{Position trail} (the day's positions as a dashed line), \ui{Last fix label}, \ui{Reporter arcs} (a great-circle line to every station that heard the beacon in the last 60 minutes --- the stronger the signal, the brighter and thicker the line; tap a station's dot for its callsign, grid, SNR, distance and country), \ui{Day / Night} (the night side shaded and the grey line dashed, moved every minute), \ui{Status card}, and \ui{Follow beacon} (the map moves with each new fix). The view is refreshed every minute.
+The cards stand at the bottom of the map, the solar card on top and the status card at the bottom; with the phone turned sideways they stand side by side (Figure~\ref{fig:cards}). They let taps through, so the map under them can still be moved.
+
+\textbf{Options:} \ui{Position trail} (the day's positions as a dashed line), \ui{Last fix label}, \ui{Reporter arcs} (a great-circle line to every station that heard the beacon in the last 60 minutes --- the stronger the signal, the brighter and thicker the line; tap a station's dot for its callsign, grid, SNR, distance and country), \ui{Day / Night} (the night side shaded and the grey line dashed, moved every minute), \ui{Status card}, \ui{Solar card}, \ui{MUF card}, and \ui{Follow beacon} (the map moves with each new fix). The view is refreshed every minute.
+
+\begin{figure}[H]\centering\setlength{\fboxsep}{0pt}\setlength{\fboxrule}{0.3pt}
+\begin{minipage}[b]{0.233\textwidth}\centering\fbox{\includegraphics[width=0.99\linewidth]{guide_img_m/d_map_cards.jpg}}\end{minipage}\hfill
+\begin{minipage}[b]{0.715\textwidth}\centering\fbox{\includegraphics[width=0.99\linewidth]{guide_img_m/d_map_cards_land.jpg}}\end{minipage}
+\caption{The Live map with all three cards: upright in the dark theme (left), and sideways in the light theme (right).}\label{fig:cards}\end{figure}
 
 \subsection{Now}\label{sec:now}
 \phones{0.31}{d_now.jpg}{d_rep.jpg}{d_rep2.jpg}{Now (left); Reporters: the list (middle) and, further down, the countries and the SNR distribution (right).}
@@ -216,18 +225,18 @@ The full page's WPRS page (Whisper Position Reporting System): the positions in 
 \textbf{Options:} \ui{List} Days or Trips; \ui{Days with movement or distance from home of at least} any change of square, 5, 10, 25, 100, 150 or 200\,km (the same setting as on the full page); \ui{Track of} 1--7 days from the chosen day (a trip sets it to its own length); and the playing \ui{Speed}.
 
 \section{Staying up to date}\label{sec:fresh}
-\lead{Refreshing.} The Live map, Now and Reporters fetch new data every minute and the MUF graph every ten minutes. Only the view on the screen is refreshed, and \textbf{nothing at all while the app is not on the screen} (the phone is locked or another app is open), so the app uses no data in the background. The other views load when you open them or change a date or an option.
+\lead{Refreshing.} The Live map, Now and Reporters fetch new data every minute, the MUF graph every ten minutes and the Live map's MUF card every five. Only the view on the screen is refreshed, and \textbf{nothing at all while the app is not on the screen} (the phone is locked or another app is open), so the app uses no data in the background. The other views load when you open them or change a date or an option.
 
 \lead{Coming back.} When you return to the app it refreshes the shown view at once. If it has been away for more than an hour, or a new version has been put on the server meanwhile, it reloads itself completely --- the view and all your choices stay. A new version also brings a red dot to \ui{$\equiv$} and \ui{What's new} until you have read the notes (the full page then no longer marks them either, in the same browser).
 
-\lead{Data use.} A refresh of the Live map is about 1\,kB, or about 12\,kB with the reporter arcs on; the map tiles are loaded as you move the map and kept by the browser. The Analysis view loads about 60--100\,kB once per period, Replay about 200\,kB per day. The program itself (with the map and chart libraries, about 0.5\,MB) is loaded once and then kept by the browser.
+\lead{Data use.} A refresh of the Live map is about 1\,kB, or about 12\,kB with the reporter arcs on; the solar card adds under 1\,kB a minute and the MUF card about 12\,kB every five minutes; the map tiles are loaded as you move the map and kept by the browser. The Analysis view loads about 60--100\,kB once per period, Replay about 200\,kB per day. The program itself (with the map and chart libraries, about 0.5\,MB) is loaded once and then kept by the browser.
 
 \section{The phone view and the full page}
 \begin{table}[H]\small\centering
 \begin{tabularx}{\textwidth}{@{}>{\raggedright}p{3.1cm}>{\raggedright\arraybackslash}X@{}}
 \toprule
 \textbf{Full page} & \textbf{Phone view} \\ \midrule
-Live Map: map and layers & \textbf{Live map}: trail, fix label, reporter arcs (Reporter Plot) and Day/Night as switches; the overlay as the status card \\
+Live Map: map and layers & \textbf{Live map}: trail, fix label, reporter arcs (Reporter Plot) and Day/Night as switches; the overlay as the status card; the Solar Conditions panel and the MUF panel also as cards over the map \\
 Left pane: Locator, Propagation, Today / 1h & \textbf{Now} \\
 Solar Conditions panel & \textbf{Now} $\rightarrow$ Solar conditions \\
 Reporter list, countries, histogram & \textbf{Reporters} (with a search) \\
@@ -249,7 +258,7 @@ The full page has a few things the phone view leaves out: panels that can be mov
 \begin{tabularx}{\textwidth}{@{}>{\raggedright}p{2.2cm}>{\raggedright}X>{\raggedright\arraybackslash}p{4.3cm}@{}}
 \toprule
 \textbf{View} & \textbf{Shows} & \textbf{Options (menu)} \\ \midrule
-Live map & latest fix, its age, propagation, arcs, night side; every minute & trail, fix label, arcs, day/night, status card, follow \\
+Live map & latest fix, its age, propagation, arcs, night side; every minute & trail, fix label, arcs, day/night, status, solar and MUF cards, follow \\
 Now & propagation, position, today / last hour, solar, compared with history & today or last hour \\
 Reporters & stations of the last 60 min, countries, distribution & sort, distribution, sections \\
 MUF graph & Juliusruh MUF and stations heard & 24\,h, 2\,d, 3\,d, 1 week \\

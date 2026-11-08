@@ -1296,14 +1296,16 @@ def _scan_outliers(band: int) -> list:
 _suspect_cache: dict = {}           # band -> (monotonic time, frozenset of km)
 
 
-def suspect_dx(band: int) -> frozenset:
+def suspect_dx(band: int, refresh: bool = False) -> frozenset:
     """The distances (km) that the implausible reporters (find_outliers) reported beyond what their own
     grid allows.  A logged transmission whose farthest distance is one of these took it from such a
     report: e.g. SM4HVP with a stale locator, 17 038 km reported, 538 km by its grid, which made a
     false all-time Best DX.  Such a farthest distance is shown as unknown (0) and left out of every
     record and daily best (/api/stats, /api/daily_summary, /api/positions, /api/latest, WPRS).
-    The databases are not changed.  Cached for an hour, as the outlier scan."""
-    return _cached(_suspect_cache, band, _OUTLIER_TTL, lambda: _scan_suspect_dx(band))
+    The databases are not changed.  The background warm-up (refresh=True) renews it after an hour;
+    a visitor's request accepts it up to two hours old, so a live view never waits for the scan."""
+    ttl = _OUTLIER_TTL if refresh else 2 * _OUTLIER_TTL
+    return _cached(_suspect_cache, band, ttl, lambda: _scan_suspect_dx(band))
 
 
 def _scan_suspect_dx(band: int) -> frozenset:
@@ -1608,7 +1610,7 @@ def _warm_analysis() -> None:
         return
     try:
         t0 = time.monotonic()
-        suspect_dx(DEFAULT_BAND)            # (and the outlier scan) recomputed here when an hour old, not in a visitor's request
+        suspect_dx(DEFAULT_BAND, refresh=True)   # (and the outlier scan) renewed here when an hour old, not in a visitor's request
         outlook_state(DEFAULT_BAND, force=True)
         done, keys = [], {(d, None) for d in _WARM_DAYS}
         for start in _WARM_DAYS:

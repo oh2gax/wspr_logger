@@ -477,7 +477,7 @@ Choose `--from` so that it does not reach back to a time when the callsign was s
 |------|-------------|
 | **Top bar** | ☰ opens the menu (a red dot: unread *What's new*), the view's title and subtitle, the UTC clock, the theme button (Dark → Light → Auto; the same `wspr_theme_mode` setting as the full page) and the beacon's status dot (green < 20 min, amber < 2 h, red older) |
 | **Menu** | The nine views as tiles, then one folding options section per view (the shown view's opens by itself): chips, switches and date steppers. *General*: What's new, About, User guides, Full site |
-| **Live map** | Latest fix with its age, status card (locator, propagation, stations, best DX), position trail, reporter arcs, day / night, follow beacon; refreshed every minute |
+| **Live map** | Latest fix with its age, status card (locator, propagation, stations, best DX), position trail, reporter arcs, day / night, follow beacon; optional solar card (the Solar Conditions values) and MUF card (a small MUF D=3000 km / reporters graph of the last 24 h) over the map, stacked above the status card upright and side by side sideways; refreshed every minute |
 | **Now** | Propagation, position, today or the last hour, solar conditions (coloured as the Solar panel), and the Analysis page's *Right now* comparison (90 days) |
 | **Reporters** | The stations of the last 60 minutes with search and sorting, countries and the SNR / distance distribution |
 | **MUF graph** | Juliusruh MUF and reporter counts, 24 h – 1 week |

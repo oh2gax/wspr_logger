@@ -5,6 +5,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2026-11-08]
+
+### Added
+- **Phone app: solar card on the Live map** — the switch *Solar card* (`#m-o-solar`, stored as
+  `solar` in `wspr_app_map`, off by default) shows `#m-sol-card` over the map: the ten values of
+  the Now view's Solar conditions (`/api/solar`), filled by `loadSolar()`, which now takes the
+  id prefix of its tiles ('m-sol' for Now, 'm-ms' for the card). Refreshed with the map every
+  minute and repainted on a theme change; the yellow and green values use darker shades in the
+  light theme (`SOL_LIGHT`), also in the Now view.
+- **Phone app: MUF card on the Live map** — the switch *MUF card* (`#m-o-mufc`, stored as `muf`)
+  shows `#m-mufc-card`: a 92 px Chart.js chart of `/api/muf?days=1` (the Juliusruh MUF D=3000 km
+  as a line on the left scale, the reporters of each transmission as bars on the right scale,
+  no legend or tooltips) with the latest MUF and its time in the header. `loadMufCard()` fetches
+  again after five minutes or on a band change; `drawMufCard()` redraws on a theme change with
+  light-theme shades of the two colours.
+- **Phone app: card stack** — the status, solar and MUF cards sit in one `.app-map-cards` box at
+  the bottom of the Live map (solar, MUF, status from the top; side by side in landscape, each
+  card's header on one line); it ignores taps (`pointer-events: none`), so the map stays
+  draggable under it.
+- **Mobile app user guide 1.2** — the cards in the Live map section, a new figure (upright dark
+  and sideways light), the updated options screenshot, the refresh and data-use notes, the quick
+  reference; `doc/guides.json` date.
+
+### Changed
+- **`suspect_dx()` never keeps a visitor waiting** — the background warm-up calls it with
+  `refresh=True` (rescanned after `_OUTLIER_TTL`, an hour); requests accept the cached result up
+  to two hours old, so `/api/latest` on a freshly started server no longer waits about 2 s for
+  the scan once the warm-up has run.
+
+---
+
 ## [2026-11-07]
 
 ### Fixed

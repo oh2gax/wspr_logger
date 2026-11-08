@@ -8,6 +8,7 @@
  *
  *   Live map    /api/latest every minute: the beacon, the last fix's age, the trail of the day
  *               (/api/positions), the reporters' great-circle arcs (/api/reporter_list), day / night
+ *               and the optional cards: solar conditions (/api/solar), the MUF graph (/api/muf), status
  *   Now         propagation, position, today or the last hour, solar conditions (/api/solar) and the
  *               Analysis page's Right now card (/api/analysis?days=90)
  *   Reporters   the stations of the last 60 minutes: list with search, countries, SNR / distance
@@ -238,6 +239,9 @@
       for (const m of maps) { m.map.removeLayer(m.tiles); m.tiles = makeTiles(isDark).addTo(m.map); }
       themeDirty = { rep: 1, muf: 1, hist: 1, stats: 1, an: 1 };
       redrawView();
+      if (view === 'map' && LM.solar) loadSolar('m-ms');      // the solar colours have light-theme shades
+      if (view === 'map' && LM.muf) drawMufCard();
+      if (view === 'now') loadSolar('m-sol');
     }
   }
   let themeNoteT = null;
@@ -328,7 +332,7 @@
   }
 
   // ══ Live map ═══════════════════════════════════════════════════════════
-  const LM = lsJson('wspr_app_map', { trail: true, fixAge: true, arcs: false, dn: false, card: true, follow: false });
+  const LM = lsJson('wspr_app_map', { trail: true, fixAge: true, arcs: false, dn: false, card: true, solar: false, muf: false, follow: false });
   let lmap = null, lmMarker = null, lmTrail = null, lmArcs = null, lmNight = null;
   const lmHome = () => { const s = LV.latest && LV.latest.spot; if (s) lmap.setView([s.lat, s.lon], Math.max(lmap.getZoom(), 6)); };
   function initLiveMap() {
@@ -341,6 +345,10 @@
   async function loadMap() {
     initLiveMap();
     $('m-live-card').hidden = !LM.card;
+    $('m-sol-card').hidden = !LM.solar;
+    if (LM.solar) loadSolar('m-ms');
+    $('m-mufc-card').hidden = !LM.muf;
+    if (LM.muf) loadMufCard();
     const d = await fetchLatest();
     if (view !== 'map' || !d) return;
     drawLive();
@@ -382,6 +390,46 @@
     const el = tt.getElement();
     if (el) { el.classList.toggle('warn', min > 25 && min <= 60); el.classList.toggle('old', min > 60); el.style.display = LM.fixAge ? '' : 'none'; }
   }
+  // the MUF card: the last 24 h of /api/muf, fetched again after 5 minutes (MUF every 15 min, spots every 10)
+  const MC = { data: null, at: 0, band: null };
+  async function loadMufCard(force) {
+    if (force || !MC.data || MC.band !== currentBand || Date.now() - MC.at > 5 * 60000) {
+      try { MC.data = await getJson(`/api/muf?band=${currentBand}&days=1`); } catch (_) { return; }
+      MC.at = Date.now(); MC.band = currentBand;
+    }
+    if (view === 'map' && LM.muf) drawMufCard();
+  }
+  function drawMufCard() {
+    if (!MC.data) return;
+    const muf = MC.data.muf || [], sp = MC.data.spots || [];
+    const mm = {}, sm = {};
+    muf.forEach(r => { mm[r.timestamp] = r.muf; });
+    sp.forEach(s => { sm[s.timestamp] = Math.max(sm[s.timestamp] || 0, s.reporter_count); });
+    const times = [...new Set([...muf.map(r => r.timestamp), ...sp.map(s => s.timestamp)])].sort();
+    const last = muf.length ? muf[muf.length - 1] : null;
+    $('m-mc-last').textContent = (last ? `${last.muf.toFixed(1)} MHz at ${last.timestamp.slice(11, 16)}` : 'no MUF') + ' · 24 h';
+    const col = anColors();
+    const cM = isDark ? '#38bdf8' : '#0284c7', cR = isDark ? '#4ade80' : '#16a34a';
+    const tk = (c, n) => ({ color: c, font: { size: 9 }, maxTicksLimit: n, padding: 2 });
+    mkChart('m-mc-c', {
+      data: { labels: times.map(t => t.slice(11, 16)), datasets: [
+        { type: 'line', data: times.map(t => mm[t] ?? null), borderColor: cM, backgroundColor: 'transparent',
+          borderWidth: 1.5, pointRadius: 0, yAxisID: 'yM', tension: 0.4, spanGaps: true, order: 1 },
+        { type: 'bar', data: times.map(t => sm[t] || 0), backgroundColor: isDark ? 'rgba(74,222,128,0.45)' : 'rgba(22,163,74,0.4)',
+          borderWidth: 0, yAxisID: 'yR', order: 2 },
+      ] },
+      options: {
+        responsive: true, maintainAspectRatio: false, events: [],
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        layout: { padding: { top: 2 } },
+        scales: {
+          x: { ticks: { ...tk(col.text, 5), maxRotation: 0, autoSkip: true }, grid: { display: false } },
+          yM: { type: 'linear', position: 'left', ticks: tk(cM, 4), grid: { color: col.grid } },
+          yR: { type: 'linear', position: 'right', beginAtZero: true, ticks: { ...tk(cR, 4), precision: 0 }, grid: { drawOnChartArea: false } },
+        },
+      },
+    });
+  }
   async function loadTrail() {
     try {
       const spots = await getJson(`/api/positions?date=${today()}&band=${currentBand}`);
@@ -396,6 +444,8 @@
   bindSwitch('m-o-arcs', LM, 'arcs', 'wspr_app_map', () => { if (lmap) loadMap(); });
   bindSwitch('m-o-dn', LM, 'dn', 'wspr_app_map', () => { if (lmap) loadMap(); });
   bindSwitch('m-o-card', LM, 'card', 'wspr_app_map', on => { $('m-live-card').hidden = !on; });
+  bindSwitch('m-o-solar', LM, 'solar', 'wspr_app_map', on => { $('m-sol-card').hidden = !on; if (on) loadSolar('m-ms'); });
+  bindSwitch('m-o-mufc', LM, 'muf', 'wspr_app_map', on => { $('m-mufc-card').hidden = !on; if (on) loadMufCard(true); });
   bindSwitch('m-o-follow', LM, 'follow', 'wspr_app_map', on => { if (on && lmap) lmHome(); });
 
   // ══ Now ═════════════════════════════════════════════════════════════════
@@ -405,7 +455,7 @@
     const d = await fetchLatest();
     if (view !== 'now') return;
     if (d) drawNow();
-    loadNowStats(); loadSolar(); loadRightNow();
+    loadNowStats(); loadSolar('m-sol'); loadRightNow();
   }
   function drawNow() {
     const d = LV.latest, s = d.spot, p = liveProp(), stale = isStale();
@@ -460,21 +510,28 @@
     k:  v => v >= 6 ? '#ef4444' : v >= 4 ? '#f97316' : v <= 1 ? '#22c55e' : '',
     x:  s => s.startsWith('X') ? '#ef4444' : s.startsWith('M') ? '#f97316' : s.startsWith('C') ? '#facc15' : '',
   };
-  function solTile(id, txt, color) { const el = $(id); el.textContent = txt == null || txt === '' ? '—' : txt; el.style.color = color || ''; }
-  async function loadSolar() {
+  // the light theme: darker shades of the light colours, readable on white
+  const SOL_LIGHT = { '#facc15': '#ca8a04', '#a3e635': '#4d7c0f', '#4ade80': '#15803d', '#84cc16': '#4d7c0f' };
+  function solTile(id, txt, color) {
+    const el = $(id);
+    el.textContent = txt == null || txt === '' ? '—' : txt;
+    el.style.color = (color && !isDark && SOL_LIGHT[color]) || color || '';
+  }
+  // p: the id prefix of the tiles — 'm-sol' the Now view, 'm-ms' the solar card on the live map
+  async function loadSolar(p) {
     let d;
     try { d = await getJson('/api/solar'); } catch (_) { return; }
-    solTile('m-sol-sfi', d.sfi);
-    solTile('m-sol-k', d.kindex, SOL.k(parseInt(d.kindex, 10) || 0));
-    solTile('m-sol-a', d.aindex, SOL.a(parseInt(d.aindex, 10) || 0));
-    solTile('m-sol-x', d.xray, SOL.x(String(d.xray || '').toUpperCase()));
-    solTile('m-sol-bz', d.bz, SOL.bz(parseFloat(d.bz) || 0));
-    solTile('m-sol-sw', d.solarwind, SOL.sw(parseFloat(d.solarwind) || 0));
-    solTile('m-sol-au', d.aurora, SOL.au(parseInt(d.aurora, 10) || 0));
-    solTile('m-sol-pf', d.protonflux, SOL.pf(parseFloat(d.protonflux) || 0));
-    solTile('m-sol-fof2', d.fof2 ? d.fof2.toFixed(2) : null);
-    solTile('m-sol-muf', d.muf ? d.muf.toFixed(1) : null, SOL.muf(parseFloat(d.muf) || 0));
-    $('m-sol-upd').textContent = d.updated ? 'updated ' + d.updated : '';
+    solTile(`${p}-sfi`, d.sfi);
+    solTile(`${p}-k`, d.kindex, SOL.k(parseInt(d.kindex, 10) || 0));
+    solTile(`${p}-a`, d.aindex, SOL.a(parseInt(d.aindex, 10) || 0));
+    solTile(`${p}-x`, d.xray, SOL.x(String(d.xray || '').toUpperCase()));
+    solTile(`${p}-bz`, d.bz, SOL.bz(parseFloat(d.bz) || 0));
+    solTile(`${p}-sw`, d.solarwind, SOL.sw(parseFloat(d.solarwind) || 0));
+    solTile(`${p}-au`, d.aurora, SOL.au(parseInt(d.aurora, 10) || 0));
+    solTile(`${p}-pf`, d.protonflux, SOL.pf(parseFloat(d.protonflux) || 0));
+    solTile(`${p}-fof2`, d.fof2 ? d.fof2.toFixed(2) : null);
+    solTile(`${p}-muf`, d.muf ? d.muf.toFixed(1) : null, SOL.muf(parseFloat(d.muf) || 0));
+    $(`${p}-upd`).textContent = d.updated ? 'updated ' + d.updated : '';
   }
   // the Analysis page's Right now card (90 days; the server caches it for 10 minutes)
   async function loadRightNow() {

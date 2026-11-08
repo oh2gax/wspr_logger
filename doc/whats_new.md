@@ -4,6 +4,13 @@ Short notes for users of the web page, newest first. Each version is one day of 
 (v.DDMMYYYY). The full technical history is in CHANGELOG.md. The newest heading gives the
 version shown under the page title.
 
+## v.08112026 — Solar conditions and the MUF graph on the phone's Live map
+
+- **Solar card** — in the phone app, *Solar card* under *Live map options* puts the space weather of the Now view (SFI, K and A index, X-ray, Bz, solar wind, aurora, proton flux, foF2 and the Juliusruh MUF) on a card at the bottom of the Live map, in the same colours, above the status card.
+- **MUF card** — *MUF card* adds a small version of the MUF graph to the Live map: the MUF D=3000 km (the blue line) and the stations that heard each transmission (the green bars) over the last 24 hours, with the latest MUF in the corner.
+- **Cards that stay out of the way** — the cards are off at first and remembered on the phone; upright they stand one above the other, with the phone turned sideways side by side, and the map under them can still be moved. Their colours follow the Dark / Light theme.
+- **Mobile app user guide** — updated with the new cards (version 1.2).
+
 ## v.07112026 — A phone app, user guides, seven new Analysis cards, longer analysis periods, a cleaner full-screen map and WPRS in two pages
 
 - **WSPR Logger on your phone** — open *wspr.oh2gax.org/app* (or tap *📱 Phone app* under *What's new*): one view at a time filling the screen and every choice in the ☰ menu, as in the Mode-S Wind phone view. Nine views — Live map, Now, Reporters, MUF graph, Replay, History, Statistics, the whole Analysis page and WPRS. A tap on a day's transmission, on ▶ in an Analysis table or on *Replay* in WPRS opens that very moment in Replay. Add it to the home screen and it opens like an app; it keeps itself up to date.
