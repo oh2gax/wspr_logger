@@ -44,7 +44,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - **Shorter Locator block in the sidebar** — the Latitude / Longitude row (`#infoLat`,
   `#infoLon`) is removed, leaving more room for the Map Layers switches; the locator, reporters,
-  Max DX and last spot stay.
+  Max DX and last spot stay. The locator is set smaller (`.val.mono` 16 px instead of 20 px,
+  letter spacing 2 px) and the switch rows 1 px closer (`.toggle-row` margin 3 px), so all the
+  Map Layers switches, the History Player and Today fit without scrolling from a window about
+  900 px high.
 - **MUF graph follows the theme at once** — a theme change refetches the MUF graph so its axis
   and grid colours change immediately instead of at the next poll.
 

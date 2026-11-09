@@ -253,7 +253,7 @@ nav {
 }
 .lbl:first-child { margin-top: 0; }
 .val { font-size: 15px; font-weight: 600; color: var(--text-primary); }
-.val.mono { font-family: 'Courier New', monospace; font-size: 20px; line-height: 1.2; color: var(--accent); letter-spacing: 3px; }
+.val.mono { font-family: 'Courier New', monospace; font-size: 16px; line-height: 1.2; color: var(--accent); letter-spacing: 2px; }   /* 20px until 2026-11-09: smaller so the Map Layers fit */
 .val.green { color: var(--green); }
 .val.sm  { font-size: 13px; }
 .row2 { display: flex; gap: 16px; }
@@ -293,7 +293,7 @@ select:focus, input:focus { border-color: var(--accent); }
     justify-content: space-between;
     font-size: 13px;
     color: var(--text-secondary);
-    margin-bottom: 4px;
+    margin-bottom: 3px;
 }
 .toggle-row:last-child { margin-bottom: 0; }
 .sw {
