@@ -53,6 +53,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **User guide 1.2** — the Typical Day graph (new subsection and figure), the foF2 button, the
   two-way sort and resizing in the live map section; `doc/guides.json` date.
 
+### Added (continued)
+- **Reporter List and Reporter Countries keep their size** — both panels have a corner grip
+  (`.panel-grip`; Reporter Countries height only, `data-grip="h"`). A size chosen with it is kept
+  however many stations come in, and the list scrolls inside (`.sized`: flex column, the list
+  `flex: 1`). These panels (`data-size-only`) are resized in place: they stay in the automatic
+  stacking and the panels below follow; the size is stored in `wspr_panel_size` and cleared by
+  double-click / *Reset panel positions*. Unsized, Reporter Countries now also scrolls beyond
+  300 px (before it grew with the list). The panels are shown as `flex` instead of `block`.
+- **Phone app: foF2 on the MUF card** — the switch *foF2 on MUF card* (`#m-o-mfof2`, stored as
+  `mufFof2`) adds an amber foF2 line on the MHz scale (hourly means for the longer ranges) from
+  `/api/muf?fof2=1`; the card header then reads *MUF D=3000 · foF2 & reporters*.
+- **Guides** — User guide: resizing the lists; Mobile app user guide 1.5: the foF2 option and the
+  menu screenshot.
+
 ### Changed
 - **Shorter age label at the car** — the label beside the car marker (Last Fix Label on the full
   page, Last fix label in the phone app) now says just "15 min ago" instead of "last fix 15 min

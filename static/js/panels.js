@@ -91,6 +91,7 @@ function panelApply(el, p) {
     el.style.left = p.x + 'px'; el.style.top = p.y + 'px';
     if (p.w) el.style.width = p.w + 'px';
     if (p.h) el.style.height = p.h + 'px';
+    el.classList.toggle('sized', !!p.h || !!_panelSize[el.id]);     // a chosen height: the list inside scrolls (CSS)
 }
 
 function panelClamp(id) {
@@ -114,27 +115,50 @@ function panelPin(el) {
     return _panelPos[el.id];
 }
 
-// Resize from the corner grip: width and height are remembered with the place.
+// Resize from the corner grip: width and height are remembered with the place.  data-grip="h" on the
+// panel: the height only (Reporter Countries keeps the width of the right-hand column);
+// data-min-w / data-min-h: the smallest size (default 300 x 170).  data-size-only: resizing does not
+// take the panel out of its place in the automatic stacking (the size is kept in PANEL_SIZE_KEY);
+// otherwise (the Typical day graph, anchored at the bottom) it is pinned where it is first.
+const PANEL_SIZE_KEY = 'wspr_panel_size';
+let _panelSize = {};             // id -> {w, h} of the data-size-only panels
+function panelSaveSize() { try { localStorage.setItem(PANEL_SIZE_KEY, JSON.stringify(_panelSize)); } catch(e) {} }
+function panelApplySize(el, s) {
+    if (s.w && el.dataset.grip !== 'h') el.style.width = s.w + 'px';
+    el.style.height = s.h + 'px';
+    el.classList.add('sized');
+}
+
 function panelGripDown(e, el) {
     if (e.button !== undefined && e.button !== 0) return;
     e.stopPropagation();
     const mv = document.getElementById('map-view');
     const x0 = e.clientX, y0 = e.clientY;
     const r0 = el.getBoundingClientRect();
+    const sizeOnly = !!el.dataset.sizeOnly;
     let p = null;
     const move = ev => {
-        if (!p) { p = panelPin(el); document.body.classList.add('panel-resizing'); }
-        const maxW = mv.clientWidth - p.x - 4, maxH = mv.clientHeight - p.y - 4;
-        p.w = Math.round(Math.max(300, Math.min(maxW, r0.width + ev.clientX - x0)));
-        p.h = Math.round(Math.max(170, Math.min(maxH, r0.height + ev.clientY - y0)));
-        el.style.width = p.w + 'px'; el.style.height = p.h + 'px';
+        if (!p) {
+            p = sizeOnly ? (_panelSize[el.id] = { w: 0, h: 0 }) : panelPin(el);
+            el.classList.add('sized'); document.body.classList.add('panel-resizing');
+        }
+        const r = el.getBoundingClientRect(), m = mv.getBoundingClientRect();
+        const maxW = m.right - r.left - 4, maxH = m.bottom - r.top - 4;
+        const minW = +el.dataset.minW || 300, minH = +el.dataset.minH || 170;
+        if (el.dataset.grip !== 'h') {
+            p.w = Math.round(Math.max(minW, Math.min(maxW, r0.width + ev.clientX - x0)));
+            el.style.width = p.w + 'px';
+        }
+        p.h = Math.round(Math.max(minH, Math.min(maxH, r0.height + ev.clientY - y0)));
+        el.style.height = p.h + 'px';
+        if (sizeOnly) updateSolarPosition();             // the panels stacked below move with it
     };
     const up = () => {
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', up);
         window.removeEventListener('pointercancel', up);
         document.body.classList.remove('panel-resizing');
-        if (p) panelSavePos();
+        if (p) { if (sizeOnly) panelSaveSize(); else panelSavePos(); }
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
@@ -178,7 +202,8 @@ function panelReset(id) {
     if (!el) return;
     delete _panelPos[id];
     panelSavePos();
-    el.classList.remove('pinned');
+    if (_panelSize[id]) { delete _panelSize[id]; panelSaveSize(); }
+    el.classList.remove('pinned', 'sized');
     ['left', 'top', 'right', 'bottom', 'width', 'height', 'zIndex'].forEach(k => { el.style[k] = ''; });
     const ph = _panelHome[id];
     if (ph && ph.parentNode) { ph.parentNode.insertBefore(el, ph); ph.remove(); }
@@ -189,8 +214,9 @@ function panelReset(id) {
 function resetAllPanels() { Object.keys(PANEL_HANDLES).forEach(panelReset); showToast('Panel positions reset'); }
 
 function initMovablePanels() {
-    let saved = {};
+    let saved = {}, sizes = {};
     try { saved = JSON.parse(localStorage.getItem(PANEL_POS_KEY)) || {}; } catch(e) {}
+    try { sizes = JSON.parse(localStorage.getItem(PANEL_SIZE_KEY)) || {}; } catch(e) {}
     for (const [id, sel] of Object.entries(PANEL_HANDLES)) {
         const el = document.getElementById(id), handle = el && el.querySelector(sel);
         if (!handle) continue;
@@ -200,6 +226,11 @@ function initMovablePanels() {
         if (q && Number.isFinite(q.x) && Number.isFinite(q.y)) {
             _panelPos[id] = { x: q.x, y: q.y, w: Number.isFinite(q.w) ? q.w : 0, h: Number.isFinite(q.h) ? q.h : 0 };
             panelApply(el, _panelPos[id]);
+        }
+        const z = sizes[id];
+        if (el.dataset.sizeOnly && z && Number.isFinite(z.h) && z.h > 0) {
+            _panelSize[id] = { w: Number.isFinite(z.w) ? z.w : 0, h: z.h };
+            panelApplySize(el, _panelSize[id]);
         }
         handle.addEventListener('pointerdown', e => panelDown(e, el));
         handle.addEventListener('dblclick', () => panelReset(id));

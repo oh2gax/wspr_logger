@@ -142,6 +142,7 @@ html.light .app-view .leaflet-bar a:active { background: rgba(255, 255, 255, 0.8
 html.light .mc-muf { color: #0284c7; } html.light .mc-rep { color: #15803d; }
 .mc-chart { position: relative; height: 92px; }
 .ty-today { color: #f59e0b; } html.light .ty-today { color: #d97706; }
+#m-mc-fof2 { text-transform: none; }   /* "foF2", not "FOF2" */
 .lc-row1 { display: flex; align-items: baseline; gap: 8px; }
 .lc-row1 b { font-size: 17px; color: var(--accent); }
 .lc-age { font-size: 12px; color: var(--green); }

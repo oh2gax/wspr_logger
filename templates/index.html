@@ -263,11 +263,14 @@
                 </div>
                 <div class="prop-reporters" id="propReporters">— reporters</div>
             </div>
-            <div class="map-overlay" id="countryOverlay" style="display:none;">
+            <!-- Reporter Countries and the Reporter List keep their size: a long list scrolls inside; the
+                 corner grip sets the height (and the list's width), remembered with the place (2026-11-09) -->
+            <div class="map-overlay" id="countryOverlay" style="display:none;" data-grip="h" data-min-h="90" data-size-only="1">
                 <div class="ov-lbl">Reporter Countries <span id="countryCount"></span></div>
                 <div class="country-list" id="countryList">
                     <div style="color:var(--text-muted);font-size:11px;">No data</div>
                 </div>
+                <div class="panel-grip" title="Drag to resize"></div>
             </div>
         </div>
 
@@ -302,7 +305,7 @@
         </div>
 
         <!-- Reporter list panel — left side, below solar/MUF -->
-        <div class="reporter-list-panel" id="reporterListPanel" style="display:none;">
+        <div class="reporter-list-panel" id="reporterListPanel" style="display:none;" data-min-w="300" data-min-h="110" data-size-only="1">
             <div class="rl-title">Reporters — Last 1 h</div>
             <div class="rl-table-wrap">
                 <table class="rl-table">
@@ -320,6 +323,7 @@
                     </tbody>
                 </table>
             </div>
+            <div class="panel-grip" title="Drag to resize"></div>
         </div>
     </div>
 

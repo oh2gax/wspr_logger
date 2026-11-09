@@ -735,6 +735,17 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
     overflow-y: auto;
     overflow-x: hidden;
 }
+/* Reporter List and Reporter Countries: flex columns, so a height chosen with the corner grip (.sized)
+   is kept whatever the number of stations, and the list scrolls inside it */
+.reporter-list-panel, #countryOverlay { flex-direction: column; }
+#countryOverlay { position: relative; }               /* for its grip; moved (.pinned) it is absolute */
+#countryOverlay.pinned { position: absolute; }
+.panel-grip, #countryOverlay .country-list { pointer-events: auto; }   /* the right-hand column lets the map have the clicks */
+.reporter-list-panel.pinned, .reporter-list-panel.sized { max-width: none; }
+.reporter-list-panel.sized .rl-table-wrap { max-height: none; flex: 1 1 auto; min-height: 0; }
+.country-list { max-height: 300px; overflow-y: auto; overflow-x: hidden; }
+#countryOverlay.sized .country-list { max-height: none; flex: 1 1 auto; min-height: 0; }
+#countryOverlay .panel-grip { border-bottom-right-radius: 8px; }
 .rl-table {
     width: 100%;
     border-collapse: collapse;

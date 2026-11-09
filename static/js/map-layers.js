@@ -427,7 +427,7 @@ function renderSolar(data) {
 function toggleReporterList() {
     showReporterList = !showReporterList;
     document.getElementById('swReporterList').className          = 'sw' + (showReporterList ? ' on' : '');
-    document.getElementById('reporterListPanel').style.display   = showReporterList ? 'block' : 'none';
+    document.getElementById('reporterListPanel').style.display   = showReporterList ? 'flex' : 'none';
     if (showReporterList) {
         updateReporterListPosition();
         fetchReporterList();

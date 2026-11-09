@@ -264,7 +264,7 @@ function setStatus(timestamp, ok, msg) {
 function toggleCountries() {
     showCountries = !showCountries;
     document.getElementById('swCountries').className = 'sw' + (showCountries ? ' on' : '');
-    document.getElementById('countryOverlay').style.display = showCountries ? 'block' : 'none';
+    document.getElementById('countryOverlay').style.display = showCountries ? 'flex' : 'none';
     if (showCountries && _replayActive) {
         applyReplayFrame();
     } else if (showCountries) {

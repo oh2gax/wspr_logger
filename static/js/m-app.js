@@ -334,7 +334,7 @@
   }
 
   // ══ Live map ═══════════════════════════════════════════════════════════
-  const LM = lsJson('wspr_app_map', { trail: true, fixAge: true, arcs: false, dn: false, card: true, solar: false, muf: false, typ: false, follow: false });
+  const LM = lsJson('wspr_app_map', { trail: true, fixAge: true, arcs: false, dn: false, card: true, solar: false, muf: false, mufFof2: false, typ: false, follow: false });
   let lmap = null, lmMarker = null, lmTrail = null, lmArcs = null, lmNight = null;
   const lmHome = () => { const s = LV.latest && LV.latest.spot; if (s) lmap.setView([s.lat, s.lon], Math.max(lmap.getZoom(), 6)); };
   function initLiveMap() {
@@ -396,31 +396,32 @@
   }
   // the MUF card: the last 24 h of /api/muf, fetched again after 5 minutes (MUF every 15 min, spots every 10)
   // its range (24 h, 2 or 3 days, a week; menu chips) sets how often: 5, 15, 15 and 30 minutes
-  const MC = { data: null, at: 0, band: null, days: null };
+  const MC = { data: null, at: 0, band: null, days: null, fof2: false };
   let mcDays = parseInt(bindSel('m-o-mufcd', 'wspr_app_mufcd', '1', v => { mcDays = parseInt(v, 10); loadMufCard(true); }), 10);
   const MC_LBL = { 1: '24 h', 2: '2 days', 3: '3 days', 7: '1 week' };
   const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   async function loadMufCard(force) {
     const every = (mcDays >= 7 ? 30 : mcDays > 1 ? 15 : 5) * 60000;
-    if (force || !MC.data || MC.band !== currentBand || MC.days !== mcDays || Date.now() - MC.at > every) {
-      const days = mcDays, band = currentBand;
+    if (force || !MC.data || MC.band !== currentBand || MC.days !== mcDays || MC.fof2 !== LM.mufFof2 || Date.now() - MC.at > every) {
+      const days = mcDays, band = currentBand, fof2 = LM.mufFof2;
       let d;
-      try { d = await getJson(`/api/muf?band=${band}&days=${days}`); } catch (_) { return; }
-      if (days !== mcDays || band !== currentBand) return;      // the range or band changed meanwhile
-      MC.data = d; MC.at = Date.now(); MC.band = band; MC.days = days;
+      try { d = await getJson(`/api/muf?band=${band}&days=${days}${fof2 ? '&fof2=1' : ''}`); } catch (_) { return; }
+      if (days !== mcDays || band !== currentBand || fof2 !== LM.mufFof2) return;      // the range, band or foF2 changed meanwhile
+      MC.data = d; MC.at = Date.now(); MC.band = band; MC.days = days; MC.fof2 = fof2;
     }
     if (view === 'map' && LM.muf) drawMufCard();
   }
   function drawMufCard() {
     if (!MC.data) return;
-    const muf = MC.data.muf || [], sp = MC.data.spots || [];
-    // 24 h: every reading and transmission; longer: by the hour (the MUF's mean, the reporters' most),
+    const muf = MC.data.muf || [], sp = MC.data.spots || [], fo = MC.fof2 ? (MC.data.fof2 || []) : [];
+    // 24 h: every reading and transmission; longer: by the hour (the MUF's and foF2's mean, the reporters' most),
     // so the bars stay visible in the small chart
     const multi = MC.days > 1, key = t => multi ? t.slice(0, 13) : t;
-    const ms = {}, mn = {}, sm = {};
+    const ms = {}, mn = {}, sm = {}, fs = {}, fn = {};
     muf.forEach(r => { const k = key(r.timestamp); ms[k] = (ms[k] || 0) + r.muf; mn[k] = (mn[k] || 0) + 1; });
     sp.forEach(s => { const k = key(s.timestamp); sm[k] = Math.max(sm[k] || 0, s.reporter_count); });
-    let times = [...new Set([...Object.keys(ms), ...Object.keys(sm)])].sort();
+    fo.forEach(r => { const k = key(r.timestamp); fs[k] = (fs[k] || 0) + r.fof2; fn[k] = (fn[k] || 0) + 1; });
+    let times = [...new Set([...Object.keys(ms), ...Object.keys(sm), ...Object.keys(fs)])].sort();
     if (multi && times.length > 1) {                  // every hour from the first to the last, so a gap shows as a gap
       const end = tsMs(times[times.length - 1] + ':00:00'), all = [];
       for (let t = tsMs(times[0] + ':00:00'); t <= end; t += 3600000) all.push(new Date(t).toISOString().slice(0, 13).replace('T', ' '));
@@ -435,6 +436,7 @@
     };
     const last = muf.length ? muf[muf.length - 1] : null;
     $('m-mc-last').textContent = (last ? `${last.muf.toFixed(1)} MHz at ${last.timestamp.slice(11, 16)}` : 'no MUF') + ' · ' + MC_LBL[MC.days];
+    $('m-mc-fof2').hidden = !MC.fof2;
     const col = anColors();
     const cM = isDark ? '#38bdf8' : '#0284c7', cR = isDark ? '#4ade80' : '#16a34a';
     const tk = (c, n) => ({ color: c, font: { size: 9 }, maxTicksLimit: n, padding: 2 });
@@ -444,6 +446,8 @@
           borderWidth: 1.5, pointRadius: 0, yAxisID: 'yM', tension: 0.4, spanGaps: multi ? 3 : true, order: 1 },   // by the hour: no line over a longer gap
         { type: 'bar', data: times.map(t => sm[t] || 0), backgroundColor: isDark ? 'rgba(74,222,128,0.45)' : 'rgba(22,163,74,0.4)',
           borderWidth: 0, yAxisID: 'yR', order: 2 },
+        ...(MC.fof2 ? [{ type: 'line', data: times.map(t => (fn[t] ? fs[t] / fn[t] : null)), borderColor: isDark ? '#f59e0b' : '#d97706',
+          backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, yAxisID: 'yM', tension: 0.4, spanGaps: multi ? 3 : true, order: 1 }] : []),
       ] },
       options: {
         responsive: true, maintainAspectRatio: false, events: [],
@@ -475,6 +479,7 @@
   bindSwitch('m-o-card', LM, 'card', 'wspr_app_map', on => { $('m-live-card').hidden = !on; });
   bindSwitch('m-o-solar', LM, 'solar', 'wspr_app_map', on => { $('m-sol-card').hidden = !on; if (on) loadSolar('m-ms'); });
   bindSwitch('m-o-mufc', LM, 'muf', 'wspr_app_map', on => { $('m-mufc-card').hidden = !on; if (on) loadMufCard(true); });
+  bindSwitch('m-o-mfof2', LM, 'mufFof2', 'wspr_app_map', () => { if (LM.muf) loadMufCard(true); });
   bindSwitch('m-o-typc', LM, 'typ', 'wspr_app_map', on => { $('m-typc-card').hidden = !on; if (on) loadTyp(); });
   bindSwitch('m-o-follow', LM, 'follow', 'wspr_app_map', on => { if (on && lmap) lmHome(); });
 
