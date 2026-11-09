@@ -37,7 +37,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\small\itshape WSPR Logger --- how to read and use the web page}
-\fancyhead[R]{\small\itshape User guide, version 1.1 --- November 2026}
+\fancyhead[R]{\small\itshape User guide, version 1.2 --- November 2026}
 \fancyfoot[C]{\small\thepage}
 \renewcommand{\headrulewidth}{0.3pt}
 \hypersetup{pdftitle={WSPR Logger - User guide},pdfauthor={Otso Laakso, OH2GAX}}
@@ -62,7 +62,7 @@
 \begin{document}
 \thispagestyle{plain}
 \begin{center}
-{\small WSPR Logger project \quad$\cdot$\quad User guide, version 1.1 \quad$\cdot$\quad 7 November 2026}\par\vspace{10pt}
+{\small WSPR Logger project \quad$\cdot$\quad User guide, version 1.2 \quad$\cdot$\quad 9 November 2026}\par\vspace{10pt}
 {\LARGE\bfseries WSPR Logger}\par\vspace{5pt}
 {\large\bfseries How to read and use the web page:\\ the live map, history, statistics, propagation analysis and the car's track}\par\vspace{8pt}
 {\normalsize Otso Laakso (OH2GAX)}\par
@@ -141,7 +141,7 @@ Section~\ref{sec:wspr} explains WSPR as far as needed to read the page; Section~
 \item the \textbf{History Player} card: pick a day and press \ui{$\blacktriangleright$ Replay} (Section~\ref{sec:replay}); while it plays, the card shows the replayed moment with play / pause, the day steps and \ui{Live $\times$};
 \item the \textbf{Today / 1h} cards: transmissions heard, best DX, most stations in one transmission and the band, for the UTC day or the last hour.
 \end{itemize}
-The History Player card and Today always stay at the bottom; on a short window the part above them scrolls. \ui{Phone app} under \ui{What's new} opens the phone view (see the \emph{Mobile app user guide}). The switches and their settings (MUF period, histogram tab, list order, Today/1h, the place of panels you moved) are remembered in your browser; another browser or device keeps its own.
+The History Player card and Today always stay at the bottom; on a short window the part above them scrolls. \ui{Phone app} under \ui{What's new} opens the phone view (see the \emph{Mobile app user guide}). The switches and their settings (MUF period and foF2, histogram tab, list order, Typical Day period, Today/1h, the place and size of panels you moved) are remembered in your browser; another browser or device keeps its own.
 \end{minipage}
 \caption{The menu on the left, with all Map Layers switched on.}
 \end{figure}
@@ -183,7 +183,7 @@ up to 5 & Very low & 41--60 & Very good\\
 
 \subsection{MUF / Reports graph}
 \fig{live_muf.jpg}{1.0}{The MUF graph: Juliusruh MUF(3000) as the blue line, the stations of each transmission as green bars, for the last 2 days.}
-The blue line is the \textbf{MUF(3000)} measured by the ionosonde at Juliusruh: the highest frequency that the ionosphere above Juliusruh would return to the ground over a 3\,000\,km path. Your 20\,m signal (14\,MHz) needs the MUF of its own path to be above 14\,MHz. The green bars are the stations that heard each transmission. Read the two together: in the morning the bars rise when the MUF climbs through about 14--16\,MHz, they stay high while the MUF is high, and they fall away in the evening when the MUF drops below about 12\,MHz. Use \ui{1d / 2d / 3d / 1wk} to change the span. Juliusruh is about 1\,000\,km south-west of the car, roughly under the path to Central Europe, so it describes the busiest paths quite well and the paths to other directions only roughly.
+The blue line is the \textbf{MUF(3000)} measured by the ionosonde at Juliusruh: the highest frequency that the ionosphere above Juliusruh would return to the ground over a 3\,000\,km path. Your 20\,m signal (14\,MHz) needs the MUF of its own path to be above 14\,MHz. The green bars are the stations that heard each transmission. Read the two together: in the morning the bars rise when the MUF climbs through about 14--16\,MHz, they stay high while the MUF is high, and they fall away in the evening when the MUF drops below about 12\,MHz. Use \ui{1d / 2d / 3d / 1wk} to change the span. The \ui{foF2} button adds a third line (amber) on the same MHz scale: the \textbf{foF2} of Juliusruh, the highest frequency the F2 layer returns straight up (Section~\ref{sec:iono}); the MUF over 3\,000\,km is about three times foF2. foF2 is stored from November 2026, when the Juliusruh monitor page became its source, so the line starts there. Juliusruh is about 1\,000\,km south-west of the car, roughly under the path to Central Europe, so it describes the busiest paths quite well and the paths to other directions only roughly.
 
 \subsection{Solar Conditions}
 \begin{figure}[H]\centering
@@ -212,7 +212,7 @@ A MUF reading older than 3 hours is shown as \textbf{---}, because an old value 
 \begin{minipage}[c]{0.32\textwidth}\centering\includegraphics[width=\textwidth]{guide_img/live_reporters.jpg}\end{minipage}\hfill
 \begin{minipage}[c]{0.32\textwidth}\centering\includegraphics[width=\textwidth]{guide_img/live_hgram.jpg}\end{minipage}\hfill
 \begin{minipage}[c]{0.32\textwidth}\small
-\lead{Reporter List.} Every station of the last 60 minutes: band, callsign, locator, best SNR and distance; click \ui{SNR} or \ui{Dist} to sort.
+\lead{Reporter List.} Every station of the last 60 minutes: band, callsign, locator, best SNR and distance. Click \ui{SNR} or \ui{Dist} to sort by it, largest first (\ui{$\blacktriangledown$}); click it again for the smallest first (\ui{$\blacktriangle$}) --- the weakest stations, or the nearest ones.
 
 \lead{Histogram.} How these stations spread over SNR (3\,dB steps from $-33$ to $+9$\,dB) or, with \ui{Dist}, over distance. A peak far to the left means most stations hear you just above the decoding limit; a peak to the right, a strong signal.
 \end{minipage}
@@ -224,7 +224,11 @@ A MUF reading older than 3 hours is shown as \textbf{---}, because an old value 
 
 \lead{Day / Night} shades the night side of the Earth and draws the terminator (the grey line, dashed amber). Long-distance paths on 20\,m often open when one end is near the terminator (Section~\ref{sec:grey}).
 
-\lead{Moving panels.} The Reporter List, the histogram, Solar Conditions and Reporter Countries can be dragged by their titles anywhere on the map; the place is remembered. Double-click a title, or \ui{Reset panel positions} in the menu, to put a panel back.
+\lead{Moving panels.} The Reporter List, the histogram, Solar Conditions, the Typical Day graph and Reporter Countries can be dragged by their titles anywhere on the map; the place is remembered. The Typical Day graph can also be resized from its lower right corner. Double-click a title, or \ui{Reset panel positions} in the menu, to put a panel back.
+
+\subsection{Typical Day graph}
+\fig{live_typ.jpg}{0.62}{The Typical Day graph on 6 November 2026 at 14:20 UTC, over 14 days: today (orange) a little below the usual in the morning and above it around noon.}
+The \ui{Typical Day Graph} switch puts the \emph{Typical day (UTC)} card of the Analysis page (Section~\ref{sec:typday}) on the live map: for each UTC hour the median number of stations heard in 60 minutes over the period (blue line) and the range of the middle half of the days (shaded), with today in orange. So you see at a glance whether the band is doing better or worse than usual at this hour. \ui{7d / 14d / 30d / 90d} choose the period; 14 and 90 days are kept ready by the server, the others take a few seconds the first time. The graph is updated with the map; the panel opens at the bottom left, and can be moved and resized.
 
 \section{The History Player}\label{sec:replay}
 \fig{replay.jpg}{0.92}{The History Player on 13 October 2026 at 05:28 UTC: the terminator crosses Europe, only two stations (Italy, Russia) and a Greek station hear the car before the band opens. The bar at the bottom controls the replay.}
@@ -307,7 +311,7 @@ The Analysis page turns the stored snapshots into answers about the band. Everyt
 \item[Watch out] it is a description of this station's history, not a physical forecast: a sudden storm or a flare is not foreseen.
 \end{reading}
 
-\subsection{Typical day}
+\subsection{Typical day}\label{sec:typday}
 \fig{an_profile.jpg}{1.0}{Typical day: median stations heard per UTC hour (line) with the middle half of the snapshots (shaded), and the latest day in orange.}
 \begin{reading}
 \item[What it shows] for each UTC hour, the median stations heard over the period and the 25--75\,\% range (half of all snapshots of that hour lie inside the shaded bar); the orange line is the latest day.
@@ -473,5 +477,5 @@ Links & \texttt{\#history=DATE}, \texttt{\#stats=DATE}, \texttt{\#analysis}, \te
 \lead{More to read.} The \ui{Guides} tab also holds two papers written from this station's data: \emph{Twenty-metre WSPR propagation study} (three seasons in detail, with the methods behind the Analysis page) and \emph{WPRS --- Whisper Position Reporting System} (position beaconing with WSPR), with its two-page summary. The program and its documentation are at \url{https://github.com/oh2gax/wspr_logger}.
 
 \vfill
-{\small\textbf{Version history.}\quad 1.0, 7 November 2026: first version. \quad 1.1, 7 November 2026: the Analysis periods 7\,d and 14\,d and the opening at 14 days; implausible reports left out of the records too; country names from the locator; the History Player card in the menu and the replayed moment in the Current Position box; new screenshots of the live map, the History Player, Statistics and the info window.}
+{\small\textbf{Version history.}\quad 1.0, 7 November 2026: first version. \quad 1.1, 7 November 2026: the Analysis periods 7\,d and 14\,d and the opening at 14 days; implausible reports left out of the records too; country names from the locator; the History Player card in the menu and the replayed moment in the Current Position box; new screenshots of the live map, the History Player, Statistics and the info window. \quad 1.2, 9 November 2026: the Typical Day graph on the live map, foF2 in the MUF graph, the Reporter List sorted both ways.}
 \end{document}

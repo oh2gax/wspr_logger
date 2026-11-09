@@ -1096,12 +1096,16 @@ def api_reporter_list():
 
 @app.route('/api/muf')
 def api_muf():
-    """MUF history + reporter-count overlay for chart."""
+    """MUF history + reporter-count overlay for chart.  With fof2=1 also the foF2 readings of the
+    polls (from the replay database), for the live map's foF2 line."""
     days = request.args.get('days', 1, type=int)
     band = _band_arg()
     muf_rows  = db.get_muf_last_24h(days)
     spot_rows = db.get_spots_last_24h(band, days)
-    return jsonify({"muf": muf_rows, "spots": spot_rows})
+    out = {"muf": muf_rows, "spots": spot_rows}
+    if request.args.get('fof2') == '1':
+        out["fof2"] = replay_db.get_fof2_last(days)
+    return jsonify(out)
 
 
 @app.route('/api/solar')
@@ -1424,6 +1428,26 @@ def api_analysis():
                 pass
         out["outlook"] = outlook.forecast(model, datetime.utcnow(), muf, k_now)
     return jsonify(out)
+
+
+@app.route('/api/typical_day')
+def api_typical_day():
+    """The "Typical day (UTC)" card of the Analysis page for the live map's panel: stations heard in the
+    last 60 minutes by UTC hour (median and the 25-75 % range over the period) and the latest day.
+    Query params: days=<7..365> (rounded up as /api/analysis, default 14), band=<int>.  Taken from the
+    cached analysis (14 and 90 days are kept ready), so it is small and quick."""
+    days = request.args.get('days', 14, type=int)
+    days = 0 if days <= 0 else next((d for d in _ANALYSIS_DAYS if days <= d), _ANALYSIS_DAYS[-1])
+    band = _band_arg()
+    if not replay_db.is_enabled():
+        return jsonify({"enabled": False, "empty": True, "days": days})
+    payload = _analysis_payload(days, band)
+    if payload.get("empty"):
+        return jsonify({"enabled": True, "empty": True, "days": days})
+    summ = payload.get("summary") or {}
+    return jsonify({"enabled": True, "empty": False, "days": days,
+                    "from": summ.get("from"), "to": summ.get("to"), "n_days": summ.get("days"),
+                    "profile": payload["profile"], "latest": payload["latest"]})
 
 
 _more_cache: dict = {}              # (days, band) -> (monotonic time, payload) for /api/analysis/more

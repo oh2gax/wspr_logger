@@ -450,13 +450,20 @@ async function fetchReporterList() {
     } catch(e) { /* silent */ }
 }
 
-function sortReporterList(key) {
+// A click on the sorted column turns the order round (▾ largest first, ▴ smallest first);
+// a click on the other column sorts by it, largest first.  dir: given when restoring the saved order.
+function sortReporterList(key, dir) {
+    _rlSortDir = dir || (key === _rlSortKey ? (_rlSortDir === 'desc' ? 'asc' : 'desc') : 'desc');
     _rlSortKey = key;
     // Update header indicators
+    const arrow = _rlSortDir === 'desc' ? ' ▾' : ' ▴';
+    const next = _rlSortDir === 'desc' ? 'smallest' : 'largest';
     document.getElementById('thSnr').classList.toggle('sort-active',  key === 'snr');
     document.getElementById('thDist').classList.toggle('sort-active', key === 'dist');
-    document.getElementById('thSnr').textContent  = 'SNR'  + (key === 'snr'  ? ' ▾' : '');
-    document.getElementById('thDist').textContent = 'Dist' + (key === 'dist' ? ' ▾' : '');
+    document.getElementById('thSnr').textContent  = 'SNR'  + (key === 'snr'  ? arrow : '');
+    document.getElementById('thDist').textContent = 'Dist' + (key === 'dist' ? arrow : '');
+    document.getElementById('thSnr').title  = key === 'snr'  ? `Click: ${next} SNR first`      : 'Sort by SNR, strongest first';
+    document.getElementById('thDist').title = key === 'dist' ? `Click: ${next} distance first` : 'Sort by distance, farthest first';
     renderReporterList();
     saveLayerPrefs();
 }
@@ -467,8 +474,9 @@ function renderReporterList() {
         tbody.innerHTML = '<tr><td colspan="5" class="rl-empty">No data</td></tr>';
         return;
     }
+    const sgn = _rlSortDir === 'asc' ? 1 : -1, k = _rlSortKey === 'dist' ? 'distance' : 'snr';
     const sorted = [..._reporterListData].sort((a, b) =>
-        _rlSortKey === 'dist' ? b.distance - a.distance : b.snr - a.snr
+        sgn * ((a[k] || 0) - (b[k] || 0)) || String(a.callsign).localeCompare(String(b.callsign))
     );
     tbody.innerHTML = sorted.map(r => `
         <tr>

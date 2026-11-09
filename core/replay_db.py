@@ -251,6 +251,21 @@ def get_solar_nearest(timestamp: str) -> dict | None:
     return dict(row) if row else None
 
 
+def get_fof2_last(days: int = 1) -> list[dict]:
+    """foF2 readings (MHz) of the polls of the last N days (1-7), oldest first, for the live map's
+    MUF graph.  Polls without a reading are left out."""
+    if not _enabled:
+        return []
+    days = max(1, min(int(days), 7))
+    with _connect() as conn:
+        rows = conn.execute("""
+            SELECT timestamp, fof2 FROM solar_log
+            WHERE timestamp >= datetime('now', ?) AND fof2 > 0
+            ORDER BY timestamp ASC
+        """, (f'-{days} days',)).fetchall()
+    return [dict(r) for r in rows]
+
+
 def get_available_dates(band: int = 14) -> list[str]:
     """Return distinct UTC dates that have reporter data, newest first."""
     if not _enabled:

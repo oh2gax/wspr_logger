@@ -4,6 +4,15 @@ Short notes for users of the web page, newest first. Each version is one day of 
 (v.DDMMYYYY). The full technical history is in CHANGELOG.md. The newest heading gives the
 version shown under the page title.
 
+## v.09112026 — The typical day on the live map, foF2 in the MUF graph, two-way sorting and the phone's MUF card over a week
+
+- **Typical day on the live map** — the new *Typical Day Graph* switch under Map Layers shows the *Typical day (UTC)* chart of the Analysis page at the bottom left of the map: how many stations usually hear the car at each UTC hour over the last 7, 14, 30 or 90 days, with today on top, so you see at once whether the band is better or worse than usual. Drag it by its title anywhere and make it bigger or smaller from its lower right corner; it keeps its place and size.
+- **foF2 in the MUF graph** — the *foF2* button beside *1d / 2d / 3d / 1wk* adds the foF2 of Juliusruh to the MUF / Reports graph as an amber line on the same MHz scale. foF2 has been stored since early November 2026, so the line starts there.
+- **Reporter list both ways** — click *SNR* or *Dist* in the Reporters list on the live map to sort by it, largest first; click again for smallest first (▴) — the weakest stations, or the nearest ones. The order is remembered.
+
+- **MUF card range** — under *Live map options*, *MUF card range* now sets how far back the MUF card on the phone's Live map looks: *24 h* (as before), *2 days*, *3 days* or *1 week*. The longer periods are shown hour by hour, with the weekday at each midnight, so the daily rise and fall of the MUF and the reporters stands out even in the small card; hours without data stay empty. Remembered on the phone.
+- **Mobile app user guide** — updated (version 1.3).
+
 ## v.08112026 — Solar conditions and the MUF graph on the phone's Live map
 
 - **Solar card** — in the phone app, *Solar card* under *Live map options* puts the space weather of the Now view (SFI, K and A index, X-ray, Bz, solar wind, aurora, proton flux, foF2 and the Juliusruh MUF) on a card at the bottom of the Live map, in the same colours, above the status card.

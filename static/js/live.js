@@ -32,6 +32,7 @@ async function fetchLatest() {
 
         if (showCountries) updateCountryOverlay(isStale ? [] : (data.countries || []));
         if (showMuf)       fetchMufData();
+        if (showTyp)       fetchTypData();
         if (showReporterList || showReporterPlot || showHistogram) {
             if (isStale) {
                 _reporterListData = [];

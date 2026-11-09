@@ -100,6 +100,10 @@
                 <div class="sw" id="swHgram" onclick="toggleHistogram()"></div>
             </div>
             <div class="toggle-row">
+                <span>Typical Day Graph</span>
+                <div class="sw" id="swTyp" onclick="toggleTyp()"></div>
+            </div>
+            <div class="toggle-row">
                 <span>Reporter Plot</span>
                 <div class="sw" id="swReporterPlot" onclick="toggleReporterPlot()"></div>
             </div>
@@ -196,6 +200,8 @@
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                 <div class="muf-panel-title" id="mufPanelTitle" style="margin-bottom:0;">MUF D=3000 km (MHz) &amp; Reporter Count — Last 24 h</div>
                 <div class="muf-period-btns">
+                    <button class="muf-period-btn muf-fof2-btn" id="mufBtnFof2" onclick="toggleMufFof2()" title="Show also foF2, the critical frequency of the F2 layer at Juliusruh (MHz, the same scale as the MUF)">foF2</button>
+                    <span class="muf-btn-sep"></span>
                     <button class="muf-period-btn" id="mufBtn1d" onclick="setMufDays(1)">1d</button>
                     <button class="muf-period-btn active" id="mufBtn2d" onclick="setMufDays(2)">2d</button>
                     <button class="muf-period-btn" id="mufBtn3d" onclick="setMufDays(3)">3d</button>
@@ -282,6 +288,22 @@
             <div class="hgram-chart-wrap">
                 <canvas id="hgramCanvas"></canvas>
             </div>
+        </div>
+
+        <!-- Typical day (UTC) panel (from 2026-11-09) — bottom left; move it by its title, resize it from the corner -->
+        <div class="typ-panel" id="typPanel" style="display:none;">
+            <div class="typ-header">
+                <span class="typ-title" id="typPanelTitle">Typical day (UTC) — 14 days</span>
+                <div class="muf-period-btns">
+                    <button class="muf-period-btn" id="typBtn7" onclick="setTypDays(7)">7d</button>
+                    <button class="muf-period-btn active" id="typBtn14" onclick="setTypDays(14)">14d</button>
+                    <button class="muf-period-btn" id="typBtn30" onclick="setTypDays(30)">30d</button>
+                    <button class="muf-period-btn" id="typBtn90" onclick="setTypDays(90)">90d</button>
+                </div>
+            </div>
+            <div class="typ-chart-wrap"><canvas id="typCanvas"></canvas></div>
+            <div class="typ-note" id="typNote"></div>
+            <div class="panel-grip" title="Drag to resize"></div>
         </div>
 
         <!-- Reporter list panel — left side, below solar/MUF -->

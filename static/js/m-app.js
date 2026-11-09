@@ -391,30 +391,53 @@
     if (el) { el.classList.toggle('warn', min > 25 && min <= 60); el.classList.toggle('old', min > 60); el.style.display = LM.fixAge ? '' : 'none'; }
   }
   // the MUF card: the last 24 h of /api/muf, fetched again after 5 minutes (MUF every 15 min, spots every 10)
-  const MC = { data: null, at: 0, band: null };
+  // its range (24 h, 2 or 3 days, a week; menu chips) sets how often: 5, 15, 15 and 30 minutes
+  const MC = { data: null, at: 0, band: null, days: null };
+  let mcDays = parseInt(bindSel('m-o-mufcd', 'wspr_app_mufcd', '1', v => { mcDays = parseInt(v, 10); loadMufCard(true); }), 10);
+  const MC_LBL = { 1: '24 h', 2: '2 days', 3: '3 days', 7: '1 week' };
+  const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   async function loadMufCard(force) {
-    if (force || !MC.data || MC.band !== currentBand || Date.now() - MC.at > 5 * 60000) {
-      try { MC.data = await getJson(`/api/muf?band=${currentBand}&days=1`); } catch (_) { return; }
-      MC.at = Date.now(); MC.band = currentBand;
+    const every = (mcDays >= 7 ? 30 : mcDays > 1 ? 15 : 5) * 60000;
+    if (force || !MC.data || MC.band !== currentBand || MC.days !== mcDays || Date.now() - MC.at > every) {
+      const days = mcDays, band = currentBand;
+      let d;
+      try { d = await getJson(`/api/muf?band=${band}&days=${days}`); } catch (_) { return; }
+      if (days !== mcDays || band !== currentBand) return;      // the range or band changed meanwhile
+      MC.data = d; MC.at = Date.now(); MC.band = band; MC.days = days;
     }
     if (view === 'map' && LM.muf) drawMufCard();
   }
   function drawMufCard() {
     if (!MC.data) return;
     const muf = MC.data.muf || [], sp = MC.data.spots || [];
-    const mm = {}, sm = {};
-    muf.forEach(r => { mm[r.timestamp] = r.muf; });
-    sp.forEach(s => { sm[s.timestamp] = Math.max(sm[s.timestamp] || 0, s.reporter_count); });
-    const times = [...new Set([...muf.map(r => r.timestamp), ...sp.map(s => s.timestamp)])].sort();
+    // 24 h: every reading and transmission; longer: by the hour (the MUF's mean, the reporters' most),
+    // so the bars stay visible in the small chart
+    const multi = MC.days > 1, key = t => multi ? t.slice(0, 13) : t;
+    const ms = {}, mn = {}, sm = {};
+    muf.forEach(r => { const k = key(r.timestamp); ms[k] = (ms[k] || 0) + r.muf; mn[k] = (mn[k] || 0) + 1; });
+    sp.forEach(s => { const k = key(s.timestamp); sm[k] = Math.max(sm[k] || 0, s.reporter_count); });
+    let times = [...new Set([...Object.keys(ms), ...Object.keys(sm)])].sort();
+    if (multi && times.length > 1) {                  // every hour from the first to the last, so a gap shows as a gap
+      const end = tsMs(times[times.length - 1] + ':00:00'), all = [];
+      for (let t = tsMs(times[0] + ':00:00'); t <= end; t += 3600000) all.push(new Date(t).toISOString().slice(0, 13).replace('T', ' '));
+      times = all;
+    }
+    // the time axis: HH:MM over 24 h; the weekday at each midnight (and 12:00 up to three days) when longer
+    const xLab = k => {
+      if (!multi) return k.slice(11, 16);
+      const h = k.slice(11, 13);
+      if (h === '00') return WD[new Date(tsMs(k + ':00:00')).getUTCDay()];
+      return h === '12' && MC.days <= 3 ? '12:00' : '';
+    };
     const last = muf.length ? muf[muf.length - 1] : null;
-    $('m-mc-last').textContent = (last ? `${last.muf.toFixed(1)} MHz at ${last.timestamp.slice(11, 16)}` : 'no MUF') + ' · 24 h';
+    $('m-mc-last').textContent = (last ? `${last.muf.toFixed(1)} MHz at ${last.timestamp.slice(11, 16)}` : 'no MUF') + ' · ' + MC_LBL[MC.days];
     const col = anColors();
     const cM = isDark ? '#38bdf8' : '#0284c7', cR = isDark ? '#4ade80' : '#16a34a';
     const tk = (c, n) => ({ color: c, font: { size: 9 }, maxTicksLimit: n, padding: 2 });
     mkChart('m-mc-c', {
-      data: { labels: times.map(t => t.slice(11, 16)), datasets: [
-        { type: 'line', data: times.map(t => mm[t] ?? null), borderColor: cM, backgroundColor: 'transparent',
-          borderWidth: 1.5, pointRadius: 0, yAxisID: 'yM', tension: 0.4, spanGaps: true, order: 1 },
+      data: { labels: times.map(xLab), datasets: [
+        { type: 'line', data: times.map(t => (mn[t] ? ms[t] / mn[t] : null)), borderColor: cM, backgroundColor: 'transparent',
+          borderWidth: 1.5, pointRadius: 0, yAxisID: 'yM', tension: 0.4, spanGaps: multi ? 3 : true, order: 1 },   // by the hour: no line over a longer gap
         { type: 'bar', data: times.map(t => sm[t] || 0), backgroundColor: isDark ? 'rgba(74,222,128,0.45)' : 'rgba(22,163,74,0.4)',
           borderWidth: 0, yAxisID: 'yR', order: 2 },
       ] },
@@ -423,7 +446,9 @@
         plugins: { legend: { display: false }, tooltip: { enabled: false } },
         layout: { padding: { top: 2 } },
         scales: {
-          x: { ticks: { ...tk(col.text, 5), maxRotation: 0, autoSkip: true }, grid: { display: false } },
+          x: { ticks: multi ? { color: col.text, font: { size: 9 }, padding: 2, maxRotation: 0, autoSkip: false }
+                            : { ...tk(col.text, 5), maxRotation: 0, autoSkip: true },
+               grid: { display: false } },
           yM: { type: 'linear', position: 'left', ticks: tk(cM, 4), grid: { color: col.grid } },
           yR: { type: 'linear', position: 'right', beginAtZero: true, ticks: { ...tk(cR, 4), precision: 0 }, grid: { drawOnChartArea: false } },
         },
@@ -641,7 +666,7 @@
     muf.forEach(r => { mm[r.timestamp] = r.muf; });
     sp.forEach(s => { sm[s.timestamp] = Math.max(sm[s.timestamp] || 0, s.reporter_count); });
     const times = [...new Set([...muf.map(r => r.timestamp), ...sp.map(s => s.timestamp)])].sort();
-    const lab = ts => mufDays <= 1 ? ts.slice(11, 16) : `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(tsMs(ts)).getUTCDay()]} ${ts.slice(11, 16)}`;
+    const lab = ts => mufDays <= 1 ? ts.slice(11, 16) : `${WD[new Date(tsMs(ts)).getUTCDay()]} ${ts.slice(11, 16)}`;
     const col = anColors();
     const last = muf.length ? muf[muf.length - 1] : null;
     $('m-muf-note').textContent = last ? `Latest MUF ${last.muf.toFixed(1)} MHz at ${last.timestamp.slice(0, 16)} UTC.` : 'No MUF readings in this range.';

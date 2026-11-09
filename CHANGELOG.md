@@ -5,6 +5,48 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2026-11-09]
+
+### Added
+- **Live map: Typical Day graph** — a new Map Layers switch *Typical Day Graph* (`#swTyp`,
+  `toggleTyp()`, stored as `typ` / `typDays` in `wspr_layers`) shows `#typPanel` at the bottom
+  left: the Analysis page's *Typical day (UTC)* chart (25–75 % range as floating bars, median,
+  today) with 7d / 14d / 30d / 90d buttons (`setTypDays()`), fetched with every poll
+  (`fetchTypData()`, a newer request wins) and repainted at once on a theme change. New endpoint
+  `/api/typical_day?days=&band=` returns `profile`, `latest`, `from`, `to` and `n_days` from the
+  cached analysis (`_analysis_payload()`, 14 and 90 days kept warm), about 1.7 kB.
+- **Resizable panels** — a panel with a `.panel-grip` can be resized from its lower right corner
+  (`panelGripDown()`, at least 300 × 170 px, within the map); the size is saved with the place in
+  `wspr_panel_pos` (`h` beside `x`, `y`, `w`) and cleared by double-click / *Reset panel
+  positions*. Moving and resizing share `panelPin()`. Used by the Typical Day graph.
+- **Live map: foF2 in the MUF graph** — a *foF2* button (`#mufBtnFof2`, `toggleMufFof2()`, stored
+  as `mufFof2`) before the period buttons adds an amber foF2 line on the MUF axis; the title and
+  axis name say so. `/api/muf` takes `fof2=1` and then also returns `fof2` from the new
+  `replay_db.get_fof2_last(days)` (the polls' foF2 in `solar_log`, readings > 0). An answer for an
+  older request is ignored (`_mufSeq`).
+- **Reporter list: sort both ways** — a click on the sorted column (*SNR* or *Dist*) reverses the
+  order (▾ largest first, ▴ smallest first); the other column starts largest first. Ties are
+  sorted by callsign. Stored as `rlSortDir`; the header arrows are now set at start-up too (both
+  showed ▾ before).
+- **Phone app: MUF card range** — chips *MUF card range* (`#m-o-mufcd`: 24 h, 2 days, 3 days,
+  1 week; stored as `wspr_app_mufcd`, default 24 h) under *Live map options*. `loadMufCard()`
+  fetches `/api/muf?days=N` (again after 5 min for 24 h, 15 min for 2–3 days, 30 min for a week,
+  or at once on a range or band change; an answer for an older range or band is ignored).
+  `drawMufCard()` shows 24 h as before; longer ranges by the UTC hour (the hour's mean MUF and its
+  most reporters), every hour from the first to the last so gaps stay empty (the MUF line does
+  not bridge more than three missing hours), with the weekday at each midnight and 12:00 up to
+  three days on the time axis. The header names the range.
+- **Mobile app user guide 1.3** — the range in the Live map section and the data-use note; the
+  options screenshot; `doc/guides.json` date.
+- **User guide 1.2** — the Typical Day graph (new subsection and figure), the foF2 button, the
+  two-way sort and resizing in the live map section; `doc/guides.json` date.
+
+### Changed
+- **MUF graph follows the theme at once** — a theme change refetches the MUF graph so its axis
+  and grid colours change immediately instead of at the next poll.
+
+---
+
 ## [2026-11-08]
 
 ### Added

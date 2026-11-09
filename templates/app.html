@@ -285,7 +285,9 @@
       <label class="app-switch"><span>MUF card</span><input type="checkbox" id="m-o-mufc"></label>
       <label class="app-switch"><span>Follow beacon</span><input type="checkbox" id="m-o-follow"></label>
     </div>
-    <div class="app-small"><i>Reporter arcs</i>: a great-circle line to each station that heard the beacon in the last 60 minutes, stronger signals brighter and thicker; tap a station for its details. <i>Day / Night</i>: the night side and the grey line (dashed), redrawn every minute. <i>Solar card</i>: the space weather of the Now view (SFI, K and A index, X-ray, Bz, solar wind, aurora, proton flux, foF2, Juliusruh MUF) over the map, in the same colours. <i>MUF card</i>: a small MUF D=3000 graph (Juliusruh, the line) with the reporters of each transmission (the bars) over the last 24 hours, as in the MUF view. <i>Follow beacon</i>: the map moves with each new fix. ⌂ on the map returns to the beacon. Refreshed every minute. Remembered on the phone.</div>
+    <div class="app-field"><span>MUF card range</span>
+      <select id="m-o-mufcd" data-chips><option value="1">24 h</option><option value="2">2 days</option><option value="3">3 days</option><option value="7">1 week</option></select></div>
+    <div class="app-small"><i>Reporter arcs</i>: a great-circle line to each station that heard the beacon in the last 60 minutes, stronger signals brighter and thicker; tap a station for its details. <i>Day / Night</i>: the night side and the grey line (dashed), redrawn every minute. <i>Solar card</i>: the space weather of the Now view (SFI, K and A index, X-ray, Bz, solar wind, aurora, proton flux, foF2, Juliusruh MUF) over the map, in the same colours. <i>MUF card</i>: a small MUF D=3000 graph (Juliusruh, the line) with the reporters of each transmission (the bars), as in the MUF view, over the <i>MUF card range</i>: the last 24 hours, 2 or 3 days or a week. <i>Follow beacon</i>: the map moves with each new fix. ⌂ on the map returns to the beacon. Refreshed every minute. Remembered on the phone.</div>
   </details>
 
   <details class="app-sec" data-for="now">

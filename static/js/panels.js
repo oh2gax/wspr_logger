@@ -1,4 +1,4 @@
-// Map panels: stacking, movable panels and the MUF graph.
+// Map panels: stacking, movable (and resizable) panels, the MUF graph and the Typical day graph.
 // Part of the WSPR Logger page. The scripts in templates/index.html are loaded in this order and share one scope,
 // so keep the order: core, live, panels, map-layers, history-player, views, analysis, analysis-more, info, wprs, main.
 
@@ -65,12 +65,13 @@ function updateHistogramPosition() {
 // Drag a panel by its title; the place is remembered per browser. Double-click the
 // title (or "Reset panel positions" in the sidebar) puts it back. The date / time
 // card, the Propagation overlay under it and the MUF graph stay where they are.
+// A panel with a .panel-grip (the Typical day panel) can also be resized from its corner.
 const PANEL_HANDLES = {
     solarPanel: '.ov-lbl', reporterListPanel: '.rl-title',
-    hgramPanel: '.hgram-title', countryOverlay: '.ov-lbl',
+    hgramPanel: '.hgram-title', countryOverlay: '.ov-lbl', typPanel: '.typ-title',
 };
 const PANEL_POS_KEY = 'wspr_panel_pos';
-let _panelPos = {};              // id -> {x, y, w}: px from the top-left of the map view
+let _panelPos = {};              // id -> {x, y, w, h}: px from the top-left of the map view (h: resized panels only)
 let _panelZ = 500;
 const _panelHome = {};           // id -> comment node marking the original place of a reparented overlay
 
@@ -89,6 +90,7 @@ function panelApply(el, p) {
     el.style.right = 'auto'; el.style.bottom = 'auto';
     el.style.left = p.x + 'px'; el.style.top = p.y + 'px';
     if (p.w) el.style.width = p.w + 'px';
+    if (p.h) el.style.height = p.h + 'px';
 }
 
 function panelClamp(id) {
@@ -100,9 +102,48 @@ function panelClamp(id) {
     if (x !== p.x || y !== p.y) { p.x = x; p.y = y; el.style.left = x + 'px'; el.style.top = y + 'px'; }
 }
 
+// Start a move: the panel is taken out of the automatic stacking at its present place.
+function panelPin(el) {
+    const mv = document.getElementById('map-view');
+    const r = el.getBoundingClientRect(), m = mv.getBoundingClientRect();
+    const old = _panelPos[el.id];
+    _panelPos[el.id] = { x: r.left - m.left, y: r.top - m.top, w: Math.round(r.width), h: old && old.h ? old.h : 0 };
+    panelApply(el, _panelPos[el.id]);
+    _panelZ = Math.min(_panelZ + 1, 590);
+    el.style.zIndex = _panelZ;                          // the panel you move comes to the front
+    return _panelPos[el.id];
+}
+
+// Resize from the corner grip: width and height are remembered with the place.
+function panelGripDown(e, el) {
+    if (e.button !== undefined && e.button !== 0) return;
+    e.stopPropagation();
+    const mv = document.getElementById('map-view');
+    const x0 = e.clientX, y0 = e.clientY;
+    const r0 = el.getBoundingClientRect();
+    let p = null;
+    const move = ev => {
+        if (!p) { p = panelPin(el); document.body.classList.add('panel-resizing'); }
+        const maxW = mv.clientWidth - p.x - 4, maxH = mv.clientHeight - p.y - 4;
+        p.w = Math.round(Math.max(300, Math.min(maxW, r0.width + ev.clientX - x0)));
+        p.h = Math.round(Math.max(170, Math.min(maxH, r0.height + ev.clientY - y0)));
+        el.style.width = p.w + 'px'; el.style.height = p.h + 'px';
+    };
+    const up = () => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', up);
+        document.body.classList.remove('panel-resizing');
+        if (p) panelSavePos();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    e.preventDefault();
+}
+
 function panelDown(e, el) {
     if (e.button !== undefined && e.button !== 0) return;
-    const mv = document.getElementById('map-view');
     const x0 = e.clientX, y0 = e.clientY;
     let moved = false, base = null;
     const move = ev => {
@@ -110,12 +151,8 @@ function panelDown(e, el) {
         if (!moved) {
             if (Math.abs(dx) + Math.abs(dy) < 4) return;       // a click, not a drag
             moved = true;
-            const r = el.getBoundingClientRect(), m = mv.getBoundingClientRect();
-            base = { x: r.left - m.left, y: r.top - m.top };
-            _panelPos[el.id] = { x: base.x, y: base.y, w: Math.round(r.width) };
-            panelApply(el, _panelPos[el.id]);
-            _panelZ = Math.min(_panelZ + 1, 590);
-            el.style.zIndex = _panelZ;                          // the panel you move comes to the front
+            const q = panelPin(el);
+            base = { x: q.x, y: q.y };
             document.body.classList.add('panel-dragging');
         }
         const p = _panelPos[el.id];
@@ -142,7 +179,7 @@ function panelReset(id) {
     delete _panelPos[id];
     panelSavePos();
     el.classList.remove('pinned');
-    ['left', 'top', 'right', 'bottom', 'width', 'zIndex'].forEach(k => { el.style[k] = ''; });
+    ['left', 'top', 'right', 'bottom', 'width', 'height', 'zIndex'].forEach(k => { el.style[k] = ''; });
     const ph = _panelHome[id];
     if (ph && ph.parentNode) { ph.parentNode.insertBefore(el, ph); ph.remove(); }
     delete _panelHome[id];
@@ -161,11 +198,13 @@ function initMovablePanels() {
         handle.title = 'Drag to move · double-click to reset';
         const q = saved[id];
         if (q && Number.isFinite(q.x) && Number.isFinite(q.y)) {
-            _panelPos[id] = { x: q.x, y: q.y, w: Number.isFinite(q.w) ? q.w : 0 };
+            _panelPos[id] = { x: q.x, y: q.y, w: Number.isFinite(q.w) ? q.w : 0, h: Number.isFinite(q.h) ? q.h : 0 };
             panelApply(el, _panelPos[id]);
         }
         handle.addEventListener('pointerdown', e => panelDown(e, el));
         handle.addEventListener('dblclick', () => panelReset(id));
+        const grip = el.querySelector('.panel-grip');
+        if (grip) grip.addEventListener('pointerdown', e => panelGripDown(e, el));
         if (window.ResizeObserver) new ResizeObserver(() => panelClamp(id)).observe(el);
     }
     window.addEventListener('resize', () => Object.keys(_panelPos).forEach(panelClamp));
@@ -188,26 +227,42 @@ function setMufDays(d) {
         const id = n === 7 ? 'mufBtn7d' : `mufBtn${n}d`;
         document.getElementById(id).classList.toggle('active', n === d);
     });
-    // Update panel title
-    const labels = {1:'Last 24 h', 2:'Last 2 Days', 3:'Last 3 Days', 7:'Last 7 Days'};
-    document.getElementById('mufPanelTitle').textContent =
-        `MUF D=3000 km (MHz) & Reporter Count — ${labels[d]}`;
+    mufTitle();
     // Destroy chart so it's rebuilt with correct label format
     if (mufChart) { mufChart.destroy(); mufChart = null; }
     fetchMufData();
     saveLayerPrefs();
 }
 
+function mufTitle() {
+    const labels = {1:'Last 24 h', 2:'Last 2 Days', 3:'Last 3 Days', 7:'Last 7 Days'};
+    document.getElementById('mufPanelTitle').textContent =
+        `MUF D=3000 km${mufFof2 ? ' & foF2' : ''} (MHz) & Reporter Count — ${labels[mufDays]}`;
+}
+
+// foF2 button: a third line (amber) on the MUF scale, from the foF2 readings of each poll
+function toggleMufFof2() {
+    mufFof2 = !mufFof2;
+    document.getElementById('mufBtnFof2').classList.toggle('active', mufFof2);
+    mufTitle();
+    if (mufChart) { mufChart.destroy(); mufChart = null; }
+    fetchMufData();
+    saveLayerPrefs();
+}
+
+let _mufSeq = 0;
 async function fetchMufData() {
     if (!showMuf) return;
+    const seq = ++_mufSeq;
     try {
-        const r    = await fetch(`/api/muf?band=${currentBand}&days=${mufDays}`);
+        const r    = await fetch(`/api/muf?band=${currentBand}&days=${mufDays}${mufFof2 ? '&fof2=1' : ''}`);
         const data = await r.json();
-        renderMufChart(data.muf || [], data.spots || []);
+        if (seq !== _mufSeq) return;            // a newer request (another period, foF2 on / off) is on its way
+        renderMufChart(data.muf || [], data.spots || [], mufFof2 ? (data.fof2 || []) : null);
     } catch(e) { /* silent */ }
 }
 
-function renderMufChart(mufRows, spotRows) {
+function renderMufChart(mufRows, spotRows, fof2Rows) {
     // Key maps by full timestamp to preserve chronological uniqueness
     const mufMap  = {};
     mufRows.forEach(r  => { mufMap[r.timestamp]  = r.muf; });
@@ -217,10 +272,14 @@ function renderMufChart(mufRows, spotRows) {
         spotMap[key] = Math.max(spotMap[key] || 0, s.reporter_count);
     });
 
+    const fof2Map = {};
+    (fof2Rows || []).forEach(r => { fof2Map[r.timestamp] = r.fof2; });
+
     // Merge full timestamps and sort chronologically
     const allTimes = [...new Set([
         ...mufRows.map(r  => r.timestamp),
-        ...spotRows.map(s => s.timestamp)
+        ...spotRows.map(s => s.timestamp),
+        ...(fof2Rows || []).map(r => r.timestamp),
     ])].sort();
 
     // For multi-day views label as "Mon 14:30", for single day just "14:30"
@@ -234,6 +293,7 @@ function renderMufChart(mufRows, spotRows) {
     const chartLabels = allTimes.map(fmtLabel);
     const mufVals     = allTimes.map(t => mufMap[t]  ?? null);
     const spotVals    = allTimes.map(t => spotMap[t] || 0);
+    const fof2Vals    = allTimes.map(t => fof2Map[t] ?? null);
 
     const darkMode  = isDark;
     const gridColor = darkMode ? '#374151' : '#cbd5e1';
@@ -245,6 +305,7 @@ function renderMufChart(mufRows, spotRows) {
         mufChart.data.labels                          = chartLabels;
         mufChart.data.datasets[0].data                = mufVals;
         mufChart.data.datasets[1].data                = spotVals;
+        if (fof2Rows) mufChart.data.datasets[2].data  = fof2Vals;
         mufChart.options.scales.x.ticks.color         = textColor;
         mufChart.options.scales.x.ticks.maxTicksLimit = maxTicks;
         mufChart.options.scales.x.grid.color          = gridColor;
@@ -283,7 +344,21 @@ function renderMufChart(mufRows, spotRows) {
                     borderWidth: 1,
                     yAxisID: 'yR',
                     order: 2,
-                }
+                },
+                ...(fof2Rows ? [{
+                    type: 'line',
+                    label: 'foF2 (MHz)',
+                    data: fof2Vals,
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'transparent',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    yAxisID: 'yM',
+                    tension: 0.4,
+                    spanGaps: true,
+                    order: 1,
+                }] : []),
             ]
         },
         options: {
@@ -306,7 +381,7 @@ function renderMufChart(mufRows, spotRows) {
                 },
                 yM: {
                     type: 'linear', position: 'left',
-                    title: { display: true, text: 'MUF (MHz)', color: '#38bdf8', font: { size: 9 } },
+                    title: { display: true, text: fof2Rows ? 'MUF · foF2 (MHz)' : 'MUF (MHz)', color: '#38bdf8', font: { size: 9 } },
                     ticks: { color: '#38bdf8', font: { size: 9 } },
                     grid:  { color: gridColor }
                 },
@@ -321,3 +396,95 @@ function renderMufChart(mufRows, spotRows) {
     });
 }
 
+
+// ── Typical day (UTC) ──────────────────────────────────────────────────────
+// The Analysis page's "Typical day (UTC)" card as a map panel (from 2026-11-09): stations heard in the
+// last 60 minutes by UTC hour, the median and 25-75 % range over 7, 14, 30 or 90 days, and today on top.
+// /api/typical_day takes it from the server's cached analysis; fetched again with every poll.
+let _typData = null;
+
+function toggleTyp() {
+    showTyp = !showTyp;
+    document.getElementById('swTyp').className        = 'sw' + (showTyp ? ' on' : '');
+    document.getElementById('typPanel').style.display = showTyp ? 'flex' : 'none';
+    if (showTyp) fetchTypData();
+    else if (typChart) { typChart.destroy(); typChart = null; }
+    saveLayerPrefs();
+}
+
+function setTypDays(d) {
+    typDays = d;
+    [7, 14, 30, 90].forEach(n => document.getElementById('typBtn' + n).classList.toggle('active', n === d));
+    document.getElementById('typPanelTitle').textContent = `Typical day (UTC) — ${d} days`;
+    if (showTyp) {
+        document.getElementById('typNote').textContent = 'Loading …';
+        fetchTypData();
+    }
+    saveLayerPrefs();
+}
+
+let _typSeq = 0;
+async function fetchTypData() {
+    if (!showTyp) return;
+    const seq = ++_typSeq, days = typDays;
+    try {
+        const r = await fetch(`/api/typical_day?band=${currentBand}&days=${days}`);
+        const d = await r.json();
+        if (seq !== _typSeq || days !== typDays || !showTyp) return;       // a newer request is on its way
+        _typData = d;
+        renderTypChart();
+    } catch (e) { /* silent: the next poll tries again */ }
+}
+
+function renderTypChart() {
+    const d = _typData, note = document.getElementById('typNote');
+    if (!d || d.empty) {
+        if (typChart) { typChart.destroy(); typChart = null; }
+        note.textContent = `No data in the last ${typDays} days — the transmitter may be off; try a longer period.`;
+        return;
+    }
+    note.textContent = `${d.n_days} days with data, ${d.from} – ${d.to}`;
+    const col = anColors();
+    const labels = Array.from({length: 24}, (_, h) => String(h).padStart(2, '0'));
+    const todayLbl = d.latest.is_today ? `Today (${d.latest.date})` : `Latest day (${d.latest.date})`;
+    const data = [d.profile.map(p => [p.p25, p.p75]), d.profile.map(p => p.median), d.latest.n];
+    if (typChart) {
+        data.forEach((v, i) => { typChart.data.datasets[i].data = v; });
+        typChart.data.datasets[1].borderColor = typChart.data.datasets[1].backgroundColor = col.accent;
+        typChart.data.datasets[2].label = todayLbl;
+        const o = typChart.options;
+        o.plugins.legend.labels.color = col.text;
+        o.scales.x.ticks.color = o.scales.x.title.color = col.text;
+        o.scales.y.ticks.color = o.scales.y.title.color = col.text;
+        o.scales.y.grid.color = col.grid;
+        typChart.update('none');
+        return;
+    }
+    // The 25-75 % range as floating bars, as on the Analysis page (drawProfileChart)
+    typChart = new Chart(document.getElementById('typCanvas'), {
+        type: 'bar',
+        data: { labels, datasets: [
+            { type: 'bar', label: '25–75 % range', data: data[0], backgroundColor: 'rgba(56,189,248,0.22)', borderWidth: 0,
+              barPercentage: 1.0, categoryPercentage: 1.0, order: 3 },
+            { type: 'line', label: 'Median', data: data[1], borderColor: col.accent, backgroundColor: col.accent,
+              borderWidth: 2, pointRadius: 2, tension: 0.3, order: 2 },
+            { type: 'line', label: todayLbl, data: data[2], borderColor: '#f59e0b', backgroundColor: '#f59e0b',
+              borderWidth: 2, pointRadius: 2, tension: 0.3, spanGaps: false, order: 1 },
+        ]},
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { labels: { color: col.text, boxWidth: 12, font: { size: 10 } } },
+                       tooltip: { titleFont: { size: 10 }, bodyFont: { size: 10 },
+                                  callbacks: { title: it => `${it[0].label}:00–${it[0].label}:59 UTC`,
+                                               label: it => it.dataset.type === 'bar'
+                                                   ? `25–75 %: ${it.raw[0]} – ${it.raw[1]}` : `${it.dataset.label}: ${it.formattedValue}` } } },
+            scales: {
+                x: { ticks: { color: col.text, font: { size: 9 } }, grid: { display: false },
+                     title: { display: true, text: 'UTC hour', color: col.text, font: { size: 9 } } },
+                y: { beginAtZero: true, ticks: { color: col.text, font: { size: 9 } }, grid: { color: col.grid },
+                     title: { display: true, text: 'stations heard (60 min)', color: col.text, font: { size: 9 } } },
+            }
+        }
+    });
+}

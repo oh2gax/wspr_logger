@@ -3,13 +3,13 @@
     "file": "WSPR_Logger_User_Guide.pdf",
     "title": "WSPR Logger – User guide",
     "description": "How to read and use the page: WSPR in a nutshell, the live map and its layers (propagation, MUF graph, solar conditions, reporter list, histogram and plot, day/night), the History Player, the History and Statistics pages, every chart of the Propagation Analysis page explained with examples from this station's data, the WPRS page, questions you can answer, limitations and a quick reference.",
-    "date": "2026-11-07"
+    "date": "2026-11-09"
   },
   {
     "file": "WSPR_Logger_Mobile_App_User_Guide.pdf",
     "title": "WSPR Logger – Mobile app user guide",
     "description": "The phone view at /app: opening it and adding it to the home screen, the top bar and the ☰ menu, and each of its nine views — Live map (with its status, solar and MUF cards), Now, Reporters, MUF graph, Replay, History, Statistics, Analysis and WPRS — with their options, how the app keeps itself up to date, where the parts of the full page are, and a quick reference.",
-    "date": "2026-11-08"
+    "date": "2026-11-09"
   },
   {
     "file": "WPRS_Two_Page_Summary.pdf",

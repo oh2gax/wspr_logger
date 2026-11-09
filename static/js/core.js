@@ -26,6 +26,7 @@ let showReporterList = false;
 let showHistogram    = false;
 let showReporterPlot = false;
 let showDayNight     = false;
+let showTyp          = false;     // the Typical day (UTC) panel (panels.js, from 2026-11-09)
 // Every string that comes from outside (callsigns, grids, country names) must go through this before it is put into HTML.
 function escHtml(t) {
     return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -35,11 +36,15 @@ let _reporterListData = [];
 let _latestMuf        = 0;    // most recent J-MUF value in MHz (0 = unknown)
 let _liveDx6          = 0;    // current reporters beyond 6000 km, from /api/latest (the "& DX" mark)
 let _rlSortKey        = 'snr';   // 'snr' | 'dist'
+let _rlSortDir        = 'desc';  // 'desc' (largest first) | 'asc'
 let _hgramMode        = 'snr';   // 'snr' | 'dist'
 let hgramChart        = null;
 let _solarTimer   = null;
 let mufChart      = null;
 let mufDays       = 2;
+let mufFof2       = false;   // the foF2 line in the MUF graph (from 2026-11-09)
+let typChart      = null;
+let typDays       = 14;      // 7 | 14 | 30 | 90: the period of the Typical day panel
 
 // Live map objects
 let liveMap            = null;
@@ -134,6 +139,8 @@ function applyTheme() {
     if (histMap && histTileLayer) histTileLayer = swapTiles(histMap, histTileLayer);
     if (wprsMap && wprsTile) wprsTile = swapTiles(wprsMap, wprsTile);
     if (_anData && document.getElementById('analysis-view').classList.contains('active')) renderAnalysis();
+    if (showMuf) fetchMufData();                  // the map panels' charts take the new colours at once
+    if (showTyp && _typData) renderTypChart();
     if (document.getElementById('stats-view').classList.contains('active')) renderStatsCharts();
 }
 
@@ -169,8 +176,9 @@ function saveLayerPrefs() {
             trail: showTrail, fixAge: showFixAge, countries: showCountries, muf: showMuf, solar: showSolar,
             reporterList: showReporterList, histogram: showHistogram,
             reporterPlot: showReporterPlot, dayNight: showDayNight,
-            mufDays: mufDays, hgramMode: _hgramMode,
-            rlSortKey: _rlSortKey, statsWindow: statsWindow,
+            typ: showTyp, typDays: typDays,
+            mufDays: mufDays, mufFof2: mufFof2, hgramMode: _hgramMode,
+            rlSortKey: _rlSortKey, rlSortDir: _rlSortDir, statsWindow: statsWindow,
         }));
     } catch(e) { /* storage unavailable (private mode / quota) — ignore */ }
 }
@@ -183,8 +191,10 @@ function restoreLayerPrefs() {
     // Sub-settings first so panels open with the remembered view.
     // setMufDays is always called so the panel title matches the active period button.
     setMufDays([1,2,3,7].includes(p.mufDays) ? p.mufDays : mufDays);
+    if (p.mufFof2 === true) toggleMufFof2();
+    setTypDays([7,14,30,90].includes(p.typDays) ? p.typDays : typDays);
     if (p.hgramMode === 'snr' || p.hgramMode === 'dist') setHgramMode(p.hgramMode);
-    if (p.rlSortKey === 'snr' || p.rlSortKey === 'dist') sortReporterList(p.rlSortKey);
+    sortReporterList(p.rlSortKey === 'dist' ? 'dist' : 'snr', p.rlSortDir === 'asc' ? 'asc' : 'desc');   // also sets the header arrows
     if (p.statsWindow === '1h' || p.statsWindow === 'today') setStatsWindow(p.statsWindow);
 
     // Layer switches: call the normal toggle only when the saved value differs
@@ -199,6 +209,7 @@ function restoreLayerPrefs() {
         ['histogram',    () => showHistogram,    toggleHistogram],
         ['reporterPlot', () => showReporterPlot, toggleReporterPlot],
         ['dayNight',     () => showDayNight,     toggleDayNight],
+        ['typ',          () => showTyp,          toggleTyp],
     ];
     for (const [key, get, toggle] of layers) {
         if (typeof p[key] === 'boolean' && p[key] !== get()) toggle();

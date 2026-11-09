@@ -648,6 +648,8 @@ html.light .leaflet-bar { border-color: var(--border) !important; }
     cursor: pointer;
     line-height: 1.6;
 }
+.muf-btn-sep { width: 1px; background: var(--border); margin: 2px 3px; }
+.muf-fof2-btn.active { background: #f59e0b; border-color: #f59e0b; color: #1f2937; }
 .muf-period-btn.active {
     background: var(--accent);
     color: #fff;
@@ -1015,6 +1017,35 @@ html.light .an-legend-bar { background: linear-gradient(90deg, #e2e8f0, #0369a1,
     pointer-events: auto;
     transition: top .25s ease;
 }
+/* Typical day (UTC) panel: bottom left, movable by its title and resizable from the corner grip */
+.typ-panel {
+    position: absolute;
+    left: 46px;
+    bottom: 34px;
+    z-index: 500;
+    width: 460px;
+    display: flex;
+    flex-direction: column;
+    background: var(--overlay-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px 8px;
+    backdrop-filter: blur(6px);
+    pointer-events: auto;
+    box-sizing: border-box;
+}
+.typ-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.typ-title { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.typ-chart-wrap { position: relative; flex: 1 1 auto; height: 200px; min-height: 90px; }
+.typ-note { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
+.panel-grip {
+    position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; touch-action: none;
+    background: linear-gradient(135deg, transparent 50%, var(--text-muted) 50%, var(--text-muted) 58%, transparent 58%,
+                transparent 70%, var(--text-muted) 70%, var(--text-muted) 78%, transparent 78%);
+    border-bottom-right-radius: 8px; opacity: .7;
+}
+.panel-grip:hover { opacity: 1; }
+body.panel-resizing { cursor: nwse-resize; user-select: none; }
 .hgram-header {
     display: flex;
     justify-content: space-between;
