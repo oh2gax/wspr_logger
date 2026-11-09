@@ -360,7 +360,7 @@ sudo ufw allow 5008/tcp
 | **Reporters / Max DX** | How many stations received the last transmission and the farthest one; turn red when data is stale |
 | **Last Spot (UTC)** | Timestamp (minutes) of the most recent logged transmission, with a "Last fix N min ago" line below it |
 | **Position Trail** | Toggle the dashed trail connecting today's positions on the live map |
-| **Last Fix Label** | Show or hide the "last fix N min ago" label beside the car marker (colour: green up to 25 min, amber to 60 min, red beyond) |
+| **Last Fix Label** | Show or hide the "N min ago" label beside the car marker (colour: green up to 25 min, amber to 60 min, red beyond) |
 | **Reporter Countries** | Toggle the country breakdown overlay on the live map |
 | **MUF / Reports Graph** | Toggle the MUF and reporter count chart at the top of the map; use the 1d / 2d / 3d / 1wk buttons on the panel to change the time range and **foF2** to add the foF2 line |
 | **Solar Conditions** | Toggle the solar indices panel on the left side of the map |
@@ -480,8 +480,8 @@ Choose `--from` so that it does not reach back to a time when the callsign was s
 |------|-------------|
 | **Top bar** | ☰ opens the menu (a red dot: unread *What's new*), the view's title and subtitle, the UTC clock, the theme button (Dark → Light → Auto; the same `wspr_theme_mode` setting as the full page) and the beacon's status dot (green < 20 min, amber < 2 h, red older) |
 | **Menu** | The nine views as tiles, then one folding options section per view (the shown view's opens by itself): chips, switches and date steppers. *General*: What's new, About, User guides, Full site |
-| **Live map** | Latest fix with its age, status card (locator, propagation, stations, best DX), position trail, reporter arcs, day / night, follow beacon; optional solar card (the Solar Conditions values) and MUF card (a small MUF D=3000 km / reporters graph of the last 24 h, 2 or 3 days or a week) over the map, stacked above the status card upright and side by side sideways; refreshed every minute |
-| **Now** | Propagation, position, today or the last hour, solar conditions (coloured as the Solar panel), and the Analysis page's *Right now* comparison (90 days) |
+| **Live map** | Latest fix with its age, status card (locator, propagation, stations, best DX), position trail, reporter arcs, day / night, follow beacon; optional solar card (the Solar Conditions values) and MUF card (a small MUF D=3000 km / reporters graph of the last 24 h, 2 or 3 days or a week) and Typical day card (usual stations per UTC hour and today) over the map, stacked above the status card upright and side by side sideways; refreshed every minute |
+| **Now** | Propagation, position, today or the last hour, solar conditions (coloured as the Solar panel), the Typical day (UTC) chart over 7, 14, 30 or 90 days with today, and the Analysis page's *Right now* comparison (90 days) |
 | **Reporters** | The stations of the last 60 minutes with search and sorting, countries and the SNR / distance distribution |
 | **MUF graph** | Juliusruh MUF and reporter counts, 24 h – 1 week |
 | **Replay** | The History Player on its own map: slider, play, ±10 min, previous / next day with data, date, speed, arcs and day / night; the top-bar clock shows the replayed moment (amber, *REPLAY*). History rows, the Analysis tables' ▶ and WPRS open it at a given moment |

@@ -4,10 +4,13 @@ Short notes for users of the web page, newest first. Each version is one day of 
 (v.DDMMYYYY). The full technical history is in CHANGELOG.md. The newest heading gives the
 version shown under the page title.
 
-## v.09112026 — The typical day on the live map, foF2 in the MUF graph, two-way sorting and the phone's MUF card over a week
+## v.09112026 — The typical day on the live map and in the phone app, foF2 in the MUF graph, two-way sorting and the phone's MUF card over a week
+
+- **Typical day in the phone app** — the Now view has a *Typical day (UTC)* card under Solar conditions: how many stations usually hear the car at each UTC hour, with today in orange; tap it for an hour's values, and choose 7, 14, 30 or 90 days under *Now options*. The Live map can show it too, as a small *Typical day card* over the map (switch under *Live map options*), with this hour against the usual in its corner.
 
 - **Typical day on the live map** — the new *Typical Day Graph* switch under Map Layers shows the *Typical day (UTC)* chart of the Analysis page at the bottom left of the map: how many stations usually hear the car at each UTC hour over the last 7, 14, 30 or 90 days, with today on top, so you see at once whether the band is better or worse than usual. Drag it by its title anywhere and make it bigger or smaller from its lower right corner; it keeps its place and size.
 - **foF2 in the MUF graph** — the *foF2* button beside *1d / 2d / 3d / 1wk* adds the foF2 of Juliusruh to the MUF / Reports graph as an amber line on the same MHz scale. foF2 has been stored since early November 2026, so the line starts there.
+- **A shorter label at the car** — the age label beside the car on the map now just says "15 min ago".
 - **A tidier menu** — the latitude and longitude are gone from the Locator block on the left and the locator, stations and Max DX are a little smaller, so all the Map Layers switches fit without scrolling in a window about 890 pixels high.
 - **Reporter list both ways** — click *SNR* or *Dist* in the Reporters list on the live map to sort by it, largest first; click again for smallest first (▴) — the weakest stations, or the nearest ones. The order is remembered.
 

@@ -130,7 +130,7 @@ function showNoPosition() {
     if (liveMarker) liveMarker.setStyle({ opacity: 0, fillOpacity: 0 });
 }
 
-// How old the latest fix is: a label at the marker and a line in the position card.
+// How old the latest fix is: a label at the marker ("15 min ago") and a line in the position card ("last fix 15 min ago").
 // Green up to 25 min (a transmission every 10 min plus the upload delay), amber to 60 min, red beyond.
 function updateFixAge() {
     if (!liveMarker || !latestSpot) return;
@@ -140,7 +140,7 @@ function updateFixAge() {
               : `${Math.floor(min / 1440)} days ago`;
     const tt = liveMarker.getTooltip();
     if (tt) {
-        tt.setContent('last fix ' + txt);
+        tt.setContent(txt);                                  // the label just says "15 min ago" (from 2026-11-09)
         const el = tt.getElement();
         if (el) {
             el.classList.toggle('warn', min > 25 && min <= 60);

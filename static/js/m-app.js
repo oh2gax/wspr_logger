@@ -8,7 +8,8 @@
  *
  *   Live map    /api/latest every minute: the beacon, the last fix's age, the trail of the day
  *               (/api/positions), the reporters' great-circle arcs (/api/reporter_list), day / night
- *               and the optional cards: solar conditions (/api/solar), the MUF graph (/api/muf), status
+ *               and the optional cards: solar conditions (/api/solar), the MUF graph (/api/muf), the typical
+ *               day (/api/typical_day), status
  *   Now         propagation, position, today or the last hour, solar conditions (/api/solar) and the
  *               Analysis page's Right now card (/api/analysis?days=90)
  *   Reporters   the stations of the last 60 minutes: list with search, countries, SNR / distance
@@ -241,7 +242,8 @@
       redrawView();
       if (view === 'map' && LM.solar) loadSolar('m-ms');      // the solar colours have light-theme shades
       if (view === 'map' && LM.muf) drawMufCard();
-      if (view === 'now') loadSolar('m-sol');
+      if (view === 'map' && LM.typ) drawTypCard();
+      if (view === 'now') { loadSolar('m-sol'); drawTyp(); }
     }
   }
   let themeNoteT = null;
@@ -332,7 +334,7 @@
   }
 
   // ══ Live map ═══════════════════════════════════════════════════════════
-  const LM = lsJson('wspr_app_map', { trail: true, fixAge: true, arcs: false, dn: false, card: true, solar: false, muf: false, follow: false });
+  const LM = lsJson('wspr_app_map', { trail: true, fixAge: true, arcs: false, dn: false, card: true, solar: false, muf: false, typ: false, follow: false });
   let lmap = null, lmMarker = null, lmTrail = null, lmArcs = null, lmNight = null;
   const lmHome = () => { const s = LV.latest && LV.latest.spot; if (s) lmap.setView([s.lat, s.lon], Math.max(lmap.getZoom(), 6)); };
   function initLiveMap() {
@@ -349,6 +351,8 @@
     if (LM.solar) loadSolar('m-ms');
     $('m-mufc-card').hidden = !LM.muf;
     if (LM.muf) loadMufCard();
+    $('m-typc-card').hidden = !LM.typ;
+    if (LM.typ) loadTyp();
     const d = await fetchLatest();
     if (view !== 'map' || !d) return;
     drawLive();
@@ -386,7 +390,7 @@
     }
     if (LM.follow) lmap.panTo([s.lat, s.lon]);
     const tt = lmMarker.getTooltip();
-    tt.setContent('last fix ' + ageTxt(min));
+    tt.setContent(ageTxt(min));                        // the label: just "15 min ago"
     const el = tt.getElement();
     if (el) { el.classList.toggle('warn', min > 25 && min <= 60); el.classList.toggle('old', min > 60); el.style.display = LM.fixAge ? '' : 'none'; }
   }
@@ -471,6 +475,7 @@
   bindSwitch('m-o-card', LM, 'card', 'wspr_app_map', on => { $('m-live-card').hidden = !on; });
   bindSwitch('m-o-solar', LM, 'solar', 'wspr_app_map', on => { $('m-sol-card').hidden = !on; if (on) loadSolar('m-ms'); });
   bindSwitch('m-o-mufc', LM, 'muf', 'wspr_app_map', on => { $('m-mufc-card').hidden = !on; if (on) loadMufCard(true); });
+  bindSwitch('m-o-typc', LM, 'typ', 'wspr_app_map', on => { $('m-typc-card').hidden = !on; if (on) loadTyp(); });
   bindSwitch('m-o-follow', LM, 'follow', 'wspr_app_map', on => { if (on && lmap) lmHome(); });
 
   // ══ Now ═════════════════════════════════════════════════════════════════
@@ -480,7 +485,98 @@
     const d = await fetchLatest();
     if (view !== 'now') return;
     if (d) drawNow();
-    loadNowStats(); loadSolar('m-sol'); loadRightNow();
+    loadNowStats(); loadSolar('m-sol'); loadTyp(); loadRightNow();
+  }
+
+  // Typical day (UTC): /api/typical_day (from the server's cached analysis), fetched again after 5 minutes
+  const TY = { data: null, at: 0, key: '' };
+  // the period is one setting, chosen under Now options or Live map options
+  const setTypDays = (v, other) => { typDays = parseInt(v, 10); $(other).value = v; syncChip($(other)); loadTyp(true); };
+  let typDays = parseInt(bindSel('m-o-typd', 'wspr_app_typd', '14', v => setTypDays(v, 'm-o-typd2')), 10);
+  bindSel('m-o-typd2', 'wspr_app_typd', '14', v => setTypDays(v, 'm-o-typd'));
+  async function loadTyp(force) {
+    const key = `${currentBand}/${typDays}`;
+    if (force || !TY.data || TY.key !== key || Date.now() - TY.at > 5 * 60000) {
+      if (TY.key !== key) $('m-typ-note').textContent = 'Loading …';
+      let d;
+      try { d = await getJson(`/api/typical_day?band=${currentBand}&days=${typDays}`); } catch (_) { return; }
+      if (key !== `${currentBand}/${typDays}`) return;                 // the period changed meanwhile
+      TY.data = d; TY.at = Date.now(); TY.key = key;
+    }
+    if (view === 'now') drawTyp();
+    if (view === 'map' && LM.typ) drawTypCard();
+  }
+  // the Live map's card: the same data, small, no legend; the corner compares this hour with the usual
+  function drawTypCard() {
+    const d = TY.data;
+    if (!d) return;
+    if (d.empty) {
+      if (charts['m-tc-c']) { charts['m-tc-c'].destroy(); delete charts['m-tc-c']; }
+      $('m-tc-last').textContent = `no data in ${d.days} days`;
+      return;
+    }
+    const n = d.latest.n;
+    let h = -1;
+    for (let i = 23; i >= 0; i--) if (n[i] != null) { h = i; break; }
+    $('m-tc-last').textContent = (d.latest.is_today && h >= 0
+      ? `${pad(h)} UTC: ${Math.round(n[h])}, usually ${Math.round(d.profile[h].median)}` : 'no spots today') + ` · ${d.days} d`;
+    const col = anColors();
+    const cM = isDark ? '#38bdf8' : '#0284c7', cT = isDark ? '#f59e0b' : '#d97706';
+    const tk = (c, k) => ({ color: c, font: { size: 9 }, maxTicksLimit: k, padding: 2 });
+    mkChart('m-tc-c', {
+      type: 'bar',
+      data: { labels: Array.from({ length: 24 }, (_, i) => pad(i)), datasets: [
+        { type: 'bar', data: d.profile.map(p => [p.p25, p.p75]), backgroundColor: isDark ? 'rgba(56,189,248,0.22)' : 'rgba(2,132,199,0.18)',
+          borderWidth: 0, barPercentage: 1.0, categoryPercentage: 1.0, order: 3 },
+        { type: 'line', data: d.profile.map(p => p.median), borderColor: cM, borderWidth: 1.5, pointRadius: 0, tension: 0.3, order: 2 },
+        { type: 'line', data: n, borderColor: cT, borderWidth: 1.5, pointRadius: 0, tension: 0.3, spanGaps: false, order: 1 },
+      ] },
+      options: {
+        responsive: true, maintainAspectRatio: false, events: [],
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        layout: { padding: { top: 2 } },
+        scales: {
+          x: { ticks: { ...tk(col.text, 7), maxRotation: 0, autoSkip: true }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: tk(col.text, 4), grid: { color: col.grid } },
+        },
+      },
+    });
+  }
+  function drawTyp() {
+    const d = TY.data;
+    if (!d) return;
+    $('m-typ-sub').textContent = `${d.days} days`;
+    if (d.empty) {
+      if (charts['m-typ-c']) { charts['m-typ-c'].destroy(); delete charts['m-typ-c']; }
+      $('m-typ-note').textContent = `No data in the last ${d.days} days — the transmitter may be off; choose a longer period in the menu.`;
+      return;
+    }
+    $('m-typ-note').textContent = `${d.n_days} days with data, ${d.from} – ${d.to}. Tap the chart for an hour's values.`;
+    const col = anColors();
+    const tk = { color: col.text, font: { size: 10 } };
+    mkChart('m-typ-c', {
+      type: 'bar',
+      data: { labels: Array.from({ length: 24 }, (_, h) => pad(h)), datasets: [
+        { type: 'bar', label: '25–75 %', data: d.profile.map(p => [p.p25, p.p75]), backgroundColor: 'rgba(56,189,248,0.22)',
+          borderWidth: 0, barPercentage: 1.0, categoryPercentage: 1.0, order: 3 },
+        { type: 'line', label: 'Median', data: d.profile.map(p => p.median), borderColor: col.accent, backgroundColor: col.accent,
+          borderWidth: 2, pointRadius: 1.5, tension: 0.3, order: 2 },
+        { type: 'line', label: d.latest.is_today ? 'Today' : `Latest day (${d.latest.date})`, data: d.latest.n,
+          borderColor: '#f59e0b', backgroundColor: '#f59e0b', borderWidth: 2, pointRadius: 1.5, tension: 0.3, spanGaps: false, order: 1 },
+      ] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { labels: { color: col.text, boxWidth: 10, font: { size: 10 } } },
+                   tooltip: { callbacks: { title: it => `${it[0].label}:00–${it[0].label}:59 UTC`,
+                                           label: it => it.dataset.type === 'bar' ? `25–75 %: ${it.raw[0]} – ${it.raw[1]}` : `${it.dataset.label}: ${it.formattedValue}` } } },
+        scales: {
+          x: { ticks: { ...tk, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: tk, grid: { color: col.grid },
+               title: { display: true, text: 'stations (60 min)', color: col.text, font: { size: 10 } } },
+        },
+      },
+    });
   }
   function drawNow() {
     const d = LV.latest, s = d.spot, p = liveProp(), stale = isStale();

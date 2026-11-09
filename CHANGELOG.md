@@ -36,12 +36,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   most reporters), every hour from the first to the last so gaps stay empty (the MUF line does
   not bridge more than three missing hours), with the weekday at each midnight and 12:00 up to
   three days on the time axis. The header names the range.
+- **Phone app: Typical day** — a *Typical day (UTC)* card in the Now view (`#m-now-typ`, below
+  Solar conditions; `loadTyp()` / `drawTyp()`, legend and tap tooltips) and a *Typical day card*
+  on the Live map (`#m-typc-card` in `.app-map-cards` between the MUF and status cards, switch
+  `#m-o-typc`, stored as `typ`; `drawTypCard()`: no legend, the corner compares the latest hour of
+  today with its median). Both use `/api/typical_day`, fetched again after 5 minutes or at once on
+  a period or band change, and repaint on a theme change. The period chips *Typical day over*
+  (7 / 14 / 30 / 90 days, `wspr_app_typd`, default 14) are under Now options and Live map options,
+  kept in step. In landscape the solar card takes more of the row (`flex-grow 1.4`, at least
+  250 px) and the card titles shorten with an ellipsis, so four cards fit side by side.
+- **Mobile app user guide 1.4** — the Typical day in the Now and Live map sections, a new figure
+  (Now card, options, light theme), the four-card Live map figure, the menu screenshot, the
+  quick reference and the data-use note.
 - **Mobile app user guide 1.3** — the range in the Live map section and the data-use note; the
   options screenshot; `doc/guides.json` date.
 - **User guide 1.2** — the Typical Day graph (new subsection and figure), the foF2 button, the
   two-way sort and resizing in the live map section; `doc/guides.json` date.
 
 ### Changed
+- **Shorter age label at the car** — the label beside the car marker (Last Fix Label on the full
+  page, Last fix label in the phone app) now says just "15 min ago" instead of "last fix 15 min
+  ago"; the Current Position box, the left pane and the phone's status card keep "last fix …".
 - **Shorter Locator block in the sidebar** — the Latitude / Longitude row (`#infoLat`,
   `#infoLon`) is removed, leaving more room for the Map Layers switches; the locator, reporters,
   Max DX and last spot stay. The locator is set smaller (`.val.mono` 16 px instead of 20 px,

@@ -127,7 +127,7 @@ html.light .app-view .leaflet-bar a:active { background: rgba(255, 255, 255, 0.8
                  bottom: calc(10px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
 .app-live-card { padding: 8px 11px 9px; border-radius: 10px;
                  background: var(--overlay-bg); border: 1px solid var(--border); box-shadow: 0 2px 12px rgba(0,0,0,.3);
-                 font-size: 12.5px; pointer-events: none; }
+                 font-size: 12.5px; pointer-events: none; overflow: hidden; }
 .sc-hd { display: flex; align-items: baseline; justify-content: space-between; font-size: 10.5px; font-weight: 700;
          letter-spacing: .5px; text-transform: uppercase; color: var(--text-2); margin-bottom: 4px; }
 .sc-upd { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-left: 8px; }
@@ -136,11 +136,12 @@ html.light .app-view .leaflet-bar a:active { background: rgba(255, 255, 255, 0.8
 .sc-grid span { font-size: 9.5px; color: var(--text-2); white-space: nowrap; }
 .sc-grid b { font-size: 13.5px; font-weight: 650; color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .app-live-card[hidden] { display: none; }
-.sc-hd > span:first-child { white-space: nowrap; flex-shrink: 0; }
+.sc-hd > span:first-child { white-space: nowrap; flex-shrink: 0.15; min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* the corner text gives way first */
 .sc-hd i { font-style: normal; }
 .mc-muf { color: #38bdf8; } .mc-rep { color: #4ade80; }
 html.light .mc-muf { color: #0284c7; } html.light .mc-rep { color: #15803d; }
 .mc-chart { position: relative; height: 92px; }
+.ty-today { color: #f59e0b; } html.light .ty-today { color: #d97706; }
 .lc-row1 { display: flex; align-items: baseline; gap: 8px; }
 .lc-row1 b { font-size: 17px; color: var(--accent); }
 .lc-age { font-size: 12px; color: var(--green); }
@@ -386,6 +387,7 @@ html.light .app-stepper input[type="date"] { color-scheme: light; }
 @media (orientation: landscape) and (max-height: 520px) {
   .app-map-cards { flex-direction: row; align-items: flex-end; }
   .app-map-cards > .app-live-card { flex: 1 1 0; min-width: 0; }
+  .app-map-cards > .app-sol-card { flex-grow: 1.4; min-width: 250px; }   /* its five columns of values need the room with four cards */
   #v-replay { flex-direction: row; }
   #v-replay .app-wx-panel { width: 300px; border-top: 0; border-left: 1px solid var(--border); overflow-y: auto; }
   .app-wx-btns { flex-wrap: wrap; }
