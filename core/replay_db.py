@@ -412,6 +412,44 @@ def get_snapshot_rows(days: int = 90, band: int = 14, exclude=None) -> list[tupl
     return [tuple(r) for r in rows]
 
 
+def get_poll_rows(days: int = 90, band: int = 14, exclude=None) -> list[tuple]:
+    """
+    As get_snapshot_rows(), plus a row (ts, 0, 0, 0, kindex, muf, sfi) for every poll that heard
+    nobody: the polls are the solar_log rows (one per poll, stored from 2026-05-08); reporters_log
+    only has the stations heard.  For analysis.tx_on(), which tells real silence from the
+    transmitter being off.
+    """
+    rows = get_snapshot_rows(days, band, exclude)
+    if not _enabled:
+        return rows
+    seen = {r[0] for r in rows}
+    where, args = "", []
+    if days and days > 0:
+        where = "WHERE timestamp >= datetime('now', ?)"
+        args.append(f"-{int(days)} days")
+    with _connect() as conn:
+        polls = conn.execute(f"SELECT timestamp, kindex, muf, sfi FROM solar_log {where}", args).fetchall()
+    rows += [(p[0], 0, 0, 0, p[1], p[2], p[3]) for p in polls if p[0] not in seen]
+    rows.sort(key=lambda r: r[0])
+    return rows
+
+
+def get_recent_polls(minutes: int = 70, band: int = 14) -> list[tuple]:
+    """(timestamp, stations heard) of the polls of the last N minutes, oldest first, including the
+    polls that heard nobody (from solar_log, one row per poll)."""
+    if not _enabled:
+        return []
+    with _connect() as conn:
+        rows = conn.execute("""
+            SELECT l.timestamp, (SELECT COUNT(*) FROM reporters_log r
+                                 WHERE r.timestamp = l.timestamp AND r.band = ?)
+            FROM solar_log l
+            WHERE l.timestamp >= datetime('now', ?)
+            ORDER BY l.timestamp ASC
+        """, (band, f"-{int(minutes)} minutes")).fetchall()
+    return [tuple(r) for r in rows]
+
+
 def get_first_timestamp(band: int = 14) -> str | None:
     """Timestamp of the oldest reporter snapshot of the band, or None."""
     if not _enabled:

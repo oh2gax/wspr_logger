@@ -87,6 +87,7 @@
       <div class="lc-row1"><b id="m-lc-loc" class="mono">——</b><span id="m-lc-age" class="lc-age"></span><span id="m-lc-band" class="lc-band"></span></div>
       <div class="lc-prop"><span id="m-lc-prop">—</span></div>
       <div class="lc-bar"><div id="m-lc-bar"></div></div>
+      <div class="lc-rel" id="m-lc-rel" hidden></div>
       <div class="lc-row2"><span><b id="m-lc-rep">—</b> reporters</span><span>best DX <b id="m-lc-dx">—</b></span><span id="m-lc-time" class="lc-time"></span></div>
     </div>
     </div>
@@ -99,6 +100,14 @@
       <div class="m-prop" id="m-now-prop">—</div>
       <div class="lc-bar"><div id="m-now-bar"></div></div>
       <div class="m-small" id="m-now-rep"></div>
+      <!-- compared with usual (from 2026-11-09): the stations heard in the last 60 minutes against the 30 days
+           before today at this UTC hour and a similar MUF; the gauge shows the usual range -->
+      <div class="m-rel" id="m-now-rel" hidden>
+        <div class="m-rel-t" id="m-now-rel-t"></div>
+        <div class="prop-gauge" id="m-now-gauge"><div class="pg-wide" id="m-pg-wide"></div><div class="pg-band" id="m-pg-band"></div><div class="pg-med" id="m-pg-med"></div><div class="pg-dot" id="m-pg-dot"></div></div>
+        <div class="m-small" id="m-now-rel-n"></div>
+        <div class="m-small m-rel-s" id="m-now-rel-s"></div>
+      </div>
     </div>
     <div class="m-card">
       <div class="m-card-hd">Position <span class="m-hd-r" id="m-now-age"></span></div>

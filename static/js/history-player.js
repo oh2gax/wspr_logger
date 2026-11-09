@@ -55,6 +55,7 @@ async function enterReplay(date, ts) {
     _replayActive = true;
     document.getElementById('ovLbl').textContent = 'Replay position';
     updateFixAge();                              // hides the live "last fix … ago" label at the marker
+    updatePropRel(null);                         // "compared with usual" is live only
     syncReplayCard();
     document.getElementById('replayBar').style.display = 'flex';
     const di = document.getElementById('replayDate');

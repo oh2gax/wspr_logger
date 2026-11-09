@@ -8,6 +8,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [2026-11-09]
 
 ### Added
+- **Propagation compared with usual** — the Propagation card (full page; the phone's status card
+  and Now view) shows, below the level, how the stations heard in the last 60 minutes compare
+  with the 30 days before today at this UTC hour and a similar MUF: *Much below usual* (< p10),
+  *Below usual* (< p25), *Typical for this hour*, *Above usual* (> p75), *Exceptional for this
+  hour* (> p90); a difference below max(2, √median) stays typical. A gauge shows p10–p90,
+  p25–p75, the median and the live count. Server: `analysis.prop_verdict()`,
+  `analysis.build_expect()` (now also used by the Analysis page; `_stats()` adds p10 / p90),
+  `_prop_baseline()` (30 days, cached 30 min and rebuilt by the warm-up) and `prop_state()`
+  (cached 60 s) → `/api/latest` `prop` (null until the warm-up has run, so `/api/latest` never
+  waits). MUF bins: `analysis.muf_bin()` — 2 MHz, 24 MHz and above as one (on 20 m the count
+  levels off at about 22 MHz: in 2026, 09–13 UTC, median 98 stations at 22–24 MHz, 100–109 from
+  24 to 34 MHz), also for the Analysis page's *Right now*. Live only; hidden in the History
+  Player (`updatePropRel(null)`).
+- **Transmitter warning by the usual hours** — `prop.tx_suspect`: the last two polls heard nobody
+  at a busy hour → *No reports for 20 min — transmitter off? Check the battery* (amber), at any
+  hour of any season. *No propagation or TX Fail* (an hour without spots) now uses the same busy
+  hours (`prop.busy_now`) instead of 20 m between 06 and 15 UTC (kept as the fallback without
+  the replay database). `prop.warming`: no comparison in the hour after the transmitter came
+  back (*Transmitter back on*), while the 60-minute count fills up.
+- **Analysis without the transmitter-off time** — `replay_db.get_poll_rows()` adds the polls that
+  heard nobody (from `solar_log`, one row per poll since 2026-05-08; `reporters_log` only has
+  the stations heard) and `analysis.tx_on()` leaves out days with no reception, empty polls at
+  busy hours (`analysis.busy_hours()`: the polls that heard someone usually heard ≥ 4 stations
+  and fewer than 40 % of the hour's polls were empty, or they usually heard ≥ 20) and the 60
+  minutes after such a break or after a gap of over 25 minutes. Empty polls at quiet hours (the
+  closed autumn nights on 20 m) now count as real silence, so the Typical day medians at night
+  drop to 0 instead of the median of the polls that heard someone. Used for every Analysis card
+  and `/api/typical_day`. Backtest on 2026-05-08 … 2026-11-06 (26 768 polls): 75 % kept; with a
+  30-day baseline the verdicts fell 13 / 10 / 52 / 10 / 15 % (much below … exceptional), and
+  hour + MUF predicted the station count 15 % better than the hour alone.
+- **Guides** — User guide: *Compared with usual* with a figure of the card's states, the
+  transmitter warning and the transmitter-off filter of the Analysis page; Mobile app user guide
+  1.7.
 - **Live map: Typical Day graph** — a new Map Layers switch *Typical Day Graph* (`#swTyp`,
   `toggleTyp()`, stored as `typ` / `typDays` in `wspr_layers`) shows `#typPanel` at the bottom
   left: the Analysis page's *Typical day (UTC)* chart (25–75 % range as floating bars, median,

@@ -4,8 +4,11 @@ Short notes for users of the web page, newest first. Each version is one day of 
 (v.DDMMYYYY). The full technical history is in CHANGELOG.md. The newest heading gives the
 version shown under the page title.
 
-## v.09112026 — The typical day on the live map and in the phone app, foF2 in the MUF graph, two-way sorting and the phone's MUF card over a week
+## v.09112026 — Propagation compared with usual, a smarter transmitter warning, the typical day on the live map and in the phone app, foF2 in the MUF graph, two-way sorting and the phone's MUF card over a week
 
+- **Propagation compared with usual** — under the level, the Propagation card now says how good the band is *for this time of day*: *Typical for this hour*, *Above usual*, *Exceptional*, *Below usual* or *Much below usual*, against the last 30 days at the same hour and a similar MUF, with a small gauge of the usual range. 8 stations at 3 UTC can be an excellent night, 25 at noon a weak day. The same is in the phone's status card and Now view.
+- **A smarter transmitter warning** — when nobody has heard the car for 20 minutes at an hour when the band is usually open, the card says *No reports for 20 min — transmitter off? Check the battery*, day or night, in any season. After a break it says *Transmitter back on* for an hour before comparing again.
+- **Analysis without the transmitter-off time** — the Analysis page and the Typical day graphs now leave out the days and hours when the transmitter was evidently off (a battery not swapped, the antenna removed for a garage), and count the really closed autumn nights as silence.
 - **Typical day in the phone app** — the Now view has a *Typical day (UTC)* card under Solar conditions: how many stations usually hear the car at each UTC hour, with today in orange; tap it for an hour's values, and choose 7, 14, 30 or 90 days under *Now options*. The Live map can show it too, as a small *Typical day card* over the map (switch under *Live map options*), with this hour against the usual in its corner.
 
 - **Typical day on the live map** — the new *Typical Day Graph* switch under Map Layers shows the *Typical day (UTC)* chart of the Analysis page at the bottom left of the map: how many stations usually hear the car at each UTC hour over the last 7, 14, 30 or 90 days, with today on top, so you see at once whether the band is better or worse than usual. Drag it by its title anywhere and make it bigger or smaller from its lower right corner; it keeps its place and size.

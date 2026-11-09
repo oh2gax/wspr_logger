@@ -150,6 +150,18 @@ html.light .mc-muf { color: #0284c7; } html.light .mc-rep { color: #15803d; }
 .lc-band { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--text-2); }
 .lc-prop { font-size: 14px; font-weight: 650; margin: 3px 0 4px; }
 .lc-row2 { display: flex; gap: 12px; margin-top: 5px; color: var(--text-2); white-space: nowrap; }
+/* compared with usual (from 2026-11-09): a line in the status card, a block with a gauge in the Now view */
+.lc-rel { margin-top: 4px; font-size: 12px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lc-rel span { font-weight: 400; color: var(--text-2); }
+.m-rel { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+.m-rel-t { font-size: 15px; font-weight: 700; }
+.m-rel-s { opacity: .8; margin-top: 1px; }
+.prop-gauge { position: relative; height: 9px; margin: 7px 0 5px; background: var(--border); border-radius: 5px; }
+.prop-gauge .pg-wide { position: absolute; top: 0; bottom: 0; background: rgba(56, 189, 248, 0.18); border-radius: 5px; }
+.prop-gauge .pg-band { position: absolute; top: 0; bottom: 0; background: rgba(56, 189, 248, 0.45); border-radius: 5px; }
+.prop-gauge .pg-med  { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: #38bdf8; }
+.prop-gauge .pg-dot  { position: absolute; top: 50%; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%;
+                       box-shadow: 0 0 0 2px var(--bg-1, #0f172a); }
 .lc-row2 b { color: var(--text-1); }
 .lc-time { margin-left: auto; font-size: 11px; color: var(--text-3); }
 .leaflet-tooltip.fixage { font-size: 11px; }

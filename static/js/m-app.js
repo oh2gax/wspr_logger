@@ -278,11 +278,13 @@
     return               { text: 'Exceptional',    color: '#a855f7', pct: 100 };
   }
   // {html, color, pct, line} for n reporters, dx of them beyond 6000 km; stale: nothing heard for an hour
-  function propState(n, dx, stale, down, atHour) {
+  // prop (live only, /api/latest): whether the band is usually open at this hour, from the last 30 days
+  function propState(n, dx, stale, down, atHour, prop) {
     if (down) return { html: '<span style="color:#f59e0b">DB Timeout!</span>', color: '#f59e0b', pct: 5, line: 'wspr.live unreachable' };
     if (stale) {
       const h = atHour == null ? new Date().getUTCHours() : atHour;
-      const txt = currentBand === 14 && h >= 6 && h < 15 ? 'No propagation or TX Fail' : 'No propagation';
+      const suspect = prop ? (prop.tx_suspect || prop.busy_now) : currentBand === 14 && h >= 6 && h < 15;
+      const txt = suspect ? 'No propagation or TX Fail' : 'No propagation';
       return { html: `<span style="color:#ef4444">${txt}</span>`, color: '#ef4444', pct: 0, line: '0 reporters heard' };
     }
     const c = propCond(n || 0), hasDx = dx >= 2;
@@ -316,7 +318,35 @@
   const isStale = () => !LV.latest || !LV.latest.spot || Date.now() - tsMs(LV.latest.spot.timestamp) > 3600e3;
   function liveProp() {
     const d = LV.latest || {}, s = d.spot;
-    return propState(s ? s.reporter_count : 0, d.dx6 || 0, isStale(), d.wspr_down);
+    return propState(s ? s.reporter_count : 0, d.dx6 || 0, isStale(), d.wspr_down, null, d.prop);
+  }
+  // Compared with usual (from 2026-11-09): {text, color, short, line, sub, v} from /api/latest's "prop", or null
+  const REL = {
+    much_below:  { text: '▼▼ Much below usual',          color: '#ef4444' },
+    below:       { text: '▼ Below usual',                color: '#f97316' },
+    typical:     { text: '● Typical for this hour',      color: '' },
+    above:       { text: '▲ Above usual',                color: '#84cc16' },
+    exceptional: { text: '▲▲ Exceptional for this hour', color: '#a855f7' },
+  };
+  function relState() {
+    const d = LV.latest || {}, p = d.prop;
+    if (!p || d.wspr_down) return null;
+    if (p.tx_suspect) {
+      return { text: '⚠ No reports for 20 min', color: '#f59e0b', short: 'transmitter off?',
+               line: `Transmitter off? Check the battery — usually ${Math.round(p.usual_now)} stations at this hour.` };
+    }
+    if (p.warming) {
+      return { text: 'Transmitter back on', color: '', short: 'compared after an hour',
+               line: 'Compared with usual after an hour, when the 60-minute count is complete.' };
+    }
+    const v = p.verdict;
+    if (!v) return null;
+    const c = REL[v.verdict];
+    return { text: c.text, color: c.color, v,
+             short: `${v.live_n} vs. usual ${Math.round(v.p25)}–${Math.round(v.p75)}`,
+             line: `${v.live_n} heard in 60 min · usually ${Math.round(v.p25)}–${Math.round(v.p75)}`,
+             sub: `vs. ${p.base_days} days at ${pad(v.hour)} UTC` +
+                  (v.basis === 'muf' ? `, MUF ${v.muf_bin >= 24 ? '24+' : v.muf_bin + '–' + (v.muf_bin + 2)} MHz` : '') };
   }
 
   // the status dot of the top bar: the full page's status bar
@@ -380,6 +410,9 @@
     $('m-lc-band').textContent = BAND;
     $('m-lc-prop').innerHTML = p.html;
     $('m-lc-bar').style.width = p.pct + '%'; $('m-lc-bar').style.background = p.color;
+    const r = relState(), rel = $('m-lc-rel');
+    rel.hidden = !r;
+    if (r) { rel.innerHTML = `<b style="color:${r.color || 'var(--text-1)'}">${esc(r.text)}</b> <span>· ${esc(r.short)}</span>`; }
     if (!s) { $('m-lc-loc').textContent = '——'; $('m-lc-age').textContent = ''; return; }
     const stale = isStale(), col = stale ? '#ef4444' : '#4ade80', min = ageMin(s.timestamp);
     $('m-lc-loc').textContent = s.tx_loc;
@@ -601,6 +634,21 @@
     $('m-now-prop').innerHTML = p.html;
     $('m-now-bar').style.width = p.pct + '%'; $('m-now-bar').style.background = p.color;
     $('m-now-rep').textContent = p.line;
+    const r = relState();
+    $('m-now-rel').hidden = !r;
+    if (r) {
+      $('m-now-rel-t').textContent = r.text; $('m-now-rel-t').style.color = r.color;
+      $('m-now-rel-n').textContent = r.line;
+      $('m-now-rel-s').textContent = r.sub || '';
+      $('m-now-gauge').hidden = !r.v;
+      if (r.v) {
+        const v = r.v, max = Math.max(v.p90, v.live_n, 1) * 1.12, pc = x => (100 * x / max).toFixed(1) + '%';
+        Object.assign($('m-pg-wide').style, { left: pc(v.p10), width: pc(v.p90 - v.p10) });
+        Object.assign($('m-pg-band').style, { left: pc(v.p25), width: pc(v.p75 - v.p25) });
+        $('m-pg-med').style.left = pc(v.median);
+        Object.assign($('m-pg-dot').style, { left: pc(v.live_n), background: r.color || '#38bdf8' });
+      }
+    }
     $('m-now-highmuf').hidden = !(d.muf > 28);
     if (!s) return;
     const min = ageMin(s.timestamp);

@@ -42,7 +42,8 @@ let hgramChart        = null;
 let _solarTimer   = null;
 let mufChart      = null;
 let mufDays       = 2;
-let mufFof2       = false;   // the foF2 line in the MUF graph (from 2026-11-09)
+let mufFof2       = false;
+let _latestProp   = null;    // /api/latest's "prop": compared with usual, the TX warning (from 2026-11-09)   // the foF2 line in the MUF graph (from 2026-11-09)
 let typChart      = null;
 let typDays       = 14;      // 7 | 14 | 30 | 90: the period of the Typical day panel
 

@@ -20,11 +20,23 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
+from datetime import datetime, timedelta
 
 # Snapshot row layout: (ts, n, max_dist, dx6, kindex, muf, sfi)
 MIN_BIN_SNAPSHOTS = 15      # bins with fewer snapshots are dropped
 STORM_K = 5                 # a day with K >= this counts as a storm day
 MIN_EXPECT_SAMPLES = 8      # smallest sample used for an hour+MUF expectation
+MUF_BIN_TOP = 24            # MUF bins of 2 MHz; 24 MHz and above are one bin: on 20 m the number of
+                            # stations stops growing at about 22 MHz (the gain goes to the higher
+                            # bands), so the upper bins share their samples
+TX_USUAL_MIN = 4            # an hour is "busy" when the polls that hear someone usually hear at least
+TX_QUIET_SHARE = 0.4        # this many stations and fewer than this share of its polls hear nobody,
+TX_SURE_MIN = 20            # or when they usually hear at least this many (then a real silence is
+                            # impossible: the band does not close at such an hour); an empty poll at a
+                            # busy hour means the transmitter was off.  Autumn nights on 20 m are
+                            # really closed: few stations and mostly empty polls, so not busy.
+TX_RAMP_MIN = 60            # minutes after the transmitter comes back during which the 60-minute
+                            # station count is still building up
 
 
 def _pct(sorted_vals: list, p: float):
@@ -54,10 +66,126 @@ def _corr(a: list, b: list):
 
 
 def _stats(vals: list) -> dict:
-    """count / mean / quartiles of a list of numbers."""
+    """count / mean / quartiles (and the 10 and 90 % levels) of a list of numbers."""
     v = sorted(vals)
-    return {"count": len(v), "mean": _r(_mean(v)), "p25": _r(_pct(v, 25)),
-            "median": _r(_pct(v, 50)), "p75": _r(_pct(v, 75))}
+    return {"count": len(v), "mean": _r(_mean(v)), "p10": _r(_pct(v, 10)), "p25": _r(_pct(v, 25)),
+            "median": _r(_pct(v, 50)), "p75": _r(_pct(v, 75)), "p90": _r(_pct(v, 90))}
+
+
+def muf_bin(muf: float) -> int:
+    """The 2 MHz MUF bin of the expectation tables (24 = 24 MHz and above)."""
+    return min(math.floor(muf / 2) * 2, MUF_BIN_TOP)
+
+
+def busy_hours(rows: list) -> list:
+    """For each UTC hour whether it is "busy" (see TX_USUAL_MIN): an empty poll then means the
+    transmitter was off.  rows: every poll, with the empty ones; days with no reception are left out."""
+    day_sum = defaultdict(int)
+    for r in rows:
+        day_sum[r[0][:10]] += r[1]
+    heard, empty = defaultdict(list), defaultdict(int)
+    for r in rows:
+        if day_sum[r[0][:10]] == 0:
+            continue
+        h = int(r[0][11:13])
+        if r[1] > 0:
+            heard[h].append(r[1])
+        else:
+            empty[h] += 1
+    out = []
+    for h in range(24):
+        n = len(heard[h]) + empty[h]
+        med = _pct(sorted(heard[h]), 50) if heard[h] else 0
+        share = empty[h] / n if n else 1.0
+        out.append(bool(med >= TX_SURE_MIN or (med >= TX_USUAL_MIN and share < TX_QUIET_SHARE)))
+    return out
+
+
+def tx_on(rows: list) -> list:
+    """
+    The snapshots taken while the transmitter was on (from 2026-11-09).  rows: (ts, n, ...) of every
+    poll, including the polls that heard nobody (n = 0).  Left out:
+      - every poll of a day with no reception at all (battery not swapped, the winter season);
+      - an empty poll at a busy hour (busy_hours()): the transmitter was off (antenna removed for a
+        garage, an empty battery); empty polls at quiet hours (autumn nights) stay in, as real silence;
+      - the polls of the TX_RAMP_MIN minutes after such an off period, or after a gap of over 25
+        minutes between polls at a busy hour, while the 60-minute count is still building up.
+    """
+    rows = sorted(rows, key=lambda r: r[0])
+    if not rows:
+        return []
+    day_sum = defaultdict(int)
+    for r in rows:
+        day_sum[r[0][:10]] += r[1]
+    busy = busy_hours(rows)
+    out, off_until, prev = [], None, None
+    for r in rows:
+        t = datetime.strptime(r[0][:19], "%Y-%m-%d %H:%M:%S")
+        off = day_sum[r[0][:10]] == 0 or (r[1] == 0 and busy[t.hour])
+        if prev is not None and busy[t.hour] and (t - prev).total_seconds() > 25 * 60:
+            off_until = t + timedelta(minutes=TX_RAMP_MIN)      # a gap: the count starts again from zero
+        prev = t
+        if off:
+            off_until = t + timedelta(minutes=TX_RAMP_MIN)
+            continue
+        if off_until is not None and t < off_until:
+            continue
+        out.append(r)
+    return out
+
+
+def build_expect(rows: list) -> dict:
+    """Expectation tables: per UTC hour the statistics of all snapshots and per MUF bin (muf_bin)."""
+    expect = {}
+    for h in range(24):
+        hrows = [r for r in rows if int(r[0][11:13]) == h]
+        per_muf = defaultdict(list)
+        for r in hrows:
+            if r[5] is not None:
+                per_muf[muf_bin(r[5])].append(r[1])
+        expect[str(h)] = {
+            "all": _stats([r[1] for r in hrows]),
+            "muf": {str(lo): _stats(v) for lo, v in per_muf.items() if len(v) >= MIN_EXPECT_SAMPLES},
+        }
+    return expect
+
+
+VERDICTS = ("much_below", "below", "typical", "above", "exceptional")
+
+
+def prop_verdict(expect: dict, hour: int, muf, live_n) -> dict | None:
+    """
+    The live station count (heard in the last 60 minutes) against history at this UTC hour and a
+    similar MUF (else the hour alone): much_below < p10 < below < p25 <= typical <= p75 < above
+    <= p90 < exceptional.  A difference smaller than max(2, sqrt(median)) stays "typical" (small
+    numbers at night).  None without enough history.
+    """
+    tab = expect.get(str(hour)) or {}
+    allh = tab.get("all") or {}
+    ref, basis = allh, "hour"
+    if muf is not None and muf > 0:
+        m = (tab.get("muf") or {}).get(str(muf_bin(muf)))
+        if m:
+            ref, basis = m, "muf"
+    if live_n is None or not ref or ref.get("count", 0) < MIN_EXPECT_SAMPLES or ref.get("p25") is None:
+        return None
+    med = ref["median"]
+    if live_n < ref["p10"]:
+        v = "much_below"
+    elif live_n < ref["p25"]:
+        v = "below"
+    elif live_n <= ref["p75"]:
+        v = "typical"
+    elif live_n <= ref["p90"]:
+        v = "above"
+    else:
+        v = "exceptional"
+    if v != "typical" and abs(live_n - med) < max(2.0, math.sqrt(max(med, 1.0))):
+        v = "typical"
+    return {"verdict": v, "basis": basis, "hour": hour, "live_n": live_n,
+            "muf_bin": muf_bin(muf) if basis == "muf" else None,
+            "p10": ref["p10"], "p25": ref["p25"], "median": med, "p75": ref["p75"], "p90": ref["p90"],
+            "count": ref["count"], "usual_hour": allh.get("median")}
 
 
 def expectation(expect: dict, hour: int, muf, live_n: int) -> dict:
@@ -71,7 +199,7 @@ def expectation(expect: dict, hour: int, muf, live_n: int) -> dict:
     allh = tab.get("all") or {}
     at_muf = None
     if muf is not None and muf > 0:
-        at_muf = (tab.get("muf") or {}).get(str(math.floor(muf / 2) * 2))
+        at_muf = (tab.get("muf") or {}).get(str(muf_bin(muf)))
     ref = at_muf or allh
     verdict = None
     if live_n is not None and ref and ref.get("p25") is not None:
@@ -198,17 +326,7 @@ def build(rows: list, today: str) -> dict:
                          "days": len({r[0][:10] for r in g})})
 
     # --- expectation tables for "right now": per UTC hour, overall and per MUF bin
-    expect = {}
-    for h in range(24):
-        hrows = [r for r in rows if int(r[0][11:13]) == h]
-        per_muf = defaultdict(list)
-        for r in hrows:
-            if r[5] is not None:
-                per_muf[math.floor(r[5] / 2) * 2].append(r[1])
-        expect[str(h)] = {
-            "all": _stats([r[1] for r in hrows]),
-            "muf": {str(lo): _stats(v) for lo, v in per_muf.items() if len(v) >= MIN_EXPECT_SAMPLES},
-        }
+    expect = build_expect(rows)
 
     # --- summary ----------------------------------------------------------
     best = max(rows, key=lambda r: r[2])

@@ -1049,8 +1049,15 @@ def api_latest():
             "reporter_count": spot["reporter_count"],
             "max_distance":   _clean_dx([spot], band)[0]["max_distance"],
         }
+    prop = None
+    if band == DEFAULT_BAND and replay_db.is_enabled():
+        try:
+            # not before the warm-up has built the baseline once: /api/latest never waits for it
+            prop = prop_state(band) if ("base", band) in _prop_cache else None
+        except Exception as e:              # the comparison is extra: never fail /api/latest for it
+            print(f"[WARN] Propagation comparison failed: {e}")
     return jsonify({"spot": spot_out, "countries": countries, "wspr_down": wspr_down,
-                    "dx6": dx6, "muf": _latest_muf()})
+                    "dx6": dx6, "muf": _latest_muf(), "prop": prop})
 
 
 @app.route('/api/positions')
@@ -1373,7 +1380,8 @@ def _analysis_payload(days: int, band: int, force: bool = False) -> dict:
 def _build_analysis(days: int, band: int) -> dict:
     outliers = find_outliers(band)
     excl = _outlier_keys(outliers)
-    rows = replay_db.get_snapshot_rows(days, band, exclude=excl)
+    # every poll, with the empty ones, minus the time the transmitter was off (from 2026-11-09)
+    rows = analysis.tx_on(replay_db.get_poll_rows(days, band, exclude=excl))
     payload = analysis.build(rows, datetime.utcnow().strftime("%Y-%m-%d"))
     payload["enabled"] = True
     payload["excluded"] = outliers
@@ -1389,6 +1397,61 @@ def _build_analysis(days: int, band: int) -> dict:
         home = wprs.home_of(db.get_all_spots(band))
         payload["greyline"] = greyline.build(events, hour_days, home)
     return payload
+
+
+# ---------------------------------------------------------------------------
+# Propagation "compared with usual" (from 2026-11-09): the live count of stations heard in the last
+# 60 minutes against the 30 days before today at this UTC hour and a similar MUF, for the Propagation
+# card, and the "transmitter off?" warning when nobody hears the car at an hour that is usually busy.
+# ---------------------------------------------------------------------------
+_prop_cache: dict = {}               # ("base"|"state", band) -> (monotonic time, value)
+PROP_BASE_DAYS = 30
+
+
+def _prop_baseline(band: int, force: bool = False) -> dict | None:
+    """Expectation tables (analysis.build_expect) of the PROP_BASE_DAYS days before today, transmitter-on
+    polls only; renewed every 30 minutes (and by the warm-up)."""
+    def build():
+        if not replay_db.is_enabled():
+            return None
+        excl = _outlier_keys(find_outliers(band))
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        polls = [r for r in replay_db.get_poll_rows(PROP_BASE_DAYS + 1, band, exclude=excl) if r[0][:10] < today]
+        rows = analysis.tx_on(polls)
+        return {"expect": analysis.build_expect(rows), "busy": analysis.busy_hours(polls)} if rows else None
+    return _cached(_prop_cache, ("base", band), 1800, build, force)
+
+
+def prop_state(band: int, force: bool = False) -> dict | None:
+    """The block "prop" of /api/latest; recomputed at most once a minute."""
+    return _cached(_prop_cache, ("state", band), 60, lambda: _build_prop(band), force)
+
+
+def _build_prop(band: int) -> dict | None:
+    base = _prop_baseline(band)
+    if not base:
+        return None
+    exp, busy_h = base["expect"], base["busy"]
+    now = datetime.utcnow()
+    with _state_lock:
+        live_n = len(_cached_reporter_list)
+
+    def usual(h):
+        return ((exp.get(str(h)) or {}).get("all") or {}).get("median") or 0
+    polls = replay_db.get_recent_polls(70, band)
+    last2 = polls[-2:]
+    # nobody in the last two polls (20 minutes) at a busy hour (analysis.busy_hours: the band does not
+    # close then): the transmitter is probably off
+    tx_suspect = busy_h[now.hour] and len(last2) == 2 and all(n == 0 for _, n in last2)
+    # back on within the hour: the 60-minute count is still building up, no comparison yet
+    since = (now - timedelta(minutes=analysis.TX_RAMP_MIN)).strftime("%Y-%m-%d %H:%M:%S")
+    warming = live_n > 0 and any(n == 0 and ts >= since and busy_h[int(ts[11:13])] for ts, n in polls)
+    verdict = None
+    if not (warming or tx_suspect or _wspr_live_down):
+        verdict = analysis.prop_verdict(exp, now.hour, _latest_muf(), live_n)
+    return {"verdict": verdict, "tx_suspect": tx_suspect, "warming": warming,
+            "usual_now": usual(now.hour), "busy_now": busy_h[now.hour], "live_n": live_n,
+            "base_days": PROP_BASE_DAYS}
 
 
 @app.route('/api/analysis')
@@ -1636,6 +1699,8 @@ def _warm_analysis() -> None:
         t0 = time.monotonic()
         suspect_dx(DEFAULT_BAND, refresh=True)   # (and the outlier scan) renewed here when an hour old, not in a visitor's request
         outlook_state(DEFAULT_BAND, force=True)
+        _prop_baseline(DEFAULT_BAND, force=True)  # the Propagation card's comparison, then its state
+        prop_state(DEFAULT_BAND, force=True)
         done, keys = [], {(d, None) for d in _WARM_DAYS}
         for start in _WARM_DAYS:
             chain = list(_ANALYSIS_DAYS[_ANALYSIS_DAYS.index(start):]) + [0]

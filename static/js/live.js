@@ -15,6 +15,7 @@ async function fetchLatest() {
         // and HIGH MUF the Solar panel, because only those fetched the data).
         _liveDx6   = data.dx6 || 0;
         _latestMuf = data.muf || 0;
+        _latestProp = data.prop || null;
         if (data.spot) {
             latestSpot = data.spot;
             updateLiveDisplay(data.spot);
@@ -24,6 +25,7 @@ async function fetchLatest() {
         }
         // Override propagation display if wspr.live is unreachable
         if (data.wspr_down) updatePropagation(0, false, true);
+        updatePropRel(data.wspr_down ? null : _latestProp);
         fetchTodayStats();
 
         // Determine staleness here so all panels react consistently
@@ -208,10 +210,13 @@ function updatePropagation(reporter_count, stale = false, wspr_down = false) {
         return;
     }
     if (stale) {
-        // On 20 m during daytime (06–15 UTC) silence is suspicious — flag TX Fail
+        // Silence at an hour when the band is usually open is suspicious — flag TX Fail.  The server knows
+        // the usual hours (prop.busy_now, from the last 30 days); without it, 20 m in daytime (06–15 UTC).
         const utcHour = new Date().getUTCHours();
-        const daytime20m = (currentBand === 14) && (utcHour >= 6 && utcHour < 15);
-        el.textContent  = daytime20m ? 'No propagation or TX Fail' : 'No propagation';
+        const p = _replayActive ? null : _latestProp;
+        const suspect = p ? (p.tx_suspect || p.busy_now)
+                          : (currentBand === 14) && (utcHour >= 6 && utcHour < 15);
+        el.textContent  = suspect ? 'No propagation or TX Fail' : 'No propagation';
         el.style.color  = '#ef4444';
         document.getElementById('propBarFill').style.width      = '0%';
         document.getElementById('propBarFill').style.background = '#ef4444';
@@ -235,6 +240,57 @@ function updatePropagation(reporter_count, stale = false, wspr_down = false) {
     document.getElementById('propReporters').textContent    =
         n + ' reporter' + (n === 1 ? '' : 's') + ' heard' +
         (hasDX ? ', ' + dxCount + ' over 6000 km' : '');
+}
+
+// ── Compared with usual (from 2026-11-09) ──────────────────────────────────
+// prop (from /api/latest): the stations heard in the last 60 minutes against the 30 days before today at
+// this UTC hour and a similar MUF (verdict), the "transmitter off?" warning (tx_suspect) and the first hour
+// after the transmitter came back (warming, no comparison yet).  Live only: hidden in the History Player.
+const PROP_REL = {
+    much_below:  { text: '▼▼ Much below usual',          color: '#ef4444' },
+    below:       { text: '▼ Below usual',                color: '#f97316' },
+    typical:     { text: '● Typical for this hour',      color: 'var(--text-secondary)' },
+    above:       { text: '▲ Above usual',                color: '#84cc16' },
+    exceptional: { text: '▲▲ Exceptional for this hour', color: '#a855f7' },
+};
+function updatePropRel(p) {
+    const box = document.getElementById('propRel');
+    if (_replayActive || !p || (!p.verdict && !p.tx_suspect && !p.warming)) { box.style.display = 'none'; return; }
+    box.style.display = 'block';
+    box.classList.toggle('tx-warn', !!p.tx_suspect);
+    const txt = document.getElementById('propRelText'), sub = document.getElementById('propRelSub');
+    const nums = document.getElementById('propRelNums'), gauge = document.getElementById('propGauge');
+    if (p.tx_suspect) {
+        txt.textContent = '⚠ No reports for 20 min';
+        txt.style.color = '';
+        sub.textContent = '';
+        nums.textContent = `Transmitter off? Check the battery — usually ${Math.round(p.usual_now)} stations at this hour.`;
+        gauge.style.display = 'none';
+        return;
+    }
+    if (p.warming) {
+        txt.textContent = 'Transmitter back on';
+        txt.style.color = 'var(--text-secondary)';
+        sub.textContent = '';
+        nums.textContent = 'Compared with usual after an hour, when the 60-minute count is complete.';
+        gauge.style.display = 'none';
+        return;
+    }
+    const v = p.verdict, c = PROP_REL[v.verdict];
+    txt.textContent = c.text;
+    txt.style.color = c.color;
+    sub.textContent = `vs. ${p.base_days} days at ${String(v.hour).padStart(2, '0')} UTC` +
+        (v.basis === 'muf' ? `, MUF ${v.muf_bin >= 24 ? '24+' : v.muf_bin + '–' + (v.muf_bin + 2)} MHz` : '');
+    sub.title = `Compared with the ${p.base_days} days before today at this hour` +
+        (v.basis === 'muf' ? ' and a similar MUF' : '') + ` (${v.count} polls)`;
+    // the gauge: 0 … the larger of the 90 % level and the live count; band = the middle half, line = median
+    const max = Math.max(v.p90, v.live_n, 1) * 1.12, pc = x => (100 * x / max).toFixed(1) + '%';
+    gauge.style.display = 'block';
+    Object.assign(document.getElementById('pgWide').style, { left: pc(v.p10), width: pc(v.p90 - v.p10) });
+    Object.assign(document.getElementById('pgBand').style, { left: pc(v.p25), width: pc(v.p75 - v.p25) });
+    document.getElementById('pgMed').style.left = pc(v.median);
+    Object.assign(document.getElementById('pgDot').style, { left: pc(v.live_n), background: c.color === 'var(--text-secondary)' ? '#38bdf8' : c.color });
+    nums.textContent = `${v.live_n} heard in 60 min · usually ${Math.round(v.p25)}–${Math.round(v.p75)}`;
 }
 
 // ── Status bar ─────────────────────────────────────────────────────────────
