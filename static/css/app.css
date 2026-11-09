@@ -258,6 +258,10 @@ nav {
 .val.sm  { font-size: 13px; }
 .row2 { display: flex; gap: 16px; }
 .row2 > div { flex: 1; }
+/* the menu's Locator block, compact (2026-11-09): smaller Reporters / Max DX and labels closer, so the
+   Map Layers switches fit without scrolling */
+.info-panel .lbl:not(:first-child) { margin-top: 3px; }
+.info-panel .row2 .val { font-size: 13px; line-height: 1.25; }
 
 /* Sidebar sections */
 .sb-section {
