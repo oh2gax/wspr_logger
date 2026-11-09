@@ -334,13 +334,23 @@
   }
 
   // ══ Live map ═══════════════════════════════════════════════════════════
-  const LM = lsJson('wspr_app_map', { trail: true, fixAge: true, arcs: false, dn: false, card: true, solar: false, muf: false, mufFof2: false, typ: false, follow: false });
+  const LM = lsJson('wspr_app_map', { trail: true, fixAge: true, arcs: false, dn: false, card: true, solar: false, muf: false, mufFof2: false, typ: false, follow: false, keepView: false });
   let lmap = null, lmMarker = null, lmTrail = null, lmArcs = null, lmNight = null;
   const lmHome = () => { const s = LV.latest && LV.latest.spot; if (s) lmap.setView([s.lat, s.lon], Math.max(lmap.getZoom(), 6)); };
+  function savedCenter() {
+    try {
+      const c = JSON.parse(lsGet('wspr_app_center', 'null'));
+      return Array.isArray(c) && c.length === 2 && c.every(Number.isFinite) && Math.abs(c[0]) <= 85 ? c : null;
+    } catch (_) { return null; }
+  }
   function initLiveMap() {
     if (lmap) return;
     lmap = mkMap('m-map', parseInt(lsGet('wspr_app_zoom', CFG.mapZoom), 10) || CFG.mapZoom, lmHome);
     lmap.on('zoomend', () => lsSet('wspr_app_zoom', lmap.getZoom()));
+    // "Remember map position" (from 2026-11-09): the centre is saved after every move and the map opens there
+    const c = savedCenter();
+    if (LM.keepView && c) lmap.setView(c, lmap.getZoom(), { animate: false });
+    lmap.on('moveend', () => { if (LM.keepView) { const m = lmap.getCenter(); lsSet('wspr_app_center', JSON.stringify([+m.lat.toFixed(4), +m.lng.toFixed(4)])); } });
     lmArcs = L.layerGroup().addTo(lmap);
     lmNight = L.layerGroup().addTo(lmap);
   }
@@ -386,7 +396,7 @@
     else {
       lmMarker = L.circleMarker([s.lat, s.lon], { radius: 9, color: col, fillColor: col, fillOpacity: 1, weight: 0 }).addTo(lmap).bindPopup(popup);
       lmMarker.bindTooltip('', { permanent: true, direction: 'right', offset: [12, 0], className: 'fixage', interactive: false });
-      lmap.setView([s.lat, s.lon], lmap.getZoom());
+      if (!(LM.keepView && savedCenter())) lmap.setView([s.lat, s.lon], lmap.getZoom());   // else: where it was left
     }
     if (LM.follow) lmap.panTo([s.lat, s.lon]);
     const tt = lmMarker.getTooltip();
@@ -481,6 +491,9 @@
   bindSwitch('m-o-mufc', LM, 'muf', 'wspr_app_map', on => { $('m-mufc-card').hidden = !on; if (on) loadMufCard(true); });
   bindSwitch('m-o-mfof2', LM, 'mufFof2', 'wspr_app_map', () => { if (LM.muf) loadMufCard(true); });
   bindSwitch('m-o-typc', LM, 'typ', 'wspr_app_map', on => { $('m-typc-card').hidden = !on; if (on) loadTyp(); });
+  bindSwitch('m-o-keep', LM, 'keepView', 'wspr_app_map', on => {
+    if (on && lmap) { const m = lmap.getCenter(); lsSet('wspr_app_center', JSON.stringify([+m.lat.toFixed(4), +m.lng.toFixed(4)])); }
+  });
   bindSwitch('m-o-follow', LM, 'follow', 'wspr_app_map', on => { if (on && lmap) lmHome(); });
 
   // ══ Now ═════════════════════════════════════════════════════════════════

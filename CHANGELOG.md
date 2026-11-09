@@ -67,6 +67,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Guides** — User guide: resizing the lists; Mobile app user guide 1.5: the foF2 option and the
   menu screenshot.
 
+### Added (continued)
+- **Phone app: Remember position** — a Live map option (`#m-o-keep`, stored as `keepView`, off
+  by default): the map centre is saved after every move (`wspr_app_center`) and the Live map
+  opens there instead of at the car; the zoom was already remembered (`wspr_app_zoom`). ⌂ still
+  returns to the car, and *Follow beacon* still moves the map with each fix. Mobile app user
+  guide 1.6.
+
 ### Changed
 - **See-through zoom buttons on every map** — the full page's `+` / `−` buttons on the live map,
   the History map and the WPRS map (`.leaflet-bar`) are now translucent glass as in the phone app:
