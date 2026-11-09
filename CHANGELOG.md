@@ -8,6 +8,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [2026-11-09]
 
 ### Added
+- **Unusual DX openings** — new `core/unusual.py`: a region beyond 6000 km (North / South America,
+  Africa, Asia, Oceania; Europe left out) heard at an hour when, at this time of year (the days
+  within ±45 days of the date in any year, the day itself left out; the whole history when fewer
+  than 20), it is heard on fewer than 2.5 % of days (`P_OPEN`; shrunk share (hits + 0.5) / (n + 1))
+  with at least 2 stations or 1 station in two hours running → *opening*; a usual region heard by
+  more stations than its 99 % level (`STRONG_Q`) on at least 10 comparable days, at least 4
+  (`STRONG_MIN`) and twice the median → *strong*. Stations by base callsign (`base_call`: K1RA-4
+  = K1RA-PI = K1RA). Chances = the transmitter-on hours (`analysis.tx_on`). Server:
+  `_unusual_model()` (whole history, cached an hour, renewed by the warm-up), `_dx_hits()`,
+  `_unusual_now()` → `/api/latest` `prop.unusual` [{zone, name, kind, stations, calls, p, median,
+  hour, basis}]; `_openings()` → `/api/analysis/more` `openings` {events, per_week, p_open,
+  season_days} (`unusual.history()`: consecutive hours of one region and kind joined). Calibrated
+  on the history (495 days): 66 events, 0.93 a week (25 strong North America, 14 Africa, 10
+  Oceania + 2 strong, 10 South America, 5 North America openings); P_OPEN 3 % gave 1.1, 2 % 0.74.
+- **Where they show** — full page: a purple *★ Unusual opening: …* or green *▲ Unusually strong:
+  …* line on the Propagation card (`updatePropUnusual()`, live only) and those stations' Reporter
+  Plot arcs in the same colour (`unusualColorOf()`); the Analysis card *Unusual DX openings*
+  (`drawOpenings()`, after *Unusual days*; ▶ opens the History Player at the half hour); phone:
+  the status card line, the Now view block, the Live map arcs and the same Analysis card.
+  User guide: a section and two figures; Mobile app user guide 1.8.
 - **Propagation compared with usual** — the Propagation card (full page; the phone's status card
   and Now view) shows, below the level, how the stations heard in the last 60 minutes compare
   with the 30 days before today at this UTC hour and a similar MUF: *Much below usual* (< p10),

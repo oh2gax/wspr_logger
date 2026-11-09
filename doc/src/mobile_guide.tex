@@ -37,7 +37,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\small\itshape WSPR Logger --- the phone view (mobile app)}
-\fancyhead[R]{\small\itshape Mobile app user guide, version 1.7 --- November 2026}
+\fancyhead[R]{\small\itshape Mobile app user guide, version 1.8 --- November 2026}
 \fancyfoot[C]{\small\thepage}
 \renewcommand{\headrulewidth}{0.3pt}
 \hypersetup{pdftitle={WSPR Logger - Mobile app user guide},pdfauthor={Otso Laakso, OH2GAX}}
@@ -68,7 +68,7 @@
 \begin{document}
 \thispagestyle{plain}
 \begin{center}
-{\small WSPR Logger project \quad$\cdot$\quad Mobile app user guide, version 1.7 \quad$\cdot$\quad 9 November 2026}\par\vspace{10pt}
+{\small WSPR Logger project \quad$\cdot$\quad Mobile app user guide, version 1.8 \quad$\cdot$\quad 9 November 2026}\par\vspace{10pt}
 {\LARGE\bfseries WSPR Logger on your phone}\par\vspace{5pt}
 {\large\bfseries The mobile app: the live map, propagation, replay,\\ history, analysis and the car's track in one hand}\par\vspace{8pt}
 {\normalsize Otso Laakso (OH2GAX)}\par
@@ -86,7 +86,7 @@
 \end{itemize}
 The user interface is the same as in the author's MODE-S Wind phone view, so if you know one, you know the other. What the numbers and charts \emph{mean} is explained in the \emph{WSPR Logger --- User guide}; this guide tells where to find them on the phone.}
 
-\infobox{About the figures.}{The screenshots were taken on a phone-sized screen (390\,$\times$\,844 points) with the station's own data as it was on 6 November 2026 at 14:20~UTC. On the maps of the figures the background is a plain outline of the continents; in the app it is a detailed street map. The numbers on your screen will differ, because the data grows every ten minutes. \textbf{Version history:} 1.0, 7 November 2026, first version; 1.1, the same day: the Analysis periods 7\,d and 14\,d and the opening at 14 days, the all-time Best DX without implausible reports, country names from the locator, the phone's Back returning to the previous view, and the replayed moment in the top-bar clock; 1.2, 8 November 2026: the solar card and the MUF card on the Live map; 1.3, 9 November 2026: the MUF card's range; 1.4, the same day: the Typical day in the Now view and as a Live map card; 1.5: foF2 on the MUF card, the age label at the car shortened to \emph{N min ago}; 1.6: \ui{Remember position} for the Live map; 1.7: propagation compared with usual and the transmitter warning.}
+\infobox{About the figures.}{The screenshots were taken on a phone-sized screen (390\,$\times$\,844 points) with the station's own data as it was on 6 November 2026 at 14:20~UTC. On the maps of the figures the background is a plain outline of the continents; in the app it is a detailed street map. The numbers on your screen will differ, because the data grows every ten minutes. \textbf{Version history:} 1.0, 7 November 2026, first version; 1.1, the same day: the Analysis periods 7\,d and 14\,d and the opening at 14 days, the all-time Best DX without implausible reports, country names from the locator, the phone's Back returning to the previous view, and the replayed moment in the top-bar clock; 1.2, 8 November 2026: the solar card and the MUF card on the Live map; 1.3, 9 November 2026: the MUF card's range; 1.4, the same day: the Typical day in the Now view and as a Live map card; 1.5: foF2 on the MUF card, the age label at the car shortened to \emph{N min ago}; 1.6: \ui{Remember position} for the Live map; 1.7: propagation compared with usual and the transmitter warning; 1.8: unusual DX openings.}
 
 {\small\tableofcontents}
 
@@ -166,6 +166,7 @@ The present situation in numbers, card under card:
 \begin{description}[leftmargin=0pt,labelsep=0.4em,itemsep=2pt,font=\normalfont\bfseries]
 \item[Propagation] the number of stations that heard the latest transmission, as a word and a bar: Very low ($\le 5$), Low ($\le 10$), Normal ($\le 20$), Good ($\le 40$), Very good ($\le 60$), Extremely good ($\le 100$), Exceptional. \textbf{\& DX} is added when two or more of the stations heard in the last hour are beyond 6\,000\,km, and \textbf{HIGH MUF} when the Juliusruh MUF is above 28\,MHz. \emph{No propagation} means nothing was heard for an hour (at an hour when the band is usually open, judged from the last 30 days, the app says \emph{No propagation or TX Fail}, because silence then is suspicious).
 \item[Compared with usual] under the bar: the stations heard in the last 60 minutes against the 30 days before today at the same UTC hour and a similar MUF --- \emph{Much below usual}, \emph{Below usual}, \emph{Typical for this hour}, \emph{Above usual} or \emph{Exceptional for this hour} --- with a gauge of the usual range (dark: the middle half, light: 10--90\,\%, line: the median, dot: now). The level above says \emph{how many}, this line \emph{how good for the hour}. \emph{No reports for 20 min} (amber) means nobody heard the last two polls at an hour when the band is usually open: \emph{transmitter off? Check the battery}. \emph{Transmitter back on}: the comparison returns an hour after a break. The status card on the Live map shows the same in one line.
+\item[Unusual openings] a purple \emph{$\bigstar$ Unusual opening} line when a region beyond 6\,000\,km is heard at an hour when it is seldom heard at this time of year (on fewer than 2.5\,\% of days), or a green \emph{$\blacktriangle$ Unusually strong} line when a usual region is heard by many more stations than ever usual; with the stations' callsigns. On the Live map those stations' arcs turn the same colour, and the status card shows the line too. The Analysis view lists every such event of the history in the card \emph{Unusual DX openings}, with $\blacktriangleright$ to replay it.
 \item[Position] the locator, the coordinates, the stations and farthest station of the latest transmission, its time and the age of the fix.
 \item[Today / Last hour] the transmissions heard, the best distance and the most stations of one transmission --- for today (UTC) or the last 60 minutes (option \ui{Spots of}).
 \item[Solar conditions] the space weather of hamqsl.com and the Juliusruh ionosonde, coloured as on the full page's Solar panel: green and blue quiet or good, yellow, orange and red increasingly disturbed, purple extreme. For the MUF the colours go the other way --- the higher, the more the band is open.

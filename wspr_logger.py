@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 
 from flask import Flask, Response, abort, jsonify, make_response, render_template, request, send_from_directory
 
-from core import analysis, analysis_more, changelog, db, greyline, grid_country, guides, outlook, replay_db, wprs
+from core import analysis, analysis_more, changelog, db, greyline, grid_country, guides, outlook, replay_db, unusual, wprs
 
 try:
     from api_keys import CARTO_API_KEY
@@ -1422,6 +1422,61 @@ def _prop_baseline(band: int, force: bool = False) -> dict | None:
     return _cached(_prop_cache, ("base", band), 1800, build, force)
 
 
+def _unusual_model(band: int, force: bool = False):
+    """unusual.Model of the whole history: the DX stations (beyond 6000 km, outside Europe, by base callsign)
+    per UTC day, hour and region, and the hours the transmitter was on (analysis.tx_on); renewed hourly."""
+    def build():
+        if not replay_db.is_enabled():
+            return None
+        excl = _outlier_keys(find_outliers(band))
+        return unusual.Model(_dx_hits(replay_db.get_dx_reports(0, band, exclude=excl)),
+                             _on_hours(analysis.tx_on(replay_db.get_poll_rows(0, band, exclude=excl))))
+    return _cached(_prop_cache, ("unusual", band), 3600, build, force)
+
+
+def _dx_hits(dx_rows: list) -> dict:
+    """{(day, hour, zone): {base callsign, ...}} of get_dx_reports() rows outside Europe."""
+    zone_of, hits = {}, {}
+    for day, hour, call, grid, _dist in dx_rows:
+        if grid not in zone_of:
+            la, lo = _grid_to_latlon(grid or "")
+            zone_of[grid] = _REGION_ZONE.get(_latlon_to_region(la, lo), "other") if la is not None else "other"
+        z = zone_of[grid]
+        if z not in ("other", "europe"):
+            hits.setdefault((day, hour, z), set()).add(unusual.base_call(call))
+    return hits
+
+
+def _on_hours(rows: list) -> dict:
+    out = {}
+    for r in rows:
+        out.setdefault(r[0][:10], set()).add(int(r[0][11:13]))
+    return out
+
+
+def _unusual_now(band: int, now: datetime) -> list:
+    """The unusual openings / strong regions of the live reporter list (the last 60 minutes)."""
+    model = _unusual_model(band) if ("unusual", band) in _prop_cache else None
+    if model is None:
+        return []
+    with _state_lock:
+        reps = [r for r in _cached_reporter_list if (r.get("distance") or 0) > 6000]
+    excl = _outlier_keys(find_outliers(band))
+    reps = [r for r in reps if f"{r.get('callsign')}|{r.get('grid')}" not in excl]
+    by_zone = _dx_hits([(None, None, r.get("callsign"), r.get("grid"), r.get("distance")) for r in reps])
+    today, hour = now.strftime("%Y-%m-%d"), now.hour
+    prev = _dx_hits(replay_db.get_dx_reports(1, band, exclude=excl))
+    out = []
+    for (_d, _h, zone), calls in by_zone.items():
+        j = model.judge(today, hour, zone, len(calls), (today, hour - 1, zone) in prev)
+        if j:
+            out.append({"zone": zone, "name": unusual.ZONE_NAMES.get(zone, zone), "kind": j["kind"],
+                        "stations": len(calls), "calls": sorted(calls), "p": round(100 * j["p"], 1),
+                        "median": j["median"], "hour": hour, "basis": j["basis"]})
+    out.sort(key=lambda e: (e["kind"] != "opening", e["p"]))
+    return out
+
+
 def prop_state(band: int, force: bool = False) -> dict | None:
     """The block "prop" of /api/latest; recomputed at most once a minute."""
     return _cached(_prop_cache, ("state", band), 60, lambda: _build_prop(band), force)
@@ -1449,7 +1504,12 @@ def _build_prop(band: int) -> dict | None:
     verdict = None
     if not (warming or tx_suspect or _wspr_live_down):
         verdict = analysis.prop_verdict(exp, now.hour, _latest_muf(), live_n)
-    return {"verdict": verdict, "tx_suspect": tx_suspect, "warming": warming,
+    try:
+        unusual_now = [] if (tx_suspect or _wspr_live_down) else _unusual_now(band, now)
+    except Exception as e:                  # extra information: never lose the rest for it
+        print(f"[WARN] Unusual openings check failed: {e}")
+        unusual_now = []
+    return {"verdict": verdict, "tx_suspect": tx_suspect, "warming": warming, "unusual": unusual_now,
             "usual_now": usual(now.hour), "busy_now": busy_h[now.hour], "live_n": live_n,
             "base_days": PROP_BASE_DAYS}
 
@@ -1569,8 +1629,24 @@ def _build_more(days: int, band: int) -> dict:
             "open": analysis_more.open_close(spots, home, since),
             "unusual": analysis_more.unusual_days(rows, hist["rows"]),
             "seasons": analysis_more.seasons(hist["rows"]),
+            "openings": _openings(days, band),
         }
     return payload
+
+
+def _openings(days: int, band: int) -> dict:
+    """The unusual DX openings (unusual.history) of the period, newest first, for the Analysis card."""
+    model = _unusual_model(band)
+    if model is None:
+        return {"events": [], "per_week": None}
+    events = unusual.history(model)
+    on_days = len(model.doy)
+    per_week = round(7 * len(events) / on_days, 2) if on_days else None
+    if days:
+        since = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
+        events = [e for e in events if e["day"] >= since]
+    return {"events": events, "per_week": per_week, "p_open": round(100 * unusual.P_OPEN, 1),
+            "season_days": unusual.SEASON_DAYS}
 
 
 _iono_cache: dict = {}              # (kind, range, band) -> (monotonic time, payload)
@@ -1700,6 +1776,7 @@ def _warm_analysis() -> None:
         suspect_dx(DEFAULT_BAND, refresh=True)   # (and the outlier scan) renewed here when an hour old, not in a visitor's request
         outlook_state(DEFAULT_BAND, force=True)
         _prop_baseline(DEFAULT_BAND, force=True)  # the Propagation card's comparison, then its state
+        _unusual_model(DEFAULT_BAND)              # the unusual-openings yardstick: renewed when an hour old
         prop_state(DEFAULT_BAND, force=True)
         done, keys = [], {(d, None) for d in _WARM_DAYS}
         for start in _WARM_DAYS:

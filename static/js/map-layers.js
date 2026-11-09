@@ -112,14 +112,15 @@ function renderReporterPlot() {
     const maxSnr  = Math.max(...snrs);
     const snrSpan = maxSnr - minSnr || 1;
 
-    const accent = '#38bdf8';
-
     _reporterListData.forEach(r => {
         const pos = maidenheadToLatLon(r.grid);
         if (!pos) return;
         const norm    = (r.snr - minSnr) / snrSpan;   // 0 = weakest, 1 = strongest
-        const opacity = 0.18 + norm * 0.72;            // 0.18 → 0.90
-        const weight  = 1 + norm * 2.5;                // 1 px → 3.5 px
+        // a station of an unusual opening now: its arc in that colour, always clearly visible
+        const special = unusualColorOf(r.callsign);
+        const accent  = special || '#38bdf8';
+        const opacity = special ? Math.max(0.85, 0.18 + norm * 0.72) : 0.18 + norm * 0.72;   // 0.18 → 0.90
+        const weight  = special ? Math.max(2.5, 1 + norm * 2.5) : 1 + norm * 2.5;            // 1 px → 3.5 px
 
         // Great-circle line: TX → reporter (split at antimeridian if needed)
         const gcSegs = greatCirclePoints(_txLat, _txLon, pos[0], pos[1], 60);

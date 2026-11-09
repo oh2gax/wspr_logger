@@ -180,6 +180,15 @@
                         <div><div class="am-sub-title bad">Worst</div><table class="htbl am-tbl"><thead><tr><th>Date</th><th>Index</th><th>Avg</th><th>Max K</th><th></th></tr></thead><tbody id="amWorstBody"></tbody></table></div>
                     </div>
                 </div>
+                <!-- unusual DX openings (from 2026-11-09): core/unusual.py -->
+                <div class="an-card wide" id="amOpenEvCard">
+                    <div class="an-card-title">Unusual DX openings</div>
+                    <div class="an-card-sub" id="amOpenEvSub">A region beyond 6000 km heard at an hour when it is seldom heard at that time of year (<b>opening</b>), or by many more stations than usual (<b>strong</b>). &#9654; opens the moment in the History Player.</div>
+                    <div style="max-height:340px;overflow:auto;">
+                        <table class="htbl"><thead><tr><th>Date</th><th>UTC</th><th>Region</th><th>Kind</th><th>Stations</th><th>Usually</th><th></th></tr></thead>
+                        <tbody id="amOpenEvBody"></tbody></table>
+                    </div>
+                </div>
                 <div class="an-card wide" id="amLoyalCard">
                     <div class="an-card-title">Most loyal reporters</div>
                     <div class="an-card-sub">The stations that heard you in the largest share of the snapshots of the period.</div>

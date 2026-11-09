@@ -11,7 +11,7 @@ let _amSeq = 0;
 let _amGeoMetric = 'stations';     // 'stations' | 'reports'
 let _amSeasonMetric = 'median';    // 'median' | 'dx'
 const AM_CARDS = ['amGeoCard', 'amDistCard', 'amOpenCard', 'amSeasonCard', 'amSnrHourCard', 'amSnrDistCard',
-                  'amUnusualCard', 'amMonthlyCard', 'amLoyalCard'];
+                  'amUnusualCard', 'amOpenEvCard', 'amMonthlyCard', 'amLoyalCard'];
 const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 const YEAR_COLORS = ['#38bdf8', '#f59e0b', '#a78bfa', '#4ade80', '#f87171', '#94a3b8'];   // newest year first
 
@@ -35,7 +35,7 @@ function renderAnalysisMore() {
     AM_CARDS.forEach(id => { document.getElementById(id).style.display = show ? '' : 'none'; });
     if (!show) return;
     drawPolar(); drawDistHist(); drawOpenClose(); drawSeasons();
-    drawSnrCharts(); drawUnusual(); drawMonthly(); drawLoyal();
+    drawSnrCharts(); drawUnusual(); drawOpenings(); drawMonthly(); drawLoyal();
 }
 
 function setGeoMetric(m) {
@@ -264,6 +264,29 @@ function drawUnusual() {
     document.getElementById('amUnusualSub').textContent =
         `Daytime (06–18 UTC) stations heard against what is typical for that month and hour (100 = typical), ` +
         `${u.days_rated} days rated. Avg = stations heard per snapshot. ▶ opens the day in the History Player.`;
+}
+
+// ── Unusual DX openings (from 2026-11-09) ──────────────────────────────────
+function drawOpenings() {
+    const o = _amData.openings || { events: [] }, ev = o.events || [];
+    const hh = h => String(h).padStart(2, '0');
+    document.getElementById('amOpenEvBody').innerHTML = ev.length ? ev.map(e => {
+        const opening = e.kind === 'opening';
+        const usual = opening ? `on ${e.p} % of days` : `${e.median == null ? '—' : Math.round(e.median)} stations`;
+        return `<tr><td>${e.day}</td><td>${hh(e.from_h)}${e.to_h > e.from_h ? '–' + hh(e.to_h + 1) : ''}</td>` +
+            `<td><strong>${escHtml(e.name)}</strong></td>` +
+            `<td style="color:${opening ? '#a855f7' : '#4ade80'}">${opening ? '★ opening' : '▲ strong'}</td>` +
+            `<td title="${escHtml(e.calls.join(', '))}">${e.stations} <span style="color:var(--text-muted)">${escHtml(e.calls.slice(0, 3).join(', '))}${e.calls.length > 3 ? ' …' : ''}</span></td>` +
+            `<td style="color:var(--text-muted)">${usual}</td>` +
+            `<td><button class="an-btn" title="Open this moment in the History Player" ` +
+            `onclick="openReplayAt('${e.day} ${hh(e.from_h)}:30:00')">&#9654;</button></td></tr>`;
+    }).join('') : '<tr><td colspan="7" class="no-data">No unusual openings in this period</td></tr>';
+    document.getElementById('amOpenEvSub').innerHTML =
+        `A region beyond 6000 km heard at an hour when, at this time of year (±${o.season_days || 45} days, any year), it is heard ` +
+        `on fewer than ${o.p_open || 2.5} % of days (<b style="color:#a855f7">opening</b>), or by many more stations than ever usual at that hour ` +
+        `(<b style="color:#4ade80">strong</b>). ${ev.length} in this period` +
+        (o.per_week != null ? `; about ${o.per_week} a week over the whole history` : '') +
+        `. Usually = how often the region is heard then, or its usual stations. &#9654; opens the moment in the History Player.`;
 }
 
 // ── Stations per month ─────────────────────────────────────────────────────

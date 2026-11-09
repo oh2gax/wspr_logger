@@ -203,11 +203,13 @@
     if (lat == null || !reporters.length) return;
     const snrs = reporters.map(r => r.snr);
     const lo = Math.min(...snrs), span = (Math.max(...snrs) - lo) || 1;
-    const accent = '#38bdf8';
     for (const r of reporters) {
       const pos = maidenheadToLatLon(r.grid);
       if (!pos) continue;
-      const k = (r.snr - lo) / span, op = 0.18 + k * 0.72, w = 1 + k * 2.5;
+      // a station of an unusual opening now (live map only): its arc in that colour, clearly visible
+      const special = group === lmArcs ? unuColorOf(r.callsign) : null, accent = special || '#38bdf8';
+      const k = (r.snr - lo) / span, op = special ? Math.max(0.85, 0.18 + k * 0.72) : 0.18 + k * 0.72,
+            w = special ? Math.max(2.5, 1 + k * 2.5) : 1 + k * 2.5;
       greatCirclePoints(lat, lon, pos[0], pos[1], 60).forEach(seg => {
         if (seg.length > 1) L.polyline(seg, { color: accent, weight: w, opacity: op, interactive: false }).addTo(group);
       });
@@ -328,6 +330,21 @@
     above:       { text: '▲ Above usual',                color: '#84cc16' },
     exceptional: { text: '▲▲ Exceptional for this hour', color: '#a855f7' },
   };
+  // Unusual DX openings now (prop.unusual, from 2026-11-09)
+  const UNU_COLORS = { opening: '#a855f7', strong: '#4ade80' };
+  function unusualNow() { const d = LV.latest || {}; return (!d.wspr_down && d.prop && d.prop.unusual) || []; }
+  function unuLines(e) {
+    return e.kind === 'opening'
+      ? { hd: `★ Unusual opening: ${e.name}`, short: `${e.stations} st., ${e.p} % of days`,
+          sub: `${e.stations} station${e.stations === 1 ? '' : 's'} · heard on ${e.p} % of days at ${pad(e.hour)} UTC at this time of year` }
+      : { hd: `▲ Unusually strong: ${e.name}`, short: `${e.stations} st., usually ${e.median == null ? '—' : Math.round(e.median)}`,
+          sub: `${e.stations} stations · usually ${e.median == null ? '—' : Math.round(e.median)} at ${pad(e.hour)} UTC` };
+  }
+  function unuColorOf(call) {
+    const base = String(call || '').toUpperCase().split('-')[0].split('/')[0];
+    const e = unusualNow().find(x => x.calls.includes(base));
+    return e ? UNU_COLORS[e.kind] : null;
+  }
   function relState() {
     const d = LV.latest || {}, p = d.prop;
     if (!p || d.wspr_down) return null;
@@ -413,6 +430,9 @@
     const r = relState(), rel = $('m-lc-rel');
     rel.hidden = !r;
     if (r) { rel.innerHTML = `<b style="color:${r.color || 'var(--text-1)'}">${esc(r.text)}</b> <span>· ${esc(r.short)}</span>`; }
+    const un = unusualNow(), ub = $('m-lc-unu');
+    ub.hidden = !un.length;
+    if (un.length) { const l = unuLines(un[0]); ub.innerHTML = `<b style="color:${UNU_COLORS[un[0].kind]}">${esc(l.hd)}</b> <span>· ${esc(l.short)}</span>`; }
     if (!s) { $('m-lc-loc').textContent = '——'; $('m-lc-age').textContent = ''; return; }
     const stale = isStale(), col = stale ? '#ef4444' : '#4ade80', min = ageMin(s.timestamp);
     $('m-lc-loc').textContent = s.tx_loc;
@@ -634,6 +654,11 @@
     $('m-now-prop').innerHTML = p.html;
     $('m-now-bar').style.width = p.pct + '%'; $('m-now-bar').style.background = p.color;
     $('m-now-rep').textContent = p.line;
+    const un = unusualNow();
+    $('m-now-unu').hidden = !un.length;
+    $('m-now-unu').innerHTML = un.map(e => { const l = unuLines(e);
+      return `<div class="m-rel-t" style="color:${UNU_COLORS[e.kind]}">${esc(l.hd)}</div><div class="m-small">${esc(l.sub)}</div>` +
+             `<div class="m-small m-rel-s">${esc(e.calls.slice(0, 6).join(', '))}${e.calls.length > 6 ? ' …' : ''}</div>`; }).join('');
     const r = relState();
     $('m-now-rel').hidden = !r;
     if (r) {

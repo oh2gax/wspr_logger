@@ -26,6 +26,7 @@ async function fetchLatest() {
         // Override propagation display if wspr.live is unreachable
         if (data.wspr_down) updatePropagation(0, false, true);
         updatePropRel(data.wspr_down ? null : _latestProp);
+        updatePropUnusual(data.wspr_down ? null : _latestProp);
         fetchTodayStats();
 
         // Determine staleness here so all panels react consistently
@@ -291,6 +292,36 @@ function updatePropRel(p) {
     document.getElementById('pgMed').style.left = pc(v.median);
     Object.assign(document.getElementById('pgDot').style, { left: pc(v.live_n), background: c.color === 'var(--text-secondary)' ? '#38bdf8' : c.color });
     nums.textContent = `${v.live_n} heard in 60 min · usually ${Math.round(v.p25)}–${Math.round(v.p75)}`;
+}
+
+// Unusual DX openings now (prop.unusual): a region beyond 6000 km heard at an hour when it is seldom heard at
+// this time of year ("opening"), or by many more stations than usual ("strong").  Live only.
+const UNUSUAL_COLORS = { opening: '#a855f7', strong: '#4ade80' };
+function unusualLines(e) {
+    const hh = String(e.hour).padStart(2, '0');
+    return e.kind === 'opening'
+        ? { hd: `★ Unusual opening: ${e.name}`,
+            sub: `${e.stations} station${e.stations === 1 ? '' : 's'} · heard on ${e.p} % of days at ${hh} UTC at this time of year` }
+        : { hd: `▲ Unusually strong: ${e.name}`,
+            sub: `${e.stations} stations · usually ${e.median == null ? '—' : Math.round(e.median)} at ${hh} UTC` };
+}
+function updatePropUnusual(p) {
+    const box = document.getElementById('propUnusual');
+    const ev = (!_replayActive && p && p.unusual) || [];
+    box.style.display = ev.length ? 'block' : 'none';
+    box.innerHTML = ev.map(e => {
+        const l = unusualLines(e);
+        return `<div class="pu-row" title="${escHtml(e.calls.join(', '))}"><div class="pu-hd" style="color:${UNUSUAL_COLORS[e.kind]}">${escHtml(l.hd)}</div>` +
+               `<div class="pu-sub">${escHtml(l.sub)}</div></div>`;
+    }).join('');
+    if (showReporterPlot) renderReporterPlot();       // their arcs in the same colour
+}
+// The colour of a reporter's arc when it belongs to an unusual opening now, else null
+function unusualColorOf(call) {
+    if (_replayActive || !_latestProp || !_latestProp.unusual) return null;
+    const base = String(call || '').toUpperCase().split('-')[0].split('/')[0];
+    const e = _latestProp.unusual.find(x => x.calls.includes(base));
+    return e ? UNUSUAL_COLORS[e.kind] : null;
 }
 
 // ── Status bar ─────────────────────────────────────────────────────────────

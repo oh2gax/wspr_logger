@@ -469,6 +469,10 @@ select:focus, input:focus { border-color: var(--accent); }
                        border: 2px solid var(--overlay-bg); box-sizing: content-box; transition: left .5s ease; }
 .prop-rel-nums { font-size: 10.5px; color: var(--text-muted); }
 .prop-rel.tx-warn .prop-rel-hd { color: #f59e0b; }
+.prop-unusual { margin-top: 7px; padding-top: 6px; border-top: 1px solid var(--border); }
+.prop-unusual .pu-row + .pu-row { margin-top: 5px; }
+.prop-unusual .pu-hd { font-size: 12.5px; font-weight: 700; }
+.prop-unusual .pu-sub { font-size: 10.5px; color: var(--text-muted); }
 
 /* Country list overlay */
 .country-list {
