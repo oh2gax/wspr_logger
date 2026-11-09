@@ -75,8 +75,6 @@ function showPosition(spot, stale) {
     const locEl = document.getElementById('infoLocator');
     locEl.textContent  = tx_loc;
     locEl.style.color  = stale ? '#ef4444' : '';          // red when stale, default accent otherwise
-    document.getElementById('infoLat').textContent       = lat.toFixed(4) + '°';
-    document.getElementById('infoLon').textContent       = lon.toFixed(4) + '°';
     document.getElementById('infoReporters').textContent = stale ? '—' : reporter_count;
     document.getElementById('infoMaxDist').textContent   = (!stale && max_distance) ? max_distance + ' km' : '—';
     document.getElementById('infoReporters').style.color = stale ? '#ef4444' : '';
@@ -123,7 +121,7 @@ function showPosition(spot, stale) {
 // dashes in the box and the left pane, the marker hidden — never the live position under a replayed clock.
 function showNoPosition() {
     for (const id of ['infoLocator', 'ovLocator']) { const el = document.getElementById(id); el.textContent = '——'; el.style.color = ''; }
-    for (const id of ['infoLat', 'infoLon', 'infoReporters', 'infoMaxDist', 'ovReporters', 'ovDX']) {
+    for (const id of ['infoReporters', 'infoMaxDist', 'ovReporters', 'ovDX']) {
         const el = document.getElementById(id); el.textContent = '—'; el.style.color = '';
     }
     document.getElementById('infoTime').textContent = 'no position this day';

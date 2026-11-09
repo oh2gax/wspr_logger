@@ -42,6 +42,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   two-way sort and resizing in the live map section; `doc/guides.json` date.
 
 ### Changed
+- **Shorter Locator block in the sidebar** — the Latitude / Longitude row (`#infoLat`,
+  `#infoLon`) is removed, leaving more room for the Map Layers switches; the locator, reporters,
+  Max DX and last spot stay.
 - **MUF graph follows the theme at once** — a theme change refetches the MUF graph so its axis
   and grid colours change immediately instead of at the next poll.
 

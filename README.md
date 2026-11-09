@@ -357,7 +357,6 @@ sudo ufw allow 5008/tcp
 | **📱 Phone app** (under What's new) | Opens the phone view `/app` (see [Phone app](#phone-app-app)) |
 | **Status dot** | Green = live data (< 20 min old) · Amber = stale · Red = no recent data |
 | **Locator** | Current 6-character Maidenhead grid square; turns red when last spot is older than 1 hour |
-| **Latitude / Longitude** | Decimal coordinates derived from the locator |
 | **Reporters / Max DX** | How many stations received the last transmission and the farthest one; turn red when data is stale |
 | **Last Spot (UTC)** | Timestamp (minutes) of the most recent logged transmission, with a "Last fix N min ago" line below it |
 | **Position Trail** | Toggle the dashed trail connecting today's positions on the live map |
