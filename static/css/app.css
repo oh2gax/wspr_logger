@@ -625,15 +625,21 @@ select:focus, input:focus { border-color: var(--accent); }
     margin: 5px 0;
 }
 
-/* Leaflet controls in light mode */
-html.light .leaflet-control-zoom a {
-    background: var(--bg-surface) !important;
-    color: var(--text-primary) !important;
-    border-color: var(--border) !important;
-}
-html.light .leaflet-bar { border-color: var(--border) !important; }
 
 .leaflet-div-icon { background: none !important; border: none !important; }
+
+/* The maps' zoom buttons (live map, History, WPRS): see-through glass (from 2026-11-09), as in the phone app */
+.leaflet-bar { border: 1px solid rgba(148, 163, 184, 0.35) !important; box-shadow: none; background: transparent; }
+.leaflet-bar a,
+.leaflet-bar a:hover, .leaflet-bar a:focus { background: rgba(15, 23, 42, 0.38) !important; color: #e2e8f0 !important;
+                          border-bottom-color: rgba(148, 163, 184, 0.3) !important; }
+.leaflet-bar a:hover { background: rgba(15, 23, 42, 0.6) !important; }
+.leaflet-bar a.leaflet-disabled { background: rgba(15, 23, 42, 0.2) !important; color: #64748b !important; }
+html.light .leaflet-bar { border-color: rgba(71, 85, 105, 0.35) !important; }
+html.light .leaflet-bar a,
+html.light .leaflet-bar a:focus { background: rgba(255, 255, 255, 0.5) !important; color: #334155 !important;
+                                       border-bottom-color: rgba(71, 85, 105, 0.3) !important; }
+html.light .leaflet-bar a:hover { background: rgba(255, 255, 255, 0.8) !important; }
 
 /* ── MUF graph panel ── */
 .muf-period-btns {

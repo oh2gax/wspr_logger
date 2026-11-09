@@ -12,6 +12,7 @@ version shown under the page title.
 - **foF2 in the MUF graph** — the *foF2* button beside *1d / 2d / 3d / 1wk* adds the foF2 of Juliusruh to the MUF / Reports graph as an amber line on the same MHz scale. foF2 has been stored since early November 2026, so the line starts there.
 - **Lists that keep their size** — the Reporters list and Reporter Countries on the live map can be resized from their lower right corner; they keep that size however many stations come in, and the rest scrolls inside. *Reset panel positions* restores them.
 - **foF2 on the phone's MUF card** — *foF2 on MUF card* under *Live map options* adds the foF2 line to the MUF card, as the foF2 button does on the full page.
+- **See-through zoom buttons** — the + and − buttons on the live map, the History map and the WPRS map are now transparent, so the map shows through them.
 - **A shorter label at the car** — the age label beside the car on the map now just says "15 min ago".
 - **A tidier menu** — the latitude and longitude are gone from the Locator block on the left and the locator, stations and Max DX are a little smaller, so all the Map Layers switches fit without scrolling in a window about 890 pixels high.
 - **Reporter list both ways** — click *SNR* or *Dist* in the Reporters list on the live map to sort by it, largest first; click again for smallest first (▴) — the weakest stations, or the nearest ones. The order is remembered.

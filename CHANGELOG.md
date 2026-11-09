@@ -68,6 +68,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   menu screenshot.
 
 ### Changed
+- **See-through zoom buttons on every map** — the full page's `+` / `−` buttons on the live map,
+  the History map and the WPRS map (`.leaflet-bar`) are now translucent glass as in the phone app:
+  dark glass in the dark theme, light glass in the light theme, so the map shows through. The old
+  light-theme rule for `.leaflet-control-zoom` is removed.
 - **Shorter age label at the car** — the label beside the car marker (Last Fix Label on the full
   page, Last fix label in the phone app) now says just "15 min ago" instead of "last fix 15 min
   ago"; the Current Position box, the left pane and the phone's status card keep "last fix …".
