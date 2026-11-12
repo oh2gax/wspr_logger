@@ -483,7 +483,7 @@ Choose `--from` so that it does not reach back to a time when the callsign was s
 | Part | Description |
 |------|-------------|
 | **Top bar** | ☰ opens the menu (a red dot: unread *What's new*), the view's title and subtitle, the UTC clock, the theme button (Dark → Light → Auto; the same `wspr_theme_mode` setting as the full page) and the beacon's status dot (green < 20 min, amber < 2 h, red older) |
-| **Menu** | The nine views as tiles, then one folding options section per view (the shown view's opens by itself): chips, switches and date steppers. *General*: What's new, About, User guides, Full site |
+| **Menu** | The nine views as tiles, then one folding options section per view (the shown view's opens by itself): chips, switches and date steppers. *General*: What's new, About, User guides, ⟳ Reload, the time of the last data update, Full site |
 | **Live map** | Latest fix with its age, status card (locator, propagation, stations, best DX), position trail, reporter arcs, day / night, follow beacon, remember position (open where you left the map; the zoom is always remembered); optional solar card (the Solar Conditions values) and MUF card (a small MUF D=3000 km / reporters graph of the last 24 h, 2 or 3 days or a week, optionally with foF2) and Typical day card (usual stations per UTC hour and today) over the map, stacked above the status card upright and side by side sideways; refreshed every minute |
 | **Now** | Propagation, position, today or the last hour, solar conditions (coloured as the Solar panel), the Typical day (UTC) chart over 7, 14, 30 or 90 days with today, and the Analysis page's *Right now* comparison (90 days) |
 | **Reporters** | The stations of the last 60 minutes with search and sorting, countries and the SNR / distance distribution |
@@ -494,7 +494,7 @@ Choose `--from` so that it does not reach back to a time when the callsign was s
 | **Analysis** | The full page's Propagation Analysis: the same markup (`templates/_analysis_body.html`) and scripts (`analysis.js`, `analysis-more.js`), in one column |
 | **WPRS** | Days and trips, the track on a map with a fix slider and a *Replay* button |
 
-The phone's Back works as in an app: it closes the menu or a sheet, otherwise it returns to the previous view (e.g. from Replay opened in History back to that day); in the first view it leaves the app. Only the shown view is refreshed and nothing while the app is in the background. Back on the page after more than an hour, or when `/api/app/build` reports a newer build (a deploy), it reloads itself; the view and all options are kept in `localStorage` (`wspr_app_*`). It can be added to the home screen (`/app/manifest.webmanifest`, icons in `static/icons/`).
+The phone's Back works as in an app: it closes the menu or a sheet, otherwise it returns to the previous view (e.g. from Replay opened in History back to that day); in the first view it leaves the app. Only the shown view is refreshed and nothing while the app is in the background. Coming back (visibility, focus, back online, or a 15-s heartbeat that notices a freeze or data over 3 minutes old) refreshes the view; after more than an hour away, or when `/api/app/build` reports a newer build (a deploy), it reloads itself; the view and all options are kept in `localStorage` (`wspr_app_*`). It can be added to the home screen (`/app/manifest.webmanifest`, icons in `static/icons/`).
 
 ### Guides
 

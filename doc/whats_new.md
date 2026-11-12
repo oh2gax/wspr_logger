@@ -4,6 +4,11 @@ Short notes for users of the web page, newest first. Each version is one day of 
 (v.DDMMYYYY). The full technical history is in CHANGELOG.md. The newest heading gives the
 version shown under the page title.
 
+## v.12112026 — The phone app refreshes itself reliably, and a Reload button
+
+- **Fresh data when you open the app** — a phone often freezes an installed app in the background and wakes it up without telling it, so the app could show old data. It now notices that too, and also refreshes when it gets the focus or comes back online; after more than an hour away it loads itself again completely.
+- **⟳ Reload** — under ☰ → *General* there is now a *⟳ Reload* button that loads the app again at once, and a line telling when the data was last updated.
+
 ## v.09112026 — Unusual DX openings, propagation compared with usual, a smarter transmitter warning, the typical day on the live map and in the phone app, foF2 in the MUF graph, two-way sorting and the phone's MUF card over a week
 
 - **Unusual DX openings** — when a far region (North or South America, Africa, Asia, Oceania) is heard at an hour when it is seldom heard at this time of year, the Propagation card says so in purple (*★ Unusual opening: North America*), and those stations' arcs on the Reporter Plot turn purple; a green *▲ Unusually strong* line means a usual region heard by many more stations than ever usual. The new Analysis card *Unusual DX openings* lists every such moment of the whole history — about one a week — with ▶ to replay it. The same in the phone app.

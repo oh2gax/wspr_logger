@@ -37,7 +37,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\small\itshape WSPR Logger --- the phone view (mobile app)}
-\fancyhead[R]{\small\itshape Mobile app user guide, version 1.8 --- November 2026}
+\fancyhead[R]{\small\itshape Mobile app user guide, version 1.9 --- November 2026}
 \fancyfoot[C]{\small\thepage}
 \renewcommand{\headrulewidth}{0.3pt}
 \hypersetup{pdftitle={WSPR Logger - Mobile app user guide},pdfauthor={Otso Laakso, OH2GAX}}
@@ -68,7 +68,7 @@
 \begin{document}
 \thispagestyle{plain}
 \begin{center}
-{\small WSPR Logger project \quad$\cdot$\quad Mobile app user guide, version 1.8 \quad$\cdot$\quad 9 November 2026}\par\vspace{10pt}
+{\small WSPR Logger project \quad$\cdot$\quad Mobile app user guide, version 1.9 \quad$\cdot$\quad 12 November 2026}\par\vspace{10pt}
 {\LARGE\bfseries WSPR Logger on your phone}\par\vspace{5pt}
 {\large\bfseries The mobile app: the live map, propagation, replay,\\ history, analysis and the car's track in one hand}\par\vspace{8pt}
 {\normalsize Otso Laakso (OH2GAX)}\par
@@ -86,7 +86,7 @@
 \end{itemize}
 The user interface is the same as in the author's MODE-S Wind phone view, so if you know one, you know the other. What the numbers and charts \emph{mean} is explained in the \emph{WSPR Logger --- User guide}; this guide tells where to find them on the phone.}
 
-\infobox{About the figures.}{The screenshots were taken on a phone-sized screen (390\,$\times$\,844 points) with the station's own data as it was on 6 November 2026 at 14:20~UTC. On the maps of the figures the background is a plain outline of the continents; in the app it is a detailed street map. The numbers on your screen will differ, because the data grows every ten minutes. \textbf{Version history:} 1.0, 7 November 2026, first version; 1.1, the same day: the Analysis periods 7\,d and 14\,d and the opening at 14 days, the all-time Best DX without implausible reports, country names from the locator, the phone's Back returning to the previous view, and the replayed moment in the top-bar clock; 1.2, 8 November 2026: the solar card and the MUF card on the Live map; 1.3, 9 November 2026: the MUF card's range; 1.4, the same day: the Typical day in the Now view and as a Live map card; 1.5: foF2 on the MUF card, the age label at the car shortened to \emph{N min ago}; 1.6: \ui{Remember position} for the Live map; 1.7: propagation compared with usual and the transmitter warning; 1.8: unusual DX openings.}
+\infobox{About the figures.}{The screenshots were taken on a phone-sized screen (390\,$\times$\,844 points) with the station's own data as it was on 6 November 2026 at 14:20~UTC. On the maps of the figures the background is a plain outline of the continents; in the app it is a detailed street map. The numbers on your screen will differ, because the data grows every ten minutes. \textbf{Version history:} 1.0, 7 November 2026, first version; 1.1, the same day: the Analysis periods 7\,d and 14\,d and the opening at 14 days, the all-time Best DX without implausible reports, country names from the locator, the phone's Back returning to the previous view, and the replayed moment in the top-bar clock; 1.2, 8 November 2026: the solar card and the MUF card on the Live map; 1.3, 9 November 2026: the MUF card's range; 1.4, the same day: the Typical day in the Now view and as a Live map card; 1.5: foF2 on the MUF card, the age label at the car shortened to \emph{N min ago}; 1.6: \ui{Remember position} for the Live map; 1.7: propagation compared with usual and the transmitter warning; 1.8: unusual DX openings; 1.9, 12 November 2026: a sure refresh on coming back, and \ui{Reload} in General.}
 
 {\small\tableofcontents}
 
@@ -232,7 +232,7 @@ The full page's WPRS page (Whisper Position Reporting System): the positions in 
 \section{Staying up to date}\label{sec:fresh}
 \lead{Refreshing.} The Live map, Now and Reporters fetch new data every minute, the MUF graph every ten minutes and the Live map's MUF card every 5 to 30 minutes, depending on its range. Only the view on the screen is refreshed, and \textbf{nothing at all while the app is not on the screen} (the phone is locked or another app is open), so the app uses no data in the background. The other views load when you open them or change a date or an option.
 
-\lead{Coming back.} When you return to the app it refreshes the shown view at once. If it has been away for more than an hour, or a new version has been put on the server meanwhile, it reloads itself completely --- the view and all your choices stay. A new version also brings a red dot to \ui{$\equiv$} and \ui{What's new} until you have read the notes (the full page then no longer marks them either, in the same browser).
+\lead{Coming back.} When you return to the app it refreshes the shown view at once. If it has been away for more than an hour, or a new version has been put on the server meanwhile, it reloads itself completely --- the view and all your choices stay. A phone often freezes an installed app in the background and wakes it without telling it; the app notices that too (its clock jumped, or its data is more than three minutes old) and refreshes. \ui{$\equiv$} $\rightarrow$ \ui{General} shows when the data was last updated, and \ui{$\circlearrowright$ Reload} loads the app again at once, with the newest data and version. A new version also brings a red dot to \ui{$\equiv$} and \ui{What's new} until you have read the notes (the full page then no longer marks them either, in the same browser).
 
 \lead{Data use.} A refresh of the Live map is about 1\,kB, or about 12\,kB with the reporter arcs on; the solar card adds under 1\,kB a minute, the Typical day card or chart about 2\,kB every five minutes and the MUF card about 12\,kB per day of its range (every 5 minutes for 24 hours, every 30 for a week); the map tiles are loaded as you move the map and kept by the browser. The Analysis view loads about 60--100\,kB once per period, Replay about 200\,kB per day. The program itself (with the map and chart libraries, about 0.5\,MB) is loaded once and then kept by the browser.
 

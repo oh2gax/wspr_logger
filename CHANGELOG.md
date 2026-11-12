@@ -5,6 +5,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2026-11-12]
+
+### Fixed
+- **Phone app did not always refresh when opened again** — an installed app is often frozen in the
+  background and resumed without a `visibilitychange`, so the data stayed old. `wake()` now also
+  runs on `focus` and `online`, and a 15-second heartbeat notices a freeze (a timer more than a
+  minute late) or data more than three minutes old on the Live map, Now or Reporters view
+  (`LV.gotAt`); several events of one return count once (3 s). Away for over an hour (by the
+  freeze, the hidden time or the age of the data) still reloads the app; a new build too. The
+  regular refresh timer is restarted after a wake.
+
+### Added
+- **Phone app: ⟳ Reload and the time of the data** — under ☰ → General: *⟳ Reload* loads the app
+  again at once (newest data and version), and *Data updated HH:MM UTC* shows the last
+  successful `/api/latest`. Mobile app user guide 1.9.
+
+---
+
 ## [2026-11-09]
 
 ### Added

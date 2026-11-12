@@ -402,13 +402,15 @@
 
   <details class="app-sec app-sec-gen">
     <summary>General</summary>
-    <div class="app-small">Theme: the button at the top right — a tap steps Dark (☾) → Light (☀) → Auto (◐, follows the phone's setting); the same setting as the full page. The dot at the top right: the beacon — green heard in the last 20 minutes, amber within 2 hours, red older.</div>
+    <div class="app-small">Theme: the button at the top right — a tap steps Dark (☾) → Light (☀) → Auto (◐, follows the phone's setting); the same setting as the full page. The dot at the top right: the beacon — green heard in the last 20 minutes, amber within 2 hours, red older. The app updates itself when you come back to it (and loads itself again after an hour away); <i>⟳ Reload</i> does it at once.</div>
     <div id="app-health-txt" class="app-small"></div>
     <div class="app-gen-btns">
       <button type="button" class="app-btn" id="app-news-btn">What's new<span id="app-news-dot" class="app-news-dot" hidden></span></button>
       <button type="button" class="app-btn" id="app-about-btn">About</button>
       <button type="button" class="app-btn" id="app-guides-btn">User guides</button>
+      <button type="button" class="app-btn" id="app-reload-btn" title="Load the app again, with the newest data and version">⟳ Reload</button>
     </div>
+    <div class="app-small" id="app-upd"></div>
     <a class="app-link" href="/">Full site ↗</a>
   </details>
   <div class="app-foot">{{ app_version }} · {{ callsign }} · spots: wspr.live · ionosonde: GIRO / Juliusruh · solar: hamqsl.com</div>

@@ -304,6 +304,9 @@
   async function fetchLatest() {
     try { LV.latest = await getJson(`/api/latest?band=${currentBand}`); }
     catch (_) { setHealth(null, 'Connection error'); return null; }
+    LV.gotAt = Date.now();
+    const u = new Date();
+    $('app-upd').textContent = `Data updated ${pad(u.getUTCHours())}:${pad(u.getUTCMinutes())} UTC`;
     const s = LV.latest.spot;
     setHealth(s ? s.timestamp : null);
     return LV.latest;
@@ -1387,13 +1390,21 @@
     try { const d = await getJson('/api/app/build'); return !!d.build && d.build !== APP_BUILD; }
     catch (_) { return false; }
   }
-  async function wake() {
-    if (reloading) return;
-    const away = hiddenAt ? Date.now() - hiddenAt : 0;
+  // Coming back (from 2026-11-12 also on focus, back online and after a pause the events missed: an
+  // installed app on a phone is often frozen and resumed without a visibilitychange).  gap: how long the
+  // page was frozen, measured by the heartbeat below.
+  let lastWake = 0;
+  async function wake(gap) {
+    if (reloading || document.hidden) return;
+    const now = Date.now();
+    if (now - lastWake < 3000) return;            // several events of one return
+    lastWake = now;
+    const away = Math.max(hiddenAt ? now - hiddenAt : 0, gap || 0, LV.gotAt ? now - LV.gotAt : 0);
     hiddenAt = 0;
     if (away > RELOAD_AFTER_MS || await newBuild()) { reloading = true; location.reload(); return; }
     tickUtc();
     refresh();
+    startTimer();                                 // the regular refresh from now on
   }
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { if (!hiddenAt) hiddenAt = Date.now(); }
@@ -1401,6 +1412,19 @@
   });
   window.addEventListener('pagehide', () => { if (!hiddenAt) hiddenAt = Date.now(); });
   window.addEventListener('pageshow', e => { if (e.persisted) wake(); });
+  window.addEventListener('focus', () => wake());
+  window.addEventListener('online', () => wake());
+  // heartbeat: a timer that fires much later than it should means the page was frozen;
+  // and data older than 3 minutes on a visible page is fetched again in any case
+  let lastBeat = Date.now();
+  setInterval(() => {
+    const now = Date.now(), gap = now - lastBeat;
+    lastBeat = now;
+    if (document.hidden) return;
+    if (gap > 60e3) wake(gap);
+    else if (LV.gotAt && now - LV.gotAt > 180e3 && ['map', 'now', 'rep'].includes(view)) wake();
+  }, 15e3);
+  $('app-reload-btn').addEventListener('click', () => { reloading = true; location.reload(); });
 
   // ══ UTC clock of the top bar ════════════════════════════════════════════
   // in the Replay view the replayed moment instead, in amber and labelled REPLAY (from 2026-11-07)
