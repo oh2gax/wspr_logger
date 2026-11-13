@@ -271,12 +271,14 @@ def build(rows: list, today: str) -> dict:
         v = sorted(by_hour[h])
         profile.append({"p25": _r(_pct(v, 25)), "median": _r(_pct(v, 50)),
                         "p75": _r(_pct(v, 75)), "mean": _r(_mean(v))})
-    latest = dates[-1]
+    # always today (from 2026-11-13): before the first station of the day (or with the transmitter off) its
+    # line is empty, not the previous day's -- tx_on() leaves out a day with no reception yet
+    latest = today
     latest_by_hour = defaultdict(list)
     for r in rows:
         if r[0][:10] == latest:
             latest_by_hour[int(r[0][11:13])].append(r[1])
-    latest_day = {"date": latest, "is_today": latest == today,
+    latest_day = {"date": latest, "is_today": True,
                   "n": [_r(_mean(latest_by_hour[h])) if h in latest_by_hour else None for h in range(24)]}
 
     # --- space weather bins ----------------------------------------------

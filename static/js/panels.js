@@ -474,7 +474,8 @@ function renderTypChart() {
         note.textContent = `No data in the last ${typDays} days — the transmitter may be off; try a longer period.`;
         return;
     }
-    note.textContent = `${d.n_days} days with data, ${d.from} – ${d.to}`;
+    const noneToday = !d.latest.n.some(v => v != null);
+    note.textContent = `${d.n_days} days with data, ${d.from} – ${d.to}` + (noneToday ? ' · no stations today yet' : '');
     const col = anColors();
     const labels = Array.from({length: 24}, (_, h) => String(h).padStart(2, '0'));
     const todayLbl = d.latest.is_today ? `Today (${d.latest.date})` : `Latest day (${d.latest.date})`;

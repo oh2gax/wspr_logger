@@ -625,7 +625,9 @@
       $('m-typ-note').textContent = `No data in the last ${d.days} days — the transmitter may be off; choose a longer period in the menu.`;
       return;
     }
-    $('m-typ-note').textContent = `${d.n_days} days with data, ${d.from} – ${d.to}. Tap the chart for an hour's values.`;
+    const noneToday = !d.latest.n.some(v => v != null);
+    $('m-typ-note').textContent = `${d.n_days} days with data, ${d.from} – ${d.to}.` +
+      (noneToday ? ' No stations today yet.' : '') + ' Tap the chart for an hour\'s values.';
     const col = anColors();
     const tk = { color: col.text, font: { size: 10 } };
     mkChart('m-typ-c', {

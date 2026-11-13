@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2026-11-13]
+
+### Fixed
+- **Typical day showed the previous day's line in the morning** — before the first station of
+  the day (and while the transmitter is off) `analysis.tx_on()` leaves out the whole day so far
+  ("a day with no reception"), so `analysis.build()` took the newest day with data, yesterday, as
+  the orange line (labelled *Latest day* on the full page; on the phone it looked like today).
+  The line is now always today's: empty until a station is heard. Seen on 13 Nov 2026 at
+  05 UTC (the transmitter was off until 14:48 UTC). The full page's panel and the phone's Now
+  card also say *no stations today yet*. Applies to the Analysis page's Typical day card too.
+
+---
+
 ## [2026-11-12]
 
 ### Fixed

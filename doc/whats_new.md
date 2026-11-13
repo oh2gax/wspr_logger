@@ -4,6 +4,10 @@ Short notes for users of the web page, newest first. Each version is one day of 
 (v.DDMMYYYY). The full technical history is in CHANGELOG.md. The newest heading gives the
 version shown under the page title.
 
+## v.13112026 — Today's line in the Typical day
+
+- **Typical day shows today** — early in the morning, before anybody had heard the car, the Typical day chart showed the previous day's orange line. It now shows today's line, empty until the first station of the day, with a note *no stations today yet*.
+
 ## v.12112026 — The phone app refreshes itself reliably, and a Reload button
 
 - **Fresh data when you open the app** — a phone often freezes an installed app in the background and wakes it up without telling it, so the app could show old data. It now notices that too, and also refreshes when it gets the focus or comes back online; after more than an hour away it loads itself again completely.
